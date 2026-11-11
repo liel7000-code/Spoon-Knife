@@ -172,7 +172,7 @@ kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); 
 <div id="overlay">
   <div class="card">
     <h1>Sideways <span>Club</span></h1>
-    <p>A rear-drive coupe, 340&nbsp;hp, on a 1.6&nbsp;km night-practice circuit. Tires follow a slip-angle grip curve, weight shifts under braking and throttle, and the rear axle shares one friction budget between drive and cornering. Too much throttle and the rear lets go.</p>
+    <p>A rear-drive V8 coupe, 340&nbsp;hp, on a 1.6&nbsp;km night-practice circuit. Tires follow a slip-angle grip curve, weight shifts under braking and throttle, and the rear axle shares one friction budget between drive and cornering. Too much throttle and the rear lets go.</p>
     <table>
       <tr><td>Start a drift</td><td>Turn in, then stab throttle in 2nd. Or tap <kbd>Space</kbd> for a handbrake entry.</td></tr>
       <tr><td>Hold it</td><td>Countersteer and balance the angle with throttle. More gas, more angle.</td></tr>
@@ -395,8 +395,8 @@ function step(dt, inp) {
   // surface under the car
   nearest(c.x, c.y);
   const ad = Math.abs(nearD);
-  let mu = 1.05; c.surf = 0;
-  if (ad > HALF + CURB) { mu = 0.62; c.surf = 2; } else if (ad > HALF) { mu = 0.97; c.surf = 1; }
+  let mu = 1.12; c.surf = 0;
+  if (ad > HALF + CURB) { mu = 0.78; c.surf = 2; } else if (ad > HALF) { mu = 1.12; c.surf = 1; }
   if (DEV.mu) { mu = DEV.mu; c.surf = 0; }
 
   // gearbox + reverse logic
@@ -453,7 +453,7 @@ function step(dt, inp) {
   const cd = Math.cos(c.steer), sdl = Math.sin(c.steer);
   const wl = vlong * cd + vfLat * sdl, wt = -vlong * sdl + vfLat * cd;
   const alphaF = Math.atan2(wt, Math.abs(wl) + 0.5);
-  let FyF = -muF * pac(alphaF, 9, 1.4);
+  let FyF = -muF * pac(alphaF, 9.5, 1.35);
   let FxF = brk > 0 ? -Math.sign(wl) * Math.min(1, Math.abs(wl) / 0.3) * brk * P.brake * 0.64 : 0;
   let fm = Math.hypot(FxF, FyF); if (fm > muF) { FxF *= muF / fm; FyF *= muF / fm; }
 
@@ -465,14 +465,14 @@ function step(dt, inp) {
     const vm = Math.hypot(vlong, vr), k = Math.min(1, vm / 0.4) * muR * 0.8 / (vm + 1e-6);
     FxR = -vlong * k; FyR = -vr * k;
   } else {
-    FyR = -muR * pac(alphaR, 8.5, 1.45);
+    FyR = -muR * pac(alphaR, 8.8, 1.38);
     const brkR = brk > 0 ? -Math.sign(vlong) * Math.min(1, Math.abs(vlong) / 0.3) * brk * P.brake * 0.36 : 0;
     FxR = drive + brkR + engBrake;
     const fr = Math.hypot(FxR, FyR);
     if (fr > muR) {
       const s = muR / fr;
       if (Math.abs(drive) > muR * 0.55 && Math.abs(FxR) * s > muR * 0.45) spinning = true;
-      FxR *= s; FyR *= s * (spinning ? 0.9 : 1);
+      FxR *= s; FyR *= Math.min(1, s * 1.1);
     }
   }
   if (spinning) c.spin += (Math.max(0, Math.min(11, (Math.abs(drive) / muR - 0.6) * 6)) - c.spin) * Math.min(1, dt * 4);
@@ -489,7 +489,7 @@ function step(dt, inp) {
   c.vx += (Fx * cs - Fy * sn) / P.m * dt;
   c.vy += (Fx * sn + Fy * cs) / P.m * dt;
   c.r += Tq / P.I * dt;
-  c.r -= c.r * Math.min(1, dt * 0.3);
+  c.r -= c.r * Math.min(1, dt * 0.6);
   c.axs += (Fx / P.m - c.axs) * Math.min(1, dt * 7);
   if (speed < 0.25 && thr === 0) { c.vx *= 0.9; c.vy *= 0.9; c.r *= 0.9; }
 
@@ -624,13 +624,20 @@ const audio = {
       for (let i = 0; i < 512; i++) { const x = i / 256 - 1; curve[i] = Math.tanh(x * 2.4); } shaper.curve = curve;
       const lp = this.lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900; lp.Q.value = 3;
       const eg = this.eg = ac.createGain(); eg.gain.value = 0;
+      // cross-plane V8: 4 firing pulses per crank turn, plus the uneven half-order burble
       const o1 = this.o1 = ac.createOscillator(); o1.type = "sawtooth";
       const o2 = this.o2 = ac.createOscillator(); o2.type = "square";
       const o3 = this.o3 = ac.createOscillator(); o3.type = "sawtooth";
-      const g2 = ac.createGain(); g2.gain.value = 0.5; const g3 = ac.createGain(); g3.gain.value = 0.35;
-      o1.connect(shaper); o2.connect(g2).connect(shaper); o3.connect(g3).connect(shaper);
-      shaper.connect(lp).connect(eg).connect(master);
-      [o1, o2, o3].forEach((o) => o.start());
+      const g2 = ac.createGain(); g2.gain.value = 0.7; const g3 = ac.createGain(); g3.gain.value = 0.45;
+      const am = ac.createGain(); am.gain.value = 0.7;
+      const lfo = this.lfo = ac.createOscillator(); lfo.type = "triangle";
+      const lfoAmt = ac.createGain(); lfoAmt.gain.value = 0.3; lfo.connect(lfoAmt).connect(am.gain);
+      const pre = ac.createGain(); pre.gain.value = 1.6;
+      o1.connect(pre); o2.connect(g2).connect(pre); o3.connect(g3).connect(pre);
+      pre.connect(shaper); shaper.connect(am).connect(lp).connect(eg).connect(master);
+      const body = ac.createBiquadFilter(); body.type = "peaking"; body.frequency.value = 120; body.Q.value = 1; body.gain.value = 9;
+      lp.disconnect(); lp.connect(body).connect(eg);
+      [o1, o2, o3, lfo].forEach((o) => o.start());
       const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), nd = nb.getChannelData(0);
       for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
       this.noise = nb;
@@ -646,13 +653,17 @@ const audio = {
   },
   update() {
     if (!this.ac || paused) return;
-    const t = this.ac.currentTime, rpm = car.rpm, f = rpm / 60 * 3;
+    const t = this.ac.currentTime, rpm = car.rpm, f = rpm / 60 * 4;
     const lim = car.limiter ? (Math.sin(t * 90) > 0 ? 0.35 : 1) : 1;
     this.o1.frequency.setTargetAtTime(f, t, 0.015);
     this.o2.frequency.setTargetAtTime(f * 0.5, t, 0.015);
-    this.o3.frequency.setTargetAtTime(f * 1.503, t, 0.015);
-    this.lp.frequency.setTargetAtTime(380 + car.throttle * 1700 + rpm * 0.22, t, 0.03);
-    this.eg.gain.setTargetAtTime((0.11 + car.throttle * 0.17) * lim, t, 0.03);
+    this.o3.frequency.setTargetAtTime(f * 0.25, t, 0.015);
+    this.lfo.frequency.setTargetAtTime(rpm / 120, t, 0.02);
+    this.lp.frequency.setTargetAtTime(220 + car.throttle * 1300 + rpm * 0.14, t, 0.03);
+    this.eg.gain.setTargetAtTime((0.14 + car.throttle * 0.2) * lim, t, 0.03);
+    // exhaust crackle on lift-off
+    if (car.throttle < 0.1 && rpm > 3300 && Math.random() < 0.12) this.pop(0.25 + Math.random() * 0.35);
+    if (car.limiter && Math.random() < 0.2) this.pop(0.4);
     const sq = Math.max(car.skid, car.skidF * 0.8) * (car.surf === 2 ? 0.15 : 1);
     this.sg.gain.setTargetAtTime(sq * 0.32, t, 0.05);
     this.bp.frequency.setTargetAtTime(950 + sq * 350 + Math.sin(t * 13) * 40, t, 0.05);
@@ -660,6 +671,14 @@ const audio = {
     this.rg.gain.setTargetAtTime(Math.min(0.25, sp / 140) * (car.surf === 2 ? 2.2 : 1), t, 0.1);
   },
   silence() { if (this.ac) { const t = this.ac.currentTime; this.eg.gain.setTargetAtTime(0, t, 0.05); this.sg.gain.setTargetAtTime(0, t, 0.05); this.rg.gain.setTargetAtTime(0, t, 0.05); } },
+  pop(k) {
+    if (!this.ac || muted) return;
+    const ac = this.ac, src = ac.createBufferSource(); src.buffer = this.noise;
+    const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 500 + Math.random() * 900; bp.Q.value = 1.2;
+    const gn = ac.createGain(), t = ac.currentTime + Math.random() * 0.03;
+    gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.6 * k, t + 0.004); gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    src.connect(bp).connect(gn).connect(this.master); src.start(t, Math.random()); src.stop(t + 0.09);
+  },
   thud(k) {
     if (!this.ac) return;
     const ac = this.ac, src = ac.createBufferSource(); src.buffer = this.noise;
