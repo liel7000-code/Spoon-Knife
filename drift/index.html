@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sideways Club</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: full-bleed top-down circuit; instrument clusters pinned to the corners like a race-car dash. Single dark look by design. */
+:root {
+  --bg: #0b0d10;
+  --panel: rgba(12, 14, 18, 0.74);
+  --ink: #eef1f4;
+  --dim: #8d97a3;
+  --amber: #ffb02e;
+  --red: #ff4b3a;
+  --green: #5be38a;
+  --line: rgba(255, 255, 255, 0.12);
+  --display: "Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); overflow: hidden; }
+body { font-family: var(--mono); font-size: 13px; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+.hud { position: fixed; pointer-events: none; font-variant-numeric: tabular-nums; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.lbl { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.num { font-family: var(--display); font-weight: 700; line-height: 1; }
+
+#scorebox { top: calc(12px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); display: grid; gap: 6px; }
+#scorebox .num { font-size: 30px; }
+#scorebox .row { display: flex; gap: 14px; }
+#scorebox .row .num { font-size: 18px; color: var(--dim); }
+
+#lapbox { top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); display: grid; gap: 6px; justify-items: end; }
+#lapbox .panel { display: grid; grid-template-columns: auto auto; gap: 2px 14px; align-items: baseline; }
+#lapbox .num { font-size: 18px; text-align: right; }
+#lapbox #lapNow { font-size: 26px; color: var(--ink); }
+#mini { display: block; width: 168px; height: 120px; }
+
+#combo { top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); text-align: center; display: grid; justify-items: center; gap: 4px; transition: opacity .2s; }
+#combo .pts { font-family: var(--display); font-weight: 800; font-size: 46px; line-height: 0.9; color: var(--amber); text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+#combo .meta { display: flex; gap: 10px; align-items: baseline; font-family: var(--display); font-size: 20px; font-weight: 700; }
+#combo .mult { color: var(--ink); }
+#combo .ang { color: var(--dim); }
+#combo .bar { width: 180px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+#combo .bar i { display: block; height: 100%; width: 0; background: var(--amber); }
+#combo.idle { opacity: 0; }
+
+#toast { top: 32%; left: 50%; transform: translate(-50%, -50%); font-family: var(--display); font-weight: 800; font-size: 40px; letter-spacing: 0.04em; text-shadow: 0 3px 0 rgba(0,0,0,.55); opacity: 0; transition: opacity .25s, transform .25s; white-space: nowrap; }
+#toast.show { opacity: 1; transform: translate(-50%, -62%); }
+#toast.good { color: var(--green); }
+#toast.bad { color: var(--red); }
+
+#dash { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 14px; }
+#dash .spd { font-size: 64px; font-family: var(--display); font-weight: 800; line-height: .85; min-width: 2.2ch; text-align: right; }
+#dash .unit { color: var(--dim); font-size: 11px; letter-spacing: .14em; }
+#dash .gear { font-family: var(--display); font-weight: 800; font-size: 44px; line-height: .85; color: var(--amber); width: 1.2ch; text-align: center; }
+#rpm { display: grid; grid-template-columns: repeat(20, 7px); gap: 2px; height: 16px; margin-bottom: 4px; }
+#rpm i { background: var(--line); border-radius: 1px; }
+#rpm i.on { background: var(--ink); }
+#rpm i.on.y { background: var(--amber); }
+#rpm i.on.r { background: var(--red); }
+#rpm.limit i.on { background: var(--red); }
+
+#hint { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); color: var(--dim); font-size: 11px; line-height: 1.6; }
+#hint b { color: var(--ink); font-weight: 600; }
+#flags { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); color: var(--dim); font-size: 11px; text-align: right; line-height: 1.6; }
+#flags b { color: var(--ink); font-weight: 600; }
+
+/* overlay */
+#overlay { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(6, 8, 10, 0.62); padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); z-index: 5; }
+#overlay .card { width: min(520px, 100%); background: rgba(14, 16, 20, 0.92); border: 1px solid var(--line); border-radius: 10px; padding: 24px 26px; display: grid; gap: 16px; }
+#overlay h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 52px; line-height: .9; letter-spacing: .01em; text-transform: uppercase; font-style: italic; text-wrap: balance; }
+#overlay h1 span { color: var(--amber); }
+#overlay p { margin: 0; color: var(--dim); line-height: 1.55; max-width: 60ch; }
+#overlay table { border-collapse: collapse; width: 100%; }
+#overlay td { padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+#overlay td:first-child { color: var(--ink); white-space: nowrap; padding-right: 14px; font-weight: 600; }
+#overlay td:last-child { color: var(--dim); }
+kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 5px; color: var(--ink); }
+#startBtn { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: .08em; text-transform: uppercase; background: var(--amber); color: #15110a; border: 0; border-radius: 6px; padding: 12px 18px; cursor: pointer; }
+#startBtn:hover { filter: brightness(1.08); }
+#startBtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.tip { font-size: 12px; color: var(--dim); }
+
+/* touch controls */
+#touch { position: fixed; inset: auto 0 0 0; padding: 0 max(14px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); display: none; justify-content: space-between; align-items: flex-end; pointer-events: none; z-index: 3; }
+#touch .grp { display: flex; gap: 10px; align-items: flex-end; pointer-events: auto; }
+#touch button { width: 72px; height: 72px; border-radius: 50%; border: 1px solid rgba(255,255,255,.22); background: rgba(14,16,20,.55); color: var(--ink); font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: .06em; touch-action: none; }
+#touch button.on { background: rgba(255,176,46,.5); }
+#touch #tGas { height: 110px; border-radius: 36px; }
+@media (pointer: coarse) {
+  #touch { display: flex; }
+  #hint, #flags { display: none; }
+  #dash { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 640px) {
+  #dash .spd { font-size: 46px; }
+  #dash .gear { font-size: 34px; }
+  #rpm { grid-template-columns: repeat(20, 5px); }
+  #mini { width: 120px; height: 86px; }
+  #combo { top: calc(210px + env(safe-area-inset-top, 0px)); }
+  #combo .pts { font-size: 36px; }
+  #scorebox .num { font-size: 24px; }
+  #overlay h1 { font-size: 40px; }
+}
+@media (pointer: coarse) and (max-width: 440px) {
+  #touch button { width: 58px; height: 58px; font-size: 15px; }
+  #touch #tGas { height: 92px; border-radius: 29px; }
+  #touch .grp { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { #toast, #combo { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Drift circuit"></canvas>
+
+<div class="hud" id="scorebox">
+  <div class="panel">
+    <div class="lbl">Drift score</div>
+    <div class="num" id="score">0</div>
+  </div>
+  <div class="panel row">
+    <div><div class="lbl">Best combo</div><div class="num" id="bestCombo">0</div></div>
+    <div><div class="lbl">Session best</div><div class="num" id="bestRun">0</div></div>
+  </div>
+</div>
+
+<div class="hud idle" id="combo">
+  <div class="pts" id="comboPts">0</div>
+  <div class="meta"><span class="mult" id="comboMult">×1</span><span class="ang" id="comboAng">0°</span></div>
+  <div class="bar"><i id="comboBar"></i></div>
+</div>
+
+<div class="hud" id="toast"></div>
+
+<div class="hud" id="lapbox">
+  <div class="panel">
+    <span class="lbl">Lap</span><span class="num" id="lapNow">–:––.–</span>
+    <span class="lbl">Last</span><span class="num" id="lapLast">–</span>
+    <span class="lbl">Best</span><span class="num" id="lapBest">–</span>
+  </div>
+  <canvas id="mini" class="panel" style="padding:0"></canvas>
+</div>
+
+<div class="hud" id="dash">
+  <div><div class="spd" id="spd">0</div><div class="unit">km/h</div></div>
+  <div>
+    <div id="rpm"></div>
+    <div class="unit" id="rpmTxt">0 rpm</div>
+  </div>
+  <div><div class="gear" id="gear">N</div><div class="unit" style="text-align:center">gear</div></div>
+</div>
+
+<div class="hud" id="hint">
+  <b>↑/W</b> throttle · <b>↓/S</b> brake/reverse · <b>←→/AD</b> steer · <b>Space</b> handbrake<br>
+  <b>C</b> camera · <b>T</b> steering assist · <b>M</b> sound · <b>R</b> reset · <b>Esc</b> pause
+</div>
+<div class="hud" id="flags"></div>
+
+<div id="touch">
+  <div class="grp"><button id="tL" aria-label="Steer left">◀</button><button id="tR" aria-label="Steer right">▶</button></div>
+  <div class="grp"><button id="tHB" aria-label="Handbrake">HB</button><button id="tBrk" aria-label="Brake">BRK</button><button id="tGas" aria-label="Throttle">GAS</button></div>
+</div>
+
+<div id="overlay">
+  <div class="card">
+    <h1>Sideways <span>Club</span></h1>
+    <p>A rear-drive coupe, 340&nbsp;hp, on a 1.6&nbsp;km night-practice circuit. Tires follow a slip-angle grip curve, weight shifts under braking and throttle, and the rear axle shares one friction budget between drive and cornering. Too much throttle and the rear lets go.</p>
+    <table>
+      <tr><td>Start a drift</td><td>Turn in, then stab throttle in 2nd. Or tap <kbd>Space</kbd> for a handbrake entry.</td></tr>
+      <tr><td>Hold it</td><td>Countersteer and balance the angle with throttle. More gas, more angle.</td></tr>
+      <tr><td>Score</td><td>Angle × speed. The multiplier climbs while you stay sideways. Grass, walls and spins wipe the combo.</td></tr>
+    </table>
+    <button id="startBtn">Start engine</button>
+    <div class="tip" id="padTip">Gamepad works too: left stick steers, RT/LT for gas and brake, A for handbrake.</div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = (s) => document.querySelector(s);
+const cv = $("#game"), ctx = cv.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+}
+window.addEventListener("resize", resize); resize();
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("sideways." + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("sideways." + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* ------------------------------------------------------------------ track */
+const HALF = 8, CURB = 1.3, WALL = 24;
+const CTRL = [[0,0],[120,-10],[200,-60],[240,-140],[200,-210],[120,-200],[80,-150],[20,-170],[-60,-230],[-150,-200],[-180,-110],[-130,-50],[-160,20],[-110,80],[-30,60]];
+const T = (() => {
+  const S = 1.25, P = CTRL.map((p) => [p[0] * S, p[1] * S]), n = P.length, raw = [];
+  for (let i = 0; i < n; i++) {
+    const p0 = P[(i - 1 + n) % n], p1 = P[i], p2 = P[(i + 1) % n], p3 = P[(i + 2) % n];
+    for (let k = 0; k < 60; k++) {
+      const t = k / 60, t2 = t * t, t3 = t2 * t;
+      const f = (j) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3);
+      raw.push([f(0), f(1)]);
+    }
+  }
+  const cum = [0];
+  for (let i = 1; i <= raw.length; i++) { const a = raw[i - 1], b = raw[i % raw.length]; cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+  const len = cum[raw.length], N = Math.floor(len / 1.5);
+  const x = new Float32Array(N), y = new Float32Array(N), nx = new Float32Array(N), ny = new Float32Array(N), tx = new Float32Array(N), ty = new Float32Array(N), curv = new Float32Array(N);
+  let j = 0;
+  for (let i = 0; i < N; i++) {
+    const s = (i / N) * len;
+    while (cum[j + 1] < s) j++;
+    const a = raw[j], b = raw[(j + 1) % raw.length], u = (s - cum[j]) / (cum[j + 1] - cum[j] || 1);
+    x[i] = a[0] + (b[0] - a[0]) * u; y[i] = a[1] + (b[1] - a[1]) * u;
+  }
+  for (let i = 0; i < N; i++) {
+    const p = (i - 1 + N) % N, q = (i + 1) % N;
+    let dx = x[q] - x[p], dy = y[q] - y[p]; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+    tx[i] = dx; ty[i] = dy; nx[i] = -dy; ny[i] = dx;
+  }
+  for (let i = 0; i < N; i++) {
+    const p = (i - 3 + N) % N, q = (i + 3) % N;
+    const a1 = Math.atan2(ty[p], tx[p]), a2 = Math.atan2(ty[q], tx[q]);
+    let da = a2 - a1; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+    curv[i] = da / (6 * len / N);
+  }
+  let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+  for (let i = 0; i < N; i++) { minX = Math.min(minX, x[i]); maxX = Math.max(maxX, x[i]); minY = Math.min(minY, y[i]); maxY = Math.max(maxY, y[i]); }
+  return { N, len, x, y, nx, ny, tx, ty, curv, minX, minY, maxX, maxY };
+})();
+
+function polyPath(off) {
+  const p = new Path2D();
+  for (let i = 0; i < T.N; i++) {
+    const px = T.x[i] + T.nx[i] * off, py = T.y[i] + T.ny[i] * off;
+    i ? p.lineTo(px, py) : p.moveTo(px, py);
+  }
+  p.closePath(); return p;
+}
+const centerPath = polyPath(0), edgeL = polyPath(HALF - 0.45), edgeR = polyPath(-(HALF - 0.45));
+const curbPath = (() => {
+  const p = new Path2D(); let open = false;
+  for (let k = 0; k <= T.N; k++) {
+    const i = k % T.N, on = Math.abs(T.curv[i]) > 1 / 140;
+    if (on) { open ? p.lineTo(T.x[i], T.y[i]) : p.moveTo(T.x[i], T.y[i]); open = true; } else open = false;
+  }
+  return p;
+})();
+
+let nearI = 0, nearD = 0;
+function nearest(px, py) {
+  let best = 1e18, bi = 0;
+  for (let i = 0; i < T.N; i++) { const dx = px - T.x[i], dy = py - T.y[i], d = dx * dx + dy * dy; if (d < best) { best = d; bi = i; } }
+  nearI = bi; nearD = (px - T.x[bi]) * T.nx[bi] + (py - T.y[bi]) * T.ny[bi];
+}
+
+// trees outside the barrier
+let seed = 1337; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const trees = [];
+for (let k = 0; k < 2600 && trees.length < 420; k++) {
+  const px = T.minX - 80 + rnd() * (T.maxX - T.minX + 160), py = T.minY - 80 + rnd() * (T.maxY - T.minY + 160);
+  nearest(px, py); if (Math.abs(nearD) < WALL + 7) continue;
+  trees.push([px, py, 2.2 + rnd() * 3.2, rnd()]);
+}
+
+/* -------------------------------------------------------------- textures */
+function noiseTex(size, base, amp, extra) {
+  const c = document.createElement("canvas"); c.width = c.height = size;
+  const g = c.getContext("2d"); g.fillStyle = base; g.fillRect(0, 0, size, size);
+  if (extra) extra(g, size);
+  const im = g.getImageData(0, 0, size, size), d = im.data;
+  for (let i = 0; i < d.length; i += 4) { const v = (Math.random() - 0.5) * amp; d[i] += v; d[i + 1] += v; d[i + 2] += v; }
+  g.putImageData(im, 0, 0); return c;
+}
+function pattern(canvas, scale) { const p = ctx.createPattern(canvas, "repeat"); p.setTransform(new DOMMatrix([scale, 0, 0, scale, 0, 0])); return p; }
+const blobs = (cols, count, rmax) => (g, s) => { for (let i = 0; i < count; i++) { g.globalAlpha = 0.18; g.fillStyle = cols[i % cols.length]; g.beginPath(); g.arc(Math.random() * s, Math.random() * s, 4 + Math.random() * rmax, 0, 7); g.fill(); } g.globalAlpha = 1; };
+const PAT = {
+  asphalt: pattern(noiseTex(256, "#35383d", 22, blobs(["#2c2f33", "#3d4045"], 160, 18)), 0.05),
+  grass: pattern(noiseTex(256, "#2f4b2a", 26, blobs(["#2a4426", "#38572f", "#33502c"], 200, 22)), 0.09),
+  outer: pattern(noiseTex(256, "#1f3220", 24, blobs(["#1a2b1b", "#253924", "#203421"], 200, 26)), 0.14)
+};
+
+/* --------------------------------------------------------------- the car */
+const CAR = {
+  m: 1250, I: 1950, a: 1.2, b: 1.35, h: 0.48, rw: 0.32,
+  gears: [0, 3.36, 2.08, 1.48, 1.17, 0.96, 0.8], rev: 3.2, final: 4.08, eff: 0.86,
+  idle: 950, red: 7600, brake: 13500, drag: 0.38, roll: 14, maxSteer: 0.62
+};
+CAR.L = CAR.a + CAR.b;
+const TORQUE = [[0, 210], [1000, 250], [2000, 330], [3000, 395], [4000, 440], [5000, 460], [6000, 450], [7000, 415], [8000, 340]];
+function torqueAt(rpm) {
+  if (rpm <= 0) return TORQUE[0][1];
+  for (let i = 1; i < TORQUE.length; i++) if (rpm <= TORQUE[i][0]) { const a = TORQUE[i - 1], b = TORQUE[i], u = (rpm - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * u; }
+  return TORQUE[TORQUE.length - 1][1];
+}
+const pac = (al, B, C) => Math.sin(C * Math.atan(B * al));
+const RPM_K = 60 / (2 * Math.PI);
+
+const car = {};
+function resetCar(atStart) {
+  let i;
+  if (atStart) { i = (T.N - 14) % T.N; }
+  else { nearest(car.x, car.y); i = nearI; }
+  Object.assign(car, {
+    x: T.x[i], y: T.y[i], h: Math.atan2(T.ty[i], T.tx[i]), vx: 0, vy: 0, r: 0,
+    steer: 0, steerIn: 0, gear: 1, rpm: CAR.idle, spin: 0, axs: 0, shiftT: 0, stopT: 0,
+    vlong: 0, vlat: 0, slipAng: 0, skid: 0, skidF: 0, surf: 0, limiter: false, braking: false,
+    throttle: 0, brakeIn: 0, hand: false
+  });
+  lastWheel[0] = lastWheel[1] = lastWheel[2] = lastWheel[3] = null;
+}
+const lastWheel = [null, null, null, null];
+
+/* ---------------------------------------------------------------- input */
+const keys = {};
+const touch = { L: false, R: false, gas: false, brk: false, hb: false };
+let assist = store.get("assist", true), rotCam = store.get("rotcam", false), muted = store.get("muted", false);
+let paused = true, started = false;
+
+window.addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
+  if (e.repeat) { keys[k] = true; return; }
+  keys[k] = true;
+  if (!started) { if (k === "enter" || k === " ") start(); return; }
+  if (k === "escape" || k === "p") togglePause();
+  if (k === "r") { resetCar(false); loseCombo("RESET"); }
+  if (k === "c") { rotCam = !rotCam; store.set("rotcam", rotCam); flags(); }
+  if (k === "t") { assist = !assist; store.set("assist", assist); flags(); toast(assist ? "ASSIST ON" : "ASSIST OFF", "good"); }
+  if (k === "m") { muted = !muted; store.set("muted", muted); flags(); if (audio.master) audio.master.gain.setTargetAtTime(muted ? 0 : 0.55, audio.ac.currentTime, 0.05); }
+});
+window.addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
+window.addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
+document.addEventListener("visibilitychange", () => { if (document.hidden && started && !paused) togglePause(); });
+
+[["#tL", "L"], ["#tR", "R"], ["#tGas", "gas"], ["#tBrk", "brk"], ["#tHB", "hb"]].forEach(([sel, key]) => {
+  const el = $(sel);
+  const on = (e) => { e.preventDefault(); touch[key] = true; el.classList.add("on"); if (!started) start(); };
+  const off = (e) => { e.preventDefault(); touch[key] = false; el.classList.remove("on"); };
+  el.addEventListener("pointerdown", on); el.addEventListener("pointerup", off); el.addEventListener("pointercancel", off); el.addEventListener("pointerleave", off);
+});
+
+function readInput(dt) {
+  let steer = 0, thr = 0, brk = 0, hb = false, analog = false;
+  if (keys["arrowleft"] || keys["a"] || touch.L) steer -= 1;
+  if (keys["arrowright"] || keys["d"] || touch.R) steer += 1;
+  const kbThr = keys["arrowup"] || keys["w"] || touch.gas ? 1 : 0;
+  car.kbThr = (car.kbThr || 0) + Math.max(-dt * 7, Math.min(dt * 5, kbThr - (car.kbThr || 0)));
+  thr = car.kbThr;
+  if (keys["arrowdown"] || keys["s"] || touch.brk) brk = 1;
+  if (keys[" "] || touch.hb) hb = true;
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const p of pads) {
+    if (!p) continue;
+    const ax = p.axes[0] || 0;
+    if (Math.abs(ax) > 0.08) { steer = Math.sign(ax) * Math.pow((Math.abs(ax) - 0.08) / 0.92, 1.4); analog = true; }
+    const rt = p.buttons[7] ? p.buttons[7].value : 0, lt = p.buttons[6] ? p.buttons[6].value : 0;
+    if (rt > 0.03) thr = Math.max(thr, rt);
+    if (lt > 0.03) brk = Math.max(brk, lt);
+    if ((p.buttons[0] && p.buttons[0].pressed) || (p.buttons[5] && p.buttons[5].pressed)) hb = true;
+    if (p.buttons[9] && p.buttons[9].pressed && !readInput.startHeld) { readInput.startHeld = true; started ? togglePause() : start(); }
+    if (p.buttons[9] && !p.buttons[9].pressed) readInput.startHeld = false;
+  }
+  // keyboard steering eases in like a real wheel turned by hand
+  if (analog) car.steerIn = steer;
+  else {
+    const rate = steer !== 0 && Math.sign(steer) !== Math.sign(car.steerIn) ? 7 : 3.6;
+    const d = steer - car.steerIn, s = rate * dt;
+    car.steerIn += Math.abs(d) < s ? d : Math.sign(d) * s;
+  }
+  return { thr, brk, hb };
+}
+
+/* --------------------------------------------------------------- physics */
+const g = 9.81;
+const DEV = {};
+function step(dt, inp) {
+  const c = car, P = CAR;
+  const cs = Math.cos(c.h), sn = Math.sin(c.h);
+  let vlong = c.vx * cs + c.vy * sn, vlat = -c.vx * sn + c.vy * cs;
+  const speed = Math.hypot(c.vx, c.vy);
+
+  // surface under the car
+  nearest(c.x, c.y);
+  const ad = Math.abs(nearD);
+  let mu = 1.05; c.surf = 0;
+  if (ad > HALF + CURB) { mu = 0.62; c.surf = 2; } else if (ad > HALF) { mu = 0.97; c.surf = 1; }
+  if (DEV.mu) { mu = DEV.mu; c.surf = 0; }
+
+  // gearbox + reverse logic
+  let thr = inp.thr, brk = inp.brk;
+  if (c.gear === -1) { const t = thr; thr = brk; brk = t; }
+  if (c.gear > 0 && Math.abs(vlong) < 0.6 && inp.brk > 0 && inp.thr === 0) { c.stopT += dt; if (c.stopT > 0.35) { c.gear = -1; c.stopT = 0; } }
+  else if (c.gear === -1 && inp.thr > 0 && vlong > -0.6) { c.gear = 1; }
+  else c.stopT = 0;
+  const ratio = c.gear === -1 ? P.rev : P.gears[c.gear];
+  const roadRpm = Math.abs(vlong) / P.rw * ratio * P.final * RPM_K;
+  if (c.shiftT > 0) c.shiftT -= dt;
+  c.shiftCd = Math.max(0, (c.shiftCd || 0) - dt);
+  if (c.shiftT <= 0 && c.gear > 0 && !inp.hb && c.shiftCd <= 0) {
+    if (c.gear < 6 && (roadRpm > 6900 || (c.rpm > 7300 && roadRpm > 4600))) { c.gear++; c.shiftT = 0.13; c.shiftCd = 0.7; }
+    else if (c.gear > 1 && c.rpm < 3000 && roadRpm < 3000) { c.gear--; c.shiftT = 0.1; c.shiftCd = 0.5; }
+  }
+
+  // engine
+  const wheelSpd = Math.abs(vlong) + c.spin;
+  let rpm = inp.hb ? Math.max(P.idle, c.rpm + ((2600 + thr * 5200) - c.rpm) * Math.min(1, dt * 6)) : Math.max(P.idle, wheelSpd / P.rw * ratio * P.final * RPM_K);
+  if (!inp.hb && roadRpm < 1300) rpm = Math.max(rpm, P.idle + thr * 3400); // slipping clutch at launch
+  c.limiter = rpm > P.red - 60;
+  const cut = Math.max(0, Math.min(1, (P.red + 120 - rpm) / 240));
+  let drive = 0;
+  if (!inp.hb && c.shiftT <= 0) drive = torqueAt(rpm) * thr * cut * ratio * P.final * P.eff / P.rw;
+  if (c.gear === -1) drive = -drive;
+  let engBrake = 0;
+  if (thr < 0.05 && !inp.hb) engBrake = -Math.sign(vlong) * Math.min(1, Math.abs(vlong)) * (22 + rpm * 0.006) * ratio * P.final / P.rw;
+  c.rpm = Math.min(P.red + 150, rpm);
+  c.throttle = thr; c.brakeIn = brk; c.hand = inp.hb; c.braking = brk > 0.05;
+
+  // steering: driver input plus caster self-aligning when hands are light
+  const maxSteer = P.maxSteer - 0.22 * Math.min(1, speed / 45);
+  const vfLat = vlat + c.r * P.a;
+  const align = speed > 3 ? Math.atan2(vfLat, Math.max(Math.abs(vlong), 1)) : 0;
+  const hands = Math.abs(c.steerIn);
+  let target = c.steerIn * maxSteer;
+  if (assist) {
+    // holds the slide near 35 degrees; throttle and steering push it either way
+    const kA = Math.max(0.7, Math.min(1.15, (DEV.k0 || 0.84) + (DEV.kb || 1.2) * (Math.abs(c.slipAng) - 0.6)));
+    target += (1 - hands) * Math.max(-maxSteer, Math.min(maxSteer, align * kA));
+  }
+  else target += (1 - hands) * align * 0.35;
+  target = Math.max(-P.maxSteer, Math.min(P.maxSteer, target));
+  const sd = target - c.steer, sr = 6.5 * dt;
+  c.steer += Math.abs(sd) < sr ? sd : Math.sign(sd) * sr;
+
+  // vertical loads with longitudinal weight transfer
+  const Fzf = Math.max(0.12 * P.m * g, P.m * g * P.b / P.L - P.m * c.axs * P.h / P.L);
+  const Fzr = Math.max(0.12 * P.m * g, P.m * g * P.a / P.L + P.m * c.axs * P.h / P.L);
+  const muF = mu * Fzf, muR = mu * Fzr;
+
+  // front axle (steered, brakes only)
+  const cd = Math.cos(c.steer), sdl = Math.sin(c.steer);
+  const wl = vlong * cd + vfLat * sdl, wt = -vlong * sdl + vfLat * cd;
+  const alphaF = Math.atan2(wt, Math.abs(wl) + 0.5);
+  let FyF = -muF * pac(alphaF, 9, 1.4);
+  let FxF = brk > 0 ? -Math.sign(wl) * Math.min(1, Math.abs(wl) / 0.3) * brk * P.brake * 0.64 : 0;
+  let fm = Math.hypot(FxF, FyF); if (fm > muF) { FxF *= muF / fm; FyF *= muF / fm; }
+
+  // rear axle (driven) sharing one friction circle between drive and side force
+  const vr = vlat - c.r * P.b;
+  const alphaR = Math.atan2(vr, Math.abs(vlong) + 0.5);
+  let FxR, FyR, spinning = false;
+  if (inp.hb) {
+    const vm = Math.hypot(vlong, vr), k = Math.min(1, vm / 0.4) * muR * 0.8 / (vm + 1e-6);
+    FxR = -vlong * k; FyR = -vr * k;
+  } else {
+    FyR = -muR * pac(alphaR, 8.5, 1.45);
+    const brkR = brk > 0 ? -Math.sign(vlong) * Math.min(1, Math.abs(vlong) / 0.3) * brk * P.brake * 0.36 : 0;
+    FxR = drive + brkR + engBrake;
+    const fr = Math.hypot(FxR, FyR);
+    if (fr > muR) {
+      const s = muR / fr;
+      if (Math.abs(drive) > muR * 0.55 && Math.abs(FxR) * s > muR * 0.45) spinning = true;
+      FxR *= s; FyR *= s * (spinning ? 0.9 : 1);
+    }
+  }
+  if (spinning) c.spin += (Math.max(0, Math.min(11, (Math.abs(drive) / muR - 0.6) * 6)) - c.spin) * Math.min(1, dt * 4);
+  else c.spin -= c.spin * Math.min(1, dt * 6);
+  if (inp.hb) c.spin = 0;
+
+  // sum forces in the car frame
+  const FxFc = FxF * cd - FyF * sdl, FyFc = FxF * sdl + FyF * cd;
+  let Fx = FxFc + FxR - P.drag * vlong * speed - P.roll * vlong;
+  let Fy = FyFc + FyR - P.drag * 2.2 * vlat * speed;
+  if (c.surf === 2) { Fx -= 170 * vlong; Fy -= 120 * vlat; }
+  const Tq = P.a * FyFc - P.b * FyR;
+
+  c.vx += (Fx * cs - Fy * sn) / P.m * dt;
+  c.vy += (Fx * sn + Fy * cs) / P.m * dt;
+  c.r += Tq / P.I * dt;
+  c.r -= c.r * Math.min(1, dt * 0.3);
+  c.axs += (Fx / P.m - c.axs) * Math.min(1, dt * 7);
+  if (speed < 0.25 && thr === 0) { c.vx *= 0.9; c.vy *= 0.9; c.r *= 0.9; }
+
+  c.x += c.vx * dt; c.y += c.vy * dt; c.h += c.r * dt;
+
+  // barrier
+  const dd = (c.x - T.x[nearI]) * T.nx[nearI] + (c.y - T.y[nearI]) * T.ny[nearI];
+  const lim = WALL - 1.15;
+  if (Math.abs(dd) > lim && !DEV.mu) {
+    const s = Math.sign(dd), nX = T.nx[nearI] * s, nY = T.ny[nearI] * s;
+    c.x -= nX * (Math.abs(dd) - lim); c.y -= nY * (Math.abs(dd) - lim);
+    const vn = c.vx * nX + c.vy * nY;
+    if (vn > 0) {
+      c.vx -= nX * vn * 1.35; c.vy -= nY * vn * 1.35;
+      const vt = c.vx * T.tx[nearI] + c.vy * T.ty[nearI];
+      c.vx -= T.tx[nearI] * vt * 0.12; c.vy -= T.ty[nearI] * vt * 0.12;
+      c.r *= 0.55; c.r += (Math.random() - 0.5) * vn * 0.08;
+      if (vn > 2.5) hitWall(vn);
+    }
+  }
+
+  // values for rendering, sound and scoring
+  c.vlong = vlong; c.vlat = vlat;
+  c.slipAng = speed > 2 ? Math.atan2(vlat, vlong) : 0;
+  const slideR = Math.abs(alphaR) > 0.1 ? Math.abs(vr) : 0;
+  c.skid = Math.max(0, Math.min(1, (slideR + c.spin * 0.7 + (inp.hb ? Math.abs(vlong) * 0.8 : 0) - 2.2) / 9));
+  c.skidF = Math.max(0, Math.min(1, ((Math.abs(alphaF) > 0.22 ? Math.abs(wt) : 0) + (fm > muF * 0.99 && brk > 0.5 ? Math.abs(wl) * 0.5 : 0) - 3) / 10));
+}
+
+/* ------------------------------------------------------------- scoring */
+const S = { total: 0, bestCombo: store.get("bestCombo", 0), bestRun: 0, active: false, pts: 0, t: 0, grace: 0, mult: 1 };
+const lap = { running: false, t: 0, cp: 3, last: null, best: store.get("bestLap", null), lastIdx: 0 };
+function multFor(t) { return Math.min(5, 1 + Math.floor(t / 2.2)); }
+function bank() {
+  const v = Math.round(S.pts * S.mult);
+  if (v > 0) {
+    S.total += v; toast("+" + v.toLocaleString(), "good");
+    if (v > S.bestCombo) { S.bestCombo = v; store.set("bestCombo", v); }
+  }
+  S.active = false; S.pts = 0; S.t = 0; S.mult = 1; S.grace = 0;
+}
+function loseCombo(msg) {
+  if (S.active && S.pts > 50) toast(msg, "bad");
+  S.active = false; S.pts = 0; S.t = 0; S.mult = 1; S.grace = 0;
+}
+function hitWall(vn) { loseCombo("WALL"); audio.thud(Math.min(1, vn / 14)); shake = Math.min(1.2, shake + vn * 0.06); }
+
+function updateScore(dt) {
+  const c = car, speed = Math.hypot(c.vx, c.vy), ang = Math.abs(c.slipAng) * 180 / Math.PI;
+  if (c.surf === 2 && S.active) loseCombo("OFF TRACK");
+  if (S.active && ang > 115) loseCombo("SPUN OUT");
+  const drifting = speed > 8.5 && c.vlong > 1.5 && ang > 12 && ang < 115 && c.surf !== 2;
+  if (drifting) {
+    S.active = true; S.grace = 0; S.t += dt;
+    S.pts += dt * Math.min(ang, 70) * speed * 0.55;
+    S.mult = multFor(S.t);
+  } else if (S.active) {
+    S.grace += dt;
+    if (S.grace > 1.4) bank();
+  }
+  S.bestRun = Math.max(S.bestRun, S.total);
+
+  // laps via checkpoints at quarter distances
+  nearest(c.x, c.y); const i = nearI, prev = lap.lastIdx; lap.lastIdx = i;
+  const q = [Math.floor(T.N * 0.25), Math.floor(T.N * 0.5), Math.floor(T.N * 0.75)];
+  if (lap.cp < 3 && Math.abs(i - q[lap.cp]) < 12) lap.cp++;
+  if (lap.running) lap.t += dt;
+  if (prev > T.N - 30 && i < 30) {
+    if (!lap.running) { lap.running = true; lap.t = 0; lap.cp = 0; }
+    else if (lap.cp === 3) {
+      lap.last = lap.t;
+      if (lap.best == null || lap.t < lap.best) { lap.best = lap.t; store.set("bestLap", lap.t); toast("BEST LAP " + fmtT(lap.t), "good"); }
+      lap.t = 0; lap.cp = 0;
+    }
+  }
+}
+const fmtT = (t) => { if (t == null) return "–"; const m = Math.floor(t / 60), s = t - m * 60; return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1); };
+
+let toastTimer = 0;
+function toast(text, kind) {
+  const el = $("#toast"); el.textContent = text; el.className = "hud show " + (kind || "");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.className = "hud " + (kind || ""); }, 1300);
+}
+
+/* --------------------------------------------------------------- effects */
+const SKID_MAX = 9000, skids = new Float32Array(SKID_MAX * 5); let skidHead = 0, skidCount = 0;
+function addSkid(x1, y1, x2, y2, a) {
+  const o = skidHead * 5; skids[o] = x1; skids[o + 1] = y1; skids[o + 2] = x2; skids[o + 3] = y2; skids[o + 4] = a;
+  skidHead = (skidHead + 1) % SKID_MAX; skidCount = Math.min(SKID_MAX, skidCount + 1);
+}
+const smoke = [];
+function wheelPos(fx, side) {
+  const cs = Math.cos(car.h), sn = Math.sin(car.h);
+  return [car.x + cs * fx - sn * side, car.y + sn * fx + cs * side];
+}
+function effects(dt) {
+  const wheels = [[-CAR.b, -0.8, car.skid], [-CAR.b, 0.8, car.skid], [CAR.a, -0.8, car.skidF], [CAR.a, 0.8, car.skidF]];
+  wheels.forEach(([fx, side, k], wi) => {
+    const p = wheelPos(fx, side);
+    if (k > 0.04 && car.surf !== 2) {
+      const lw = lastWheel[wi];
+      if (lw && Math.hypot(p[0] - lw[0], p[1] - lw[1]) > 0.25) { addSkid(lw[0], lw[1], p[0], p[1], 0.12 + k * 0.33); lastWheel[wi] = p; }
+      else if (!lw) lastWheel[wi] = p;
+    } else lastWheel[wi] = null;
+    const emitK = car.surf === 2 ? Math.min(1, Math.hypot(car.vx, car.vy) / 18) * 0.7 : k;
+    if (emitK > 0.12 && wi < 2 || (wi >= 2 && k > 0.4)) {
+      const n = emitK * dt * 38;
+      for (let e = 0; e < n || (Math.random() < n - e); e++) {
+        if (smoke.length > 520) smoke.shift();
+        smoke.push({ x: p[0], y: p[1], vx: car.vx * 0.25 + (Math.random() - 0.5) * 2.5, vy: car.vy * 0.25 + (Math.random() - 0.5) * 2.5,
+          r: 0.5 + Math.random() * 0.4, life: 0, max: 1.6 + emitK * 1.6 + Math.random(), dust: car.surf === 2, a: 0.1 + emitK * 0.22 });
+        if (e > 6) break;
+      }
+    }
+  });
+  for (let i = smoke.length - 1; i >= 0; i--) {
+    const s = smoke[i]; s.life += dt;
+    if (s.life > s.max) { smoke.splice(i, 1); continue; }
+    s.x += s.vx * dt; s.y += s.vy * dt; const d = Math.exp(-dt * 1.4); s.vx *= d; s.vy *= d; s.r += dt * (1.9 - s.life * 0.3);
+  }
+}
+
+/* ----------------------------------------------------------------- audio */
+const audio = {
+  ac: null,
+  init() {
+    if (this.ac) { this.ac.resume(); return; }
+    try {
+      const ac = this.ac = new (window.AudioContext || window.webkitAudioContext)();
+      const master = this.master = ac.createGain(); master.gain.value = muted ? 0 : 0.55; master.connect(ac.destination);
+      const shaper = ac.createWaveShaper(); const curve = new Float32Array(512);
+      for (let i = 0; i < 512; i++) { const x = i / 256 - 1; curve[i] = Math.tanh(x * 2.4); } shaper.curve = curve;
+      const lp = this.lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900; lp.Q.value = 3;
+      const eg = this.eg = ac.createGain(); eg.gain.value = 0;
+      const o1 = this.o1 = ac.createOscillator(); o1.type = "sawtooth";
+      const o2 = this.o2 = ac.createOscillator(); o2.type = "square";
+      const o3 = this.o3 = ac.createOscillator(); o3.type = "sawtooth";
+      const g2 = ac.createGain(); g2.gain.value = 0.5; const g3 = ac.createGain(); g3.gain.value = 0.35;
+      o1.connect(shaper); o2.connect(g2).connect(shaper); o3.connect(g3).connect(shaper);
+      shaper.connect(lp).connect(eg).connect(master);
+      [o1, o2, o3].forEach((o) => o.start());
+      const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), nd = nb.getChannelData(0);
+      for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+      this.noise = nb;
+      const src = ac.createBufferSource(); src.buffer = nb; src.loop = true;
+      const bp = this.bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1100; bp.Q.value = 9;
+      const bp2 = ac.createBiquadFilter(); bp2.type = "bandpass"; bp2.frequency.value = 2300; bp2.Q.value = 14;
+      const sg = this.sg = ac.createGain(); sg.gain.value = 0;
+      src.connect(bp).connect(sg); src.connect(bp2).connect(sg); sg.connect(master); src.start();
+      const src2 = ac.createBufferSource(); src2.buffer = nb; src2.loop = true;
+      const rl = ac.createBiquadFilter(); rl.type = "lowpass"; rl.frequency.value = 260;
+      const rg = this.rg = ac.createGain(); rg.gain.value = 0; src2.connect(rl).connect(rg).connect(master); src2.start();
+    } catch (e) { this.ac = null; }
+  },
+  update() {
+    if (!this.ac || paused) return;
+    const t = this.ac.currentTime, rpm = car.rpm, f = rpm / 60 * 3;
+    const lim = car.limiter ? (Math.sin(t * 90) > 0 ? 0.35 : 1) : 1;
+    this.o1.frequency.setTargetAtTime(f, t, 0.015);
+    this.o2.frequency.setTargetAtTime(f * 0.5, t, 0.015);
+    this.o3.frequency.setTargetAtTime(f * 1.503, t, 0.015);
+    this.lp.frequency.setTargetAtTime(380 + car.throttle * 1700 + rpm * 0.22, t, 0.03);
+    this.eg.gain.setTargetAtTime((0.11 + car.throttle * 0.17) * lim, t, 0.03);
+    const sq = Math.max(car.skid, car.skidF * 0.8) * (car.surf === 2 ? 0.15 : 1);
+    this.sg.gain.setTargetAtTime(sq * 0.32, t, 0.05);
+    this.bp.frequency.setTargetAtTime(950 + sq * 350 + Math.sin(t * 13) * 40, t, 0.05);
+    const sp = Math.hypot(car.vx, car.vy);
+    this.rg.gain.setTargetAtTime(Math.min(0.25, sp / 140) * (car.surf === 2 ? 2.2 : 1), t, 0.1);
+  },
+  silence() { if (this.ac) { const t = this.ac.currentTime; this.eg.gain.setTargetAtTime(0, t, 0.05); this.sg.gain.setTargetAtTime(0, t, 0.05); this.rg.gain.setTargetAtTime(0, t, 0.05); } },
+  thud(k) {
+    if (!this.ac) return;
+    const ac = this.ac, src = ac.createBufferSource(); src.buffer = this.noise;
+    const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 500;
+    const gn = ac.createGain(); gn.gain.setValueAtTime(0.7 * k, ac.currentTime); gn.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.35);
+    src.connect(lp).connect(gn).connect(this.master); src.start(); src.stop(ac.currentTime + 0.4);
+  }
+};
+
+/* --------------------------------------------------------------- render */
+const cam = { x: 0, y: 0, z: 8, ang: 0 };
+let shake = 0;
+const LIVERY = { body: "#e9ecef", stripe: "#ffb02e", dark: "#14171b" };
+
+function rr(c2, x, y, w, h, r) { c2.beginPath(); c2.roundRect ? c2.roundRect(x, y, w, h, r) : c2.rect(x, y, w, h); }
+
+function drawCar() {
+  const c = car;
+  ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.h);
+  // shadow
+  ctx.fillStyle = "rgba(0,0,0,0.45)"; rr(ctx, -2.25 + 0.25, -0.98 + 0.3, 4.5, 1.96, 0.5); ctx.fill();
+  // wheels
+  ctx.fillStyle = "#0c0d0f";
+  for (const [wx, wy, st] of [[-CAR.b, -0.82, 0], [-CAR.b, 0.82, 0], [CAR.a, -0.82, 1], [CAR.a, 0.82, 1]]) {
+    ctx.save(); ctx.translate(wx, wy); if (st) ctx.rotate(c.steer); ctx.fillRect(-0.33, -0.13, 0.66, 0.26); ctx.restore();
+  }
+  // body
+  ctx.fillStyle = LIVERY.body; rr(ctx, -2.2, -0.9, 4.4, 1.8, [0.55, 0.7, 0.7, 0.55]); ctx.fill();
+  ctx.fillStyle = "rgba(0,0,0,0.12)"; rr(ctx, -2.2, 0.45, 4.4, 0.45, [0, 0, 0.7, 0.55]); ctx.fill();
+  // stripes
+  ctx.fillStyle = LIVERY.stripe; ctx.fillRect(-2.2, -0.24, 4.4, 0.16); ctx.fillRect(-2.2, 0.08, 4.4, 0.16);
+  // glass + roof
+  ctx.fillStyle = LIVERY.dark;
+  ctx.beginPath(); ctx.moveTo(0.95, -0.72); ctx.lineTo(0.45, -0.66); ctx.lineTo(0.45, 0.66); ctx.lineTo(0.95, 0.72); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-1.05, -0.66); ctx.lineTo(-1.35, -0.7); ctx.lineTo(-1.35, 0.7); ctx.lineTo(-1.05, 0.66); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#cfd3d8"; rr(ctx, -1.05, -0.68, 1.5, 1.36, 0.12); ctx.fill();
+  ctx.fillStyle = LIVERY.stripe; ctx.fillRect(-1.05, -0.24, 1.5, 0.16); ctx.fillRect(-1.05, 0.08, 1.5, 0.16);
+  // wing
+  ctx.fillStyle = LIVERY.dark; ctx.fillRect(-2.12, -0.86, 0.22, 1.72);
+  // lights
+  ctx.fillStyle = "#fff6d6"; ctx.fillRect(2.08, -0.8, 0.1, 0.36); ctx.fillRect(2.08, 0.44, 0.1, 0.36);
+  ctx.fillStyle = c.braking || c.hand ? "#ff3b2f" : "#7a1a14"; ctx.fillRect(-2.2, -0.8, 0.1, 0.34); ctx.fillRect(-2.2, 0.46, 0.1, 0.34);
+  if (c.gear === -1) { ctx.fillStyle = "#ffffff"; ctx.fillRect(-2.2, -0.12, 0.1, 0.24); }
+  ctx.restore();
+
+  // brake glow / headlight wash
+  ctx.save(); ctx.globalCompositeOperation = "lighter";
+  const hx = c.x + Math.cos(c.h) * 2.3, hy = c.y + Math.sin(c.h) * 2.3;
+  const hg = ctx.createRadialGradient(hx + Math.cos(c.h) * 7, hy + Math.sin(c.h) * 7, 0, hx + Math.cos(c.h) * 7, hy + Math.sin(c.h) * 7, 10);
+  hg.addColorStop(0, "rgba(255,240,200,0.10)"); hg.addColorStop(1, "rgba(255,240,200,0)");
+  ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(hx + Math.cos(c.h) * 7, hy + Math.sin(c.h) * 7, 10, 0, 7); ctx.fill();
+  if (c.braking || c.hand) {
+    const bx = c.x - Math.cos(c.h) * 2.6, by = c.y - Math.sin(c.h) * 2.6;
+    const bg = ctx.createRadialGradient(bx, by, 0, bx, by, 3.2); bg.addColorStop(0, "rgba(255,50,30,0.35)"); bg.addColorStop(1, "rgba(255,50,30,0)");
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bx, by, 3.2, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function render(dt) {
+  const c = car, speed = Math.hypot(c.vx, c.vy);
+  const base = Math.min(W, H) / 52;
+  const zt = base * (1.15 - 0.42 * Math.min(1, speed / 48));
+  cam.z += (zt - cam.z) * Math.min(1, dt * 2);
+  const look = rotCam ? 0.15 : 0.45;
+  const tx = c.x + c.vx * look, ty = c.y + c.vy * look;
+  const k = Math.min(1, dt * 5);
+  cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+  if (rotCam) {
+    const target = speed > 4 ? Math.atan2(c.vy, c.vx) * 0.4 + c.h * 0.6 : c.h;
+    let da = target - cam.ang; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+    cam.ang += da * Math.min(1, dt * 3.5);
+  }
+  shake *= Math.exp(-dt * 6);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#1c2b1d"; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.translate(W / 2 + (Math.random() - 0.5) * shake * 6, (rotCam ? H * 0.64 : H / 2) + (Math.random() - 0.5) * shake * 6);
+  if (rotCam) ctx.rotate(-cam.ang - Math.PI / 2);
+  ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
+
+  const view = Math.hypot(W, H) / cam.z * 0.6;
+  ctx.fillStyle = PAT.outer; ctx.fillRect(cam.x - view, cam.y - view, view * 2, view * 2);
+
+  ctx.lineJoin = "round"; ctx.lineCap = "butt";
+  ctx.strokeStyle = "#0e1012"; ctx.lineWidth = 2 * WALL + 2.4; ctx.stroke(centerPath);
+  ctx.strokeStyle = "#b9bec4"; ctx.lineWidth = 2 * WALL + 1.0; ctx.stroke(centerPath);
+  ctx.strokeStyle = PAT.grass; ctx.lineWidth = 2 * WALL; ctx.stroke(centerPath);
+  ctx.strokeStyle = "rgba(0,0,0,0.14)"; ctx.lineWidth = 2 * HALF + 6; ctx.stroke(centerPath);
+  ctx.strokeStyle = "#e8e8e6"; ctx.lineWidth = 2 * (HALF + CURB); ctx.stroke(curbPath);
+  ctx.setLineDash([2.2, 2.2]); ctx.strokeStyle = "#c8302a"; ctx.stroke(curbPath); ctx.setLineDash([]);
+  ctx.strokeStyle = PAT.asphalt; ctx.lineWidth = 2 * HALF; ctx.stroke(centerPath);
+  ctx.strokeStyle = "rgba(235,235,230,0.8)"; ctx.lineWidth = 0.22; ctx.stroke(edgeL); ctx.stroke(edgeR);
+
+  // start/finish checker
+  ctx.save(); ctx.translate(T.x[0], T.y[0]); ctx.rotate(Math.atan2(T.ty[0], T.tx[0]));
+  for (let r2 = 0; r2 < 2; r2++) for (let q = 0; q < 16; q++) { ctx.fillStyle = (q + r2) % 2 ? "#151515" : "#efefef"; ctx.fillRect(r2 - 1, -HALF + q, 1, 1); }
+  ctx.restore();
+
+  // rubber
+  ctx.lineCap = "round"; ctx.lineWidth = 0.27;
+  const buckets = [0.18, 0.28, 0.38, 0.5];
+  for (let bI = 0; bI < 4; bI++) {
+    const lo = bI ? buckets[bI - 1] : 0, hi = buckets[bI];
+    ctx.strokeStyle = "rgba(14,14,16," + (hi * 0.9).toFixed(2) + ")"; ctx.beginPath();
+    for (let i = 0; i < skidCount; i++) {
+      const o = i * 5, a = skids[o + 4]; if (a <= lo || a > hi) continue;
+      const sx = skids[o], sy = skids[o + 1]; if (Math.abs(sx - cam.x) > view || Math.abs(sy - cam.y) > view) continue;
+      ctx.moveTo(sx, sy); ctx.lineTo(skids[o + 2], skids[o + 3]);
+    }
+    ctx.stroke();
+  }
+
+  drawCar();
+
+  for (const s of smoke) {
+    const life = s.life / s.max, a = s.a * (1 - life) * Math.min(1, s.life * 6);
+    ctx.fillStyle = s.dust ? "rgba(120,104,78," + a.toFixed(3) + ")" : "rgba(218,220,224," + a.toFixed(3) + ")";
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
+  }
+
+  for (const t of trees) {
+    if (Math.abs(t[0] - cam.x) > view + 6 || Math.abs(t[1] - cam.y) > view + 6) continue;
+    ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.arc(t[0] + 1.2, t[1] + 1.4, t[2], 0, 7); ctx.fill();
+    ctx.fillStyle = t[3] > 0.5 ? "#1f3b22" : "#284a26"; ctx.beginPath(); ctx.arc(t[0], t[1], t[2], 0, 7); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.beginPath(); ctx.arc(t[0] - t[2] * 0.3, t[1] - t[2] * 0.3, t[2] * 0.55, 0, 7); ctx.fill();
+  }
+
+  // drift angle arc around the car
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const ang = c.slipAng * 180 / Math.PI;
+  if (speed > 6 && Math.abs(ang) > 6 && c.vlong > 0) {
+    const pt = new DOMPoint(c.x, c.y);
+    const m = new DOMMatrix().translate(W / 2, rotCam ? H * 0.64 : H / 2);
+    if (rotCam) m.rotateSelf(0, 0, (-cam.ang - Math.PI / 2) * 180 / Math.PI);
+    m.scaleSelf(cam.z, cam.z); m.translateSelf(-cam.x, -cam.y);
+    const sp = pt.matrixTransform(m);
+    const R = 4.2 * cam.z, va = Math.atan2(c.vy, c.vx) + (rotCam ? -cam.ang - Math.PI / 2 : 0), ha = c.h + (rotCam ? -cam.ang - Math.PI / 2 : 0);
+    ctx.strokeStyle = S.active ? "rgba(255,176,46,0.85)" : "rgba(255,255,255,0.35)"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    let da = ha - va; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, R, va, va + da, da < 0); ctx.stroke();
+  }
+}
+
+/* ---------------------------------------------------------------- minimap */
+const mini = $("#mini"), mctx = mini.getContext("2d");
+let miniBase = null;
+function buildMini() {
+  const w = mini.clientWidth, h = mini.clientHeight; if (!w) return;
+  mini.width = w * DPR; mini.height = h * DPR;
+  const pad = 10, sx = (w - pad * 2) / (T.maxX - T.minX), sy = (h - pad * 2) / (T.maxY - T.minY), s = Math.min(sx, sy);
+  const ox = (w - (T.maxX - T.minX) * s) / 2 - T.minX * s, oy = (h - (T.maxY - T.minY) * s) / 2 - T.minY * s;
+  miniBase = { s, ox, oy };
+}
+function drawMini() {
+  if (!miniBase || mini.width !== Math.round(mini.clientWidth * DPR)) buildMini();
+  if (!miniBase) return;
+  const { s, ox, oy } = miniBase;
+  mctx.setTransform(DPR, 0, 0, DPR, 0, 0); mctx.clearRect(0, 0, mini.width, mini.height);
+  mctx.save(); mctx.translate(ox, oy); mctx.scale(s, s);
+  mctx.strokeStyle = "rgba(255,255,255,0.75)"; mctx.lineWidth = 3.2 / s; mctx.lineJoin = "round"; mctx.stroke(centerPath);
+  mctx.strokeStyle = "#ffb02e"; mctx.lineWidth = 3 / s; mctx.beginPath(); mctx.moveTo(T.x[0] + T.nx[0] * 12, T.y[0] + T.ny[0] * 12); mctx.lineTo(T.x[0] - T.nx[0] * 12, T.y[0] - T.ny[0] * 12); mctx.stroke();
+  mctx.fillStyle = "#ff4b3a"; mctx.beginPath(); mctx.arc(car.x, car.y, 4.2 / s, 0, 7); mctx.fill();
+  mctx.restore();
+}
+
+/* ------------------------------------------------------------------- HUD */
+const rpmEl = $("#rpm"); for (let i = 0; i < 20; i++) { const b = document.createElement("i"); if (i >= 14) b.className = i >= 17 ? "r" : "y"; rpmEl.appendChild(b); }
+const rpmBars = [...rpmEl.children];
+const el = { spd: $("#spd"), gear: $("#gear"), rpmTxt: $("#rpmTxt"), score: $("#score"), bestCombo: $("#bestCombo"), bestRun: $("#bestRun"),
+  combo: $("#combo"), cPts: $("#comboPts"), cMult: $("#comboMult"), cAng: $("#comboAng"), cBar: $("#comboBar"),
+  lapNow: $("#lapNow"), lapLast: $("#lapLast"), lapBest: $("#lapBest"), flags: $("#flags") };
+function flags() { el.flags.innerHTML = "Assist <b>" + (assist ? "on" : "off") + "</b> · Camera <b>" + (rotCam ? "chase" : "overhead") + "</b> · Sound <b>" + (muted ? "off" : "on") + "</b>"; }
+flags();
+let hudT = 0;
+function hud(dt) {
+  hudT += dt; if (hudT < 1 / 30) return; hudT = 0;
+  const c = car, kmh = Math.round(Math.hypot(c.vx, c.vy) * 3.6);
+  el.spd.textContent = kmh;
+  el.gear.textContent = c.gear === -1 ? "R" : (Math.abs(c.vlong) < 0.3 && c.throttle === 0 ? "N" : c.gear);
+  const lit = Math.round(Math.min(1, c.rpm / 8000) * 20);
+  rpmBars.forEach((b, i) => b.classList.toggle("on", i < lit));
+  rpmEl.classList.toggle("limit", c.limiter);
+  el.rpmTxt.textContent = (Math.round(c.rpm / 50) * 50).toLocaleString() + " rpm";
+  el.score.textContent = S.total.toLocaleString();
+  el.bestCombo.textContent = S.bestCombo.toLocaleString();
+  el.bestRun.textContent = S.bestRun.toLocaleString();
+  el.combo.classList.toggle("idle", !S.active);
+  if (S.active) {
+    el.cPts.textContent = Math.round(S.pts * S.mult).toLocaleString();
+    el.cMult.textContent = "×" + S.mult;
+    el.cAng.textContent = Math.round(Math.abs(c.slipAng) * 180 / Math.PI) + "°";
+    el.cBar.style.width = (S.mult >= 5 ? 100 : ((S.t % 2.2) / 2.2) * 100) + "%";
+    el.cBar.style.opacity = S.grace > 0 ? 0.4 : 1;
+  }
+  el.lapNow.textContent = lap.running ? fmtT(lap.t) : "–:––.–";
+  el.lapLast.textContent = fmtT(lap.last);
+  el.lapBest.textContent = fmtT(lap.best);
+}
+
+/* ------------------------------------------------------------------ loop */
+const DT = 1 / 240;
+let acc = 0, lastT = performance.now();
+function frame(now) {
+  let dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  const inp = readInput(dt);
+  if (!paused) {
+    acc += dt;
+    while (acc >= DT) { step(DT, inp); acc -= DT; }
+    updateScore(dt);
+    effects(dt);
+    audio.update();
+  }
+  render(paused ? 0.016 : dt);
+  drawMini();
+  hud(dt);
+  requestAnimationFrame(frame);
+}
+
+function start() {
+  started = true; paused = false;
+  $("#overlay").hidden = true; $("#startBtn").textContent = "Resume";
+  audio.init(); lastT = performance.now(); acc = 0;
+}
+function togglePause() {
+  paused = !paused; $("#overlay").hidden = !paused;
+  if (paused) audio.silence(); else { lastT = performance.now(); if (audio.ac) audio.ac.resume(); }
+}
+$("#startBtn").addEventListener("click", start);
+
+resetCar(true);
+window.__sideways = { car, score: S, dev: DEV };
+cam.x = car.x; cam.y = car.y; cam.ang = car.h;
+const hot = window.claude && window.claude.hot;
+if (hot && hot.snapshot) hot.snapshot(() => ({ total: S.total, bestRun: S.bestRun }));
+const boot = (data) => { if (data && data.total) { S.total = data.total; S.bestRun = data.bestRun || 0; } requestAnimationFrame(frame); };
+hot && hot.ready ? hot.ready(boot) : boot(hot && hot.data ? hot.data : {});
+})();
+</script>
+</body>
+</html>
