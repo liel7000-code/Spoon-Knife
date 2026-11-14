@@ -3,417 +3,357 @@
 <meta name="description" content="הִתְעַלִי – תחתיות מתדרות מים במילים טובות, מבית משינוי לריפוי. מים • תדר • תפילה. כי שינוי גדול מתחיל בלגימה קטנה.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500;700&family=Assistant:wght@300;400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600&family=Frank+Ruhl+Libre:wght@400;500&display=swap">
 <style>
-/* Layout: the box lid, opened up. A painted watercolor shore (canvas, aqua washes + gold veins + glitter) frames a cream page;
-   one orchestrated moment — the coaster turns to the word you choose and the water ripples — then a deep-water order band. */
+/* Layout: a cinematic, single-theme (deep water) page. A fixed scroll-scrubbed canvas — the coaster turning in dark water with ripples
+   and gold bokeh — sits behind sparse editorial blocks: white type with drop shadows, frosted-glass chips, accent badges, staggered reveals. */
 :root{
-  --paper:#FAF5E9;        /* lid cream */
-  --paper-deep:#F2EAD6;
-  --wash:#A9DCD5;         /* watercolor aqua */
-  --wash-soft:#DCF0EC;
-  --teal:#2D6A69;         /* logo ink */
-  --teal-deep:#173F3E;    /* order band */
-  --gold:#B38F3A;         /* the vein */
-  --gold-hi:#E2C377;
-  --foil:#6A4325;         /* title foil brown */
-  --ink:#24302F;
-  --muted:#5B6967;
-  --hair:#E2D7BE;
-  --on-deep:#F6F1E4;
-  --on-deep-muted:#B9CFCB;
-  --wa:#1E8758;
-  --logo-dark:block; --logo-light:none;
-  --f-serif:"Frank Ruhl Libre","Noto Serif Hebrew","David",Georgia,serif;
-  --f-sans:"Assistant","Heebo",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
-  --step-0:clamp(17px,1.05vw + 12px,19px);
-  --step-1:clamp(20px,1.2vw + 14px,24px);
-  --step-2:clamp(28px,2.4vw + 16px,44px);
-  --step-3:clamp(40px,4vw + 18px,68px);
-  --step-4:clamp(88px,12vw + 20px,184px);
+  color-scheme:dark;
+  --deep:#081614;          /* page ground */
+  --water:#0F2C29;
+  --aqua:#A9DCD5;
+  --gold:#E2C377;
+  --white:#FFFFFF;
+  --glass:rgba(255,255,255,.12);
+  --glass-strong:rgba(255,255,255,.18);
+  --glass-line:rgba(255,255,255,.18);
+  --wa:#25A366;
+  --f-ui:"Heebo","Assistant",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  --f-mark:"Frank Ruhl Libre","Noto Serif Hebrew",Georgia,serif;
+  --gutter:clamp(20px,4vw,48px);
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --paper:#0F201F;--paper-deep:#132927;--wash:#2A6B66;--wash-soft:#173532;--teal:#94D6CD;--teal-deep:#0A1716;--gold:#D4B05A;--gold-hi:#F0D898;--foil:#EBCB8E;--ink:#ECF2EE;--muted:#A6BBB6;--hair:#26413E;--on-deep:#F6F1E4;--on-deep-muted:#A6BBB6;--wa:#26A169;--logo-dark:none;--logo-light:block;color-scheme:dark}}
-:root[data-theme="dark"]{
-  --paper:#0F201F;--paper-deep:#132927;--wash:#2A6B66;--wash-soft:#173532;--teal:#94D6CD;--teal-deep:#0A1716;--gold:#D4B05A;--gold-hi:#F0D898;--foil:#EBCB8E;--ink:#ECF2EE;--muted:#A6BBB6;--hair:#26413E;--on-deep:#F6F1E4;--on-deep-muted:#A6BBB6;--wa:#26A169;--logo-dark:none;--logo-light:block;color-scheme:dark}
-
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-sans);font-size:var(--step-0);line-height:1.75;direction:rtl;text-align:right;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--deep);color:var(--white);font-family:var(--f-ui);font-size:17px;line-height:1.6;direction:rtl;text-align:right;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:rgba(255,255,255,.2)}
 img{max-width:100%;height:auto;display:block}
-a{color:inherit}
-h1,h2,h3{font-family:var(--f-serif);font-weight:400;line-height:1.15;text-wrap:balance;margin:0}
-p{margin:0}
-:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:6px}
-.wrap{max-width:1160px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
-.eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:14px;font-weight:600;letter-spacing:.14em;color:var(--gold)}
-.eyebrow::before{content:"";width:28px;height:1px;background:currentColor}
-.logo-d{display:var(--logo-dark)} .logo-l{display:var(--logo-light)}
+a{color:inherit;text-decoration:none}
+h1,h2,h3,p{margin:0}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:6px}
+
+/* shared gutter (NovaAI px-5 sm:px-8 md:px-12) */
+.gut{padding-left:max(var(--gutter),env(safe-area-inset-left,0px));padding-right:max(var(--gutter),env(safe-area-inset-right,0px))}
+
+/* scroll-scrubbed background */
+#scene{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;background:var(--deep)}
+.page{position:relative;z-index:1}
+
+/* text over the scene */
+.shadow{text-shadow:0 2px 14px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.35)}
+.label{font-size:13px;font-weight:500;letter-spacing:.15em;color:rgba(255,255,255,.9)}
+.badge{display:inline-block;border-right:2px solid var(--gold);background:var(--glass-strong);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);padding:7px 14px;font-size:13px;font-weight:500;letter-spacing:.12em;color:var(--white)}
+.headline{font-weight:300;font-size:clamp(48px,7.4vw,92px);line-height:1.04;letter-spacing:-.01em}
+.mark{font-family:var(--f-mark);font-weight:500;font-size:clamp(96px,15vw,200px);line-height:1;letter-spacing:0;color:var(--white)}
+.mark span{background:linear-gradient(180deg,#fff 0%,#fff 35%,var(--gold) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{font-size:clamp(19px,1.6vw,22px);font-weight:300;line-height:1.55}
 
 /* buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;font:700 17px/1 var(--f-sans);text-decoration:none;border-radius:999px;padding:16px 28px;border:1.5px solid transparent;cursor:pointer;transition:transform .2s ease,background-color .2s ease,box-shadow .2s ease;white-space:nowrap}
-.btn svg{width:20px;height:20px;flex:none}
-.btn-wa{background:var(--wa);color:#fff;box-shadow:0 10px 24px -12px var(--wa)}
-.btn-wa:hover{transform:translateY(-2px);box-shadow:0 16px 30px -12px var(--wa)}
-.btn-line{color:var(--teal);border-color:color-mix(in srgb,var(--teal) 45%,transparent)}
-.btn-line:hover{border-color:var(--teal);background:color-mix(in srgb,var(--wash) 25%,transparent)}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font:500 15px/1 var(--f-ui);padding:12px 20px;cursor:pointer;transition:background-color .3s,color .3s,border-color .3s;white-space:nowrap;border:1px solid transparent}
+.btn svg{width:15px;height:15px;flex:none}
+.btn-primary{background:var(--white);color:#0A0A0A}
+.btn-primary:hover{background:rgba(255,255,255,.85)}
+.btn-glass{background:var(--glass);border-color:rgba(255,255,255,.25);color:var(--white);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.btn-glass:hover{background:rgba(255,255,255,.22)}
 
-/* header */
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:20;background:var(--paper)}
-.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:15;background:color-mix(in srgb,var(--paper) 82%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);border-bottom:1px solid color-mix(in srgb,var(--hair) 70%,transparent)}
-.bar .wrap{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-block:8px}
-.bar .logo img{width:112px}
-.nav{display:flex;align-items:center;gap:28px;font-size:16px;font-weight:600}
-.nav a{text-decoration:none;color:var(--muted);transition:color .2s}
-.nav a:hover{color:var(--teal)}
-.nav .btn{padding:11px 20px;font-size:15px;color:#fff}
+/* reveal (IntersectionObserver .15, translateY 32px, 700ms ease-out, per-element delay) */
+.rv{opacity:0;transform:translateY(32px);transition:opacity .7s ease-out,transform .7s ease-out;transition-delay:var(--d,0ms);will-change:transform}
+.rv.in{opacity:1;transform:none}
+.no-js .rv{opacity:1;transform:none}
+
+/* nav */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--deep)}
+.nav{position:fixed;inset:env(safe-area-inset-top,0px) 0 auto;z-index:50;border-bottom:1px solid rgba(255,255,255,.15);background:linear-gradient(180deg,rgba(8,22,20,.55),rgba(8,22,20,0));-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.nav-row{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-block:12px}
+.nav .logo img{width:104px}
+.links{display:flex;gap:clamp(28px,3vw,40px);list-style:none;margin:0;padding:0}
+.links a{font-size:15px;color:rgba(255,255,255,.85);transition:color .3s}
+.links a:hover{color:#fff}
+.links sup{font-size:11px;color:rgba(255,255,255,.6);margin-right:2px}
+.nav-cta{border-radius:8px;border:1px solid rgba(255,255,255,.2);background:var(--glass-strong);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);padding:9px 18px;font-size:14px;transition:background-color .3s}
+.nav-cta:hover{background:rgba(255,255,255,.26)}
+
+/* full-viewport sections */
+.screen{min-height:100vh;min-height:100svh;display:flex;flex-direction:column;justify-content:space-between;padding-block:clamp(96px,10vw,120px) clamp(48px,5vw,64px)}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:32px}
+.spacer{height:80vh}
 
 /* hero */
-.hero{position:relative;isolation:isolate;overflow:hidden}
-#shore{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
-.hero .wrap{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:40px;align-items:center;padding-block:clamp(110px,13vw,170px) clamp(120px,14vw,180px)}
-.hero-copy{text-align:center}
-.kicker{font-size:15px;font-weight:600;letter-spacing:.18em;color:var(--teal)}
-.name{font-family:var(--f-serif);font-weight:500;font-size:var(--step-4);line-height:1.05;margin-top:6px;
-  background:linear-gradient(100deg,var(--foil) 0%,var(--foil) 30%,var(--gold-hi) 46%,var(--gold) 54%,var(--foil) 72%,var(--foil) 100%);background-size:250% 100%;background-position:100% 0;
-  -webkit-background-clip:text;background-clip:text;color:transparent;animation:foil 7s ease-in-out 1s infinite;padding-bottom:.12em}
-@keyframes foil{0%,55%{background-position:100% 0}85%,100%{background-position:0 0}}
-.tagline{font-family:var(--f-serif);font-size:var(--step-2);color:var(--teal);font-weight:400;margin-top:2px}
-.drop-rule{display:flex;align-items:center;justify-content:center;gap:14px;margin:26px auto 18px;width:min(340px,80%)}
-.drop-rule i{flex:1;height:1px;background:var(--gold)}
-.drop-rule svg{width:12px;height:16px;fill:var(--wash);flex:none}
-.trio{font-family:var(--f-serif);font-size:var(--step-1);color:var(--teal);display:flex;justify-content:center;gap:4px 18px;flex-wrap:wrap}
-.trio b{color:var(--gold);font-weight:400}
-.motto{margin-top:26px;font-size:var(--step-1);font-weight:300;color:var(--ink)}
-.hero-cta{margin-top:34px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:14px 22px}
-.hero-price{font-family:var(--f-serif);font-size:22px;color:var(--foil)}
-.hero-price small{font-family:var(--f-sans);font-size:15px;color:var(--muted);margin-right:6px}
+.services{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.intro{max-width:22rem;text-align:left}
+.hero-bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:32px}
+.hero-bottom .motto{margin-top:6px;font-size:clamp(20px,2vw,26px);font-weight:300}
+.card{display:flex;align-items:center;gap:16px;border-radius:14px;background:var(--glass-strong);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);padding:12px;border:1px solid rgba(255,255,255,.12)}
+.card img{width:112px;height:96px;object-fit:cover;border-radius:9px}
+.card .c-txt{display:grid;gap:5px;padding-left:8px}
+.card .c-t{font-size:15px;font-weight:500}
+.card .c-s{font-size:12px;letter-spacing:.14em;color:rgba(255,255,255,.65)}
+.card .btn{margin-top:6px;padding:9px 16px;font-size:13px;justify-self:start}
 
-.still{position:relative;justify-self:center;width:min(100%,500px)}
-.still .box{border-radius:6px;box-shadow:0 40px 70px -36px rgba(20,55,52,.55),0 2px 6px rgba(20,55,52,.08);transform:rotate(-3deg)}
-.still .coin{position:absolute;width:50%;left:-9%;bottom:-17%;border-radius:50%;box-shadow:0 26px 50px -20px rgba(20,55,52,.6);animation:bob 8s ease-in-out infinite}
-@keyframes bob{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-12px) rotate(-4deg)}}
+/* section two */
+.two-bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:64px;flex:1;padding-top:48px}
+.two-copy{max-width:36rem}
+.body{margin-top:22px;max-width:30rem;color:rgba(255,255,255,.82);font-size:17px}
+.words{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
+.word{font:400 16px/1 var(--f-ui);color:#fff;background:var(--glass);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:10px 16px;cursor:pointer;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:background-color .3s,color .3s,border-color .3s}
+.word:hover{background:rgba(255,255,255,.2)}
+.word[aria-pressed="true"]{background:#fff;color:#0A0A0A;border-color:#fff}
+.affirm{margin-top:18px;min-height:3.4em;font-family:var(--f-mark);font-size:clamp(22px,2.2vw,28px);line-height:1.35;transition:opacity .35s}
+.affirm.fade{opacity:0}
+.ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
 
-/* pillars: מים · תדר · תפילה (the box's own three words) */
-.pillars{padding-block:clamp(72px,9vw,120px)}
-.pillars-head{max-width:640px}
-.pillars-head h2{font-size:var(--step-3);color:var(--teal);margin-top:14px}
-.pillars-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:56px;border-top:1px solid var(--hair)}
-.pillar{padding:34px 0 0 32px}
-.pillar + .pillar{padding-right:32px;border-right:1px solid var(--hair)}
-.pillar h3{font-size:clamp(46px,5vw,72px);color:var(--foil);font-weight:300;line-height:1}
-.pillar p{margin-top:16px;color:var(--muted);max-width:30ch}
+.panel{width:100%;max-width:28rem;border-radius:20px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.09);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);padding-inline:24px}
+.step{display:flex;gap:20px;padding-block:20px}
+.step + .step{border-top:1px solid rgba(255,255,255,.15)}
+.step .n{font-size:12px;letter-spacing:.15em;color:rgba(255,255,255,.55);padding-top:5px;font-variant-numeric:tabular-nums}
+.step h3{font-size:19px;font-weight:500;display:flex;align-items:center;gap:6px}
+.step h3 svg{width:16px;height:16px;color:rgba(255,255,255,.4);transition:transform .3s,color .3s}
+.step:hover h3 svg{transform:translateX(-3px);color:#fff}
+.step p{margin-top:6px;font-size:15px;line-height:1.65;color:rgba(255,255,255,.7)}
 
-/* the turning coaster */
-.turn{background:var(--paper-deep);padding-block:clamp(72px,9vw,120px);overflow:hidden}
-.turn .wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(40px,6vw,90px);align-items:center}
-.turn h2{font-size:var(--step-3);color:var(--teal);margin-top:14px}
-.turn .intro{margin-top:16px;color:var(--muted);max-width:44ch}
-.words{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
-.word{font:500 19px/1 var(--f-serif);color:var(--foil);background:transparent;border:1px solid color-mix(in srgb,var(--gold) 55%,transparent);border-radius:999px;padding:11px 20px;cursor:pointer;transition:background-color .25s,color .25s,border-color .25s}
-.word:hover{border-color:var(--gold)}
-.word[aria-pressed="true"]{background:var(--gold);color:var(--paper);border-color:var(--gold)}
-.affirm{margin-top:34px;min-height:7.4em;padding-right:22px;border-right:2px solid var(--gold)}
-.affirm .w{font-size:14px;letter-spacing:.14em;color:var(--gold);font-weight:600}
-.affirm p{font-family:var(--f-serif);font-size:var(--step-2);line-height:1.3;color:var(--ink);margin-top:8px;transition:opacity .35s ease}
-.affirm p.fade{opacity:0}
-.stage{position:relative;justify-self:center;width:min(100%,480px);aspect-ratio:1}
-.stage .disc{width:100%;border-radius:50%;box-shadow:0 40px 70px -34px rgba(20,55,52,.6);transition:transform 1.4s cubic-bezier(.22,1,.36,1);will-change:transform}
-.stage .halo{position:absolute;inset:-18px;border-radius:50%;border:1px solid var(--gold);opacity:.5;pointer-events:none}
-.stage .pin{position:absolute;top:-34px;left:50%;transform:translateX(-50%);width:14px;height:18px;fill:var(--gold)}
-.ripple{position:absolute;inset:0;border-radius:50%;border:2px solid var(--wash);pointer-events:none;animation:ripple 1.6s ease-out forwards}
-@keyframes ripple{from{transform:scale(1);opacity:.9}to{transform:scale(1.35);opacity:0}}
+/* order */
+.three-bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:64px;flex:1;padding-top:48px}
+.price{display:flex;align-items:baseline;gap:12px;margin-top:22px}
+.price strong{font-weight:300;font-size:clamp(64px,8vw,104px);line-height:.9}
+.price span{font-size:15px;letter-spacing:.14em;color:rgba(255,255,255,.7)}
+.who{list-style:none;margin:0;padding:0}
+.who li{display:grid;grid-template-columns:150px 1fr;gap:16px;padding-block:18px}
+.who li + li{border-top:1px solid rgba(255,255,255,.15)}
+.who b{font-weight:500}
+.who span{color:rgba(255,255,255,.7);font-size:15px}
+.phone{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;padding-block:16px;border-top:1px solid rgba(255,255,255,.15)}
+.phone .num{font-size:24px;font-weight:300;letter-spacing:.06em;direction:ltr;unicode-bidi:isolate;user-select:all;font-variant-numeric:tabular-nums}
+.copy{font:500 13px/1 var(--f-ui);letter-spacing:.08em;background:transparent;border:0;color:var(--gold);cursor:pointer;padding:10px 6px;border-radius:6px}
+.copy:hover{background:rgba(255,255,255,.08)}
 
-/* ritual — a real sequence, so it is numbered */
-.ritual{padding-block:clamp(72px,9vw,120px)}
-.ritual h2{font-size:var(--step-3);color:var(--teal);margin-top:14px}
-.steps{list-style:none;padding:0;margin:56px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(24px,4vw,56px);counter-reset:s}
-.steps li{counter-increment:s;position:relative}
-.steps li::before{content:counter(s);display:block;font-family:var(--f-serif);font-size:84px;line-height:1;color:transparent;-webkit-text-stroke:1px var(--gold);margin-bottom:14px}
-.steps h3{font-size:var(--step-1);color:var(--teal);font-weight:500}
-.steps p{color:var(--muted);margin-top:8px}
+footer{border-top:1px solid rgba(255,255,255,.15);background:rgba(8,22,20,.4);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+footer .gut{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding-block:22px;font-size:14px;color:rgba(255,255,255,.65)}
+footer img{width:96px}
 
-/* gift */
-.gift{padding-block:0 clamp(72px,9vw,120px)}
-.gift .wrap{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:clamp(40px,6vw,90px);align-items:center}
-.gift .lid{border-radius:6px;box-shadow:0 34px 60px -34px rgba(20,55,52,.5)}
-.gift h2{font-size:var(--step-3);color:var(--teal);margin-top:14px}
-.gift ul{list-style:none;padding:0;margin:28px 0 0;display:grid;gap:0}
-.gift li{display:grid;grid-template-columns:150px 1fr;gap:18px;padding-block:16px;border-top:1px solid var(--hair)}
-.gift li:last-child{border-bottom:1px solid var(--hair)}
-.gift li b{font-family:var(--f-serif);font-weight:500;color:var(--foil);font-size:20px}
-.gift li span{color:var(--muted)}
-
-/* order — deep water */
-.order{background:var(--teal-deep);color:var(--on-deep);position:relative;isolation:isolate;overflow:hidden}
-#deep{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
-.order .wrap{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:clamp(40px,6vw,90px);align-items:center;padding-block:clamp(90px,10vw,140px)}
-.order .eyebrow{color:var(--gold-hi)}
-.order h2{font-size:var(--step-3);margin-top:14px;color:var(--on-deep)}
-.order .lede{margin-top:16px;color:var(--on-deep-muted);max-width:42ch}
-.price{display:flex;align-items:baseline;gap:12px;margin-top:30px;font-family:var(--f-serif)}
-.price strong{font-size:clamp(72px,9vw,120px);font-weight:300;line-height:.9;color:var(--gold-hi)}
-.price span{font-size:22px;color:var(--on-deep-muted)}
-.panel{display:grid;gap:14px}
-.panel .btn-line{color:var(--on-deep);border-color:color-mix(in srgb,var(--on-deep) 40%,transparent)}
-.panel .btn-line:hover{border-color:var(--on-deep);background:color-mix(in srgb,var(--on-deep) 8%,transparent)}
-.phone{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 4px;border-top:1px solid color-mix(in srgb,var(--on-deep) 18%,transparent);border-bottom:1px solid color-mix(in srgb,var(--on-deep) 18%,transparent);margin-top:6px}
-.phone .num{font:300 30px/1 var(--f-serif);letter-spacing:.05em;direction:ltr;unicode-bidi:isolate;user-select:all;font-variant-numeric:tabular-nums}
-.copy{font:600 15px/1 var(--f-sans);background:transparent;border:0;color:var(--gold-hi);cursor:pointer;padding:10px 8px;border-radius:8px}
-.copy:hover{background:color-mix(in srgb,var(--on-deep) 8%,transparent)}
-.panel small{color:var(--on-deep-muted);font-size:15px}
-
-footer{background:var(--teal-deep);color:var(--on-deep-muted);border-top:1px solid color-mix(in srgb,var(--on-deep) 12%,transparent)}
-footer .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding-block:28px;font-size:15px}
-footer img{width:120px}
-
-/* mobile sticky order */
 .dock{display:none}
+
+/* responsive */
 @media (max-width:900px){
-  .nav a:not(.btn){display:none}
-  .hero .wrap,.turn .wrap,.gift .wrap,.order .wrap{grid-template-columns:minmax(0,1fr)}
-  .hero .wrap{padding-block:96px 150px;gap:64px}
-  .still{width:min(88%,420px)}
-  .pillars-row,.steps{grid-template-columns:minmax(0,1fr)}
-  .pillar,.pillar + .pillar{padding:28px 0;border-right:0}
-  .pillar + .pillar{border-top:1px solid var(--hair)}
-  .stage{width:min(86%,420px);margin-top:20px}
-  .gift .lid{order:-1}
+  .links{display:none}
+  .two-bottom,.three-bottom{flex-direction:column;align-items:stretch;gap:44px}
+  .panel{max-width:none}
 }
-@media (max-width:640px){
-  body{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
-  .nav .btn{display:none}
-  .dock{display:flex;position:fixed;z-index:15;inset:auto 0 0;gap:12px;align-items:center;justify-content:space-between;
+@media (max-width:720px){
+  .row{flex-direction:column}
+  .intro{text-align:right}
+  .hero-bottom{flex-direction:column;align-items:stretch}
+  .card{align-self:flex-start}
+  .nav-cta{display:none}
+  .who li{grid-template-columns:1fr;gap:2px}
+  body{padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+  .dock{display:flex;position:fixed;z-index:50;inset:auto 0 0;align-items:center;justify-content:space-between;gap:12px;
     padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
-    background:color-mix(in srgb,var(--paper) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--hair)}
-  .dock .p{font-family:var(--f-serif);font-size:22px;color:var(--foil);line-height:1.1}
-  .dock .p small{display:block;font:400 13px var(--f-sans);color:var(--muted)}
-  .dock .btn{padding:13px 20px;font-size:16px}
-  .gift li{grid-template-columns:1fr;gap:2px}
-  .phone .num{font-size:25px}
-  .affirm{min-height:8.6em}
+    background:rgba(8,22,20,.55);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,.15)}
+  .dock .p{font-size:20px;font-weight:300;line-height:1.1}
+  .dock .p small{display:block;font-size:12px;letter-spacing:.12em;color:rgba(255,255,255,.65)}
 }
-@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion: reduce){.rv{opacity:1;transform:none;transition:none}*{transition:none!important}}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <symbol id="i-wa" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.7.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z"/></symbol>
-    <symbol id="i-drop" viewBox="0 0 14 18"><path d="M7 0C5 4 0 8 0 11.5a7 7 0 0 0 14 0C14 8 9 4 7 0Z"/></symbol>
+    <symbol id="chev" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="wa" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.7.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z"/></symbol>
   </defs>
 </svg>
 
-<header class="bar">
-  <div class="wrap">
-    <a class="logo" href="#top" aria-label="משינוי לריפוי – לראש הדף">
-      <img class="logo-d" src="img/logo.webp" width="900" height="482" alt="משינוי לריפוי">
-      <img class="logo-l" src="img/logo-light.webp" width="900" height="482" alt="" aria-hidden="true">
-    </a>
-    <nav class="nav" aria-label="ניווט">
-      <a href="#idea">הרעיון</a>
-      <a href="#turn">התחתית</a>
-      <a href="#ritual">איך משתמשים</a>
-      <a class="btn btn-wa" href="https://wa.me/972526879434?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%A7%D7%95%D7%A4%D7%A1%D7%AA%20%D7%94%D7%AA%D7%A2%D7%9C%D7%99" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-wa"/></svg>להזמנה</a>
-    </nav>
-  </div>
-</header>
+<canvas id="scene" aria-hidden="true"></canvas>
 
-<main id="top">
-  <section class="hero" aria-labelledby="name">
-    <canvas id="shore" aria-hidden="true"></canvas>
-    <div class="wrap">
-      <div class="hero-copy">
-        <p class="kicker">משינוי לריפוי</p>
-        <h1 class="name" id="name">הִתְעַלִי</h1>
-        <p class="tagline">תחתיות מתדרות מים</p>
-        <div class="drop-rule" aria-hidden="true"><i></i><svg><use href="#i-drop"/></svg><i></i></div>
-        <p class="trio"><span>מים</span><b aria-hidden="true">•</b><span>תדר</span><b aria-hidden="true">•</b><span>תפילה</span></p>
-        <p class="motto">כי שינוי גדול מתחיל בלגימה קטנה.</p>
-        <div class="hero-cta">
-          <a class="btn btn-wa" href="https://wa.me/972526879434?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%A7%D7%95%D7%A4%D7%A1%D7%AA%20%D7%94%D7%AA%D7%A2%D7%9C%D7%99" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-wa"/></svg>להזמנה בוואטסאפ</a>
-          <span class="hero-price">200 ₪<small>לקופסה</small></span>
-        </div>
-      </div>
-      <div class="still">
-        <img class="box" src="img/box.webp" width="1100" height="803" alt="קופסת הִתְעַלִי – תחתיות מתדרות מים, בגווני תכלת וזהב">
-        <img class="coin" src="img/coaster.webp" width="800" height="800" alt="תחתית ירוקה עם מגן דוד זהוב">
-      </div>
+<div class="page">
+  <header class="nav">
+    <div class="gut nav-row">
+      <a class="logo rv" href="#top" aria-label="משינוי לריפוי – לראש הדף"><img src="img/logo-light.webp" width="900" height="482" alt="משינוי לריפוי"></a>
+      <ul class="links">
+        <li class="rv" style="--d:100ms"><a href="#words">המילים<sup>6</sup></a></li>
+        <li class="rv" style="--d:200ms"><a href="#ritual">איך משתמשים</a></li>
+        <li class="rv" style="--d:300ms"><a href="#order">למי זה מתאים</a></li>
+        <li class="rv" style="--d:400ms"><a href="#order">הזמנה</a></li>
+      </ul>
+      <a class="nav-cta rv" style="--d:500ms" href="https://wa.me/972526879434?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%A7%D7%95%D7%A4%D7%A1%D7%AA%20%D7%94%D7%AA%D7%A2%D7%9C%D7%99" target="_blank" rel="noopener">להזמנה בוואטסאפ</a>
     </div>
-  </section>
+  </header>
 
-  <section class="pillars" id="idea">
-    <div class="wrap">
-      <div class="pillars-head">
-        <span class="eyebrow">הרעיון</span>
-        <h2>מים שסופגים מילים טובות</h2>
-      </div>
-      <div class="pillars-row">
-        <div class="pillar"><h3>מים</h3><p>כוס מים פשוטה, מהברז או מהבקבוק, שמונחת על התחתית לכמה רגעים של שקט.</p></div>
-        <div class="pillar"><h3>תדר</h3><p>המילים שעל התחתית – אהבה, אמונה, ביטחון – נותנות למים כוונה.</p></div>
-        <div class="pillar"><h3>תפילה</h3><p>ובלגימה עצמה, בקשה קטנה: ימלא ה׳ כל משאלות ליבך לטובה.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="turn" id="turn" aria-labelledby="turn-h">
-    <div class="wrap">
-      <div>
-        <span class="eyebrow">תידור הגשמה עצמית</span>
-        <h2 id="turn-h">בחרו מילה לשתות איתה</h2>
-        <p class="intro">על התחתית מגן דוד זהוב, ובכל קודקוד מילה אחת. בחרו את המילה שהלב צריך היום.</p>
-        <div class="words" id="words" role="group" aria-label="המילים שעל התחתית">
-          <button class="word" type="button" data-a="-7" data-t="יש בי ביטחון בדרך שלי. כל צעד מוביל אותי למקום הנכון." aria-pressed="true">ביטחון</button>
-          <button class="word" type="button" data-a="54" data-t="מגיע לי טוב, בדיוק כמו שאני." aria-pressed="false">ערך עצמי</button>
-          <button class="word" type="button" data-a="117" data-t="הלב שלי פתוח לתת ולקבל אהבה." aria-pressed="false">אהבה</button>
-          <button class="word" type="button" data-a="180" data-t="יש לי די. שמחה במה שיש, ובמה שעוד בדרך." aria-pressed="false">סיפוק</button>
-          <button class="word" type="button" data-a="-106" data-t="הכל לטובה. שהכל נהיה בדברו." aria-pressed="false">אמונה</button>
-          <button class="word" type="button" data-a="-46" data-t="אוהבת את מה שיש, כמו שהוא. משם מתחיל השינוי." aria-pressed="false">קבלה</button>
-        </div>
-        <div class="affirm" aria-live="polite">
-          <span class="w" id="aff-w">ביטחון</span>
-          <p id="aff-t">יש בי ביטחון בדרך שלי. כל צעד מוביל אותי למקום הנכון.</p>
-        </div>
-      </div>
-      <div class="stage" id="stage">
-        <svg class="pin" aria-hidden="true"><use href="#i-drop"/></svg>
-        <span class="halo" aria-hidden="true"></span>
-        <img class="disc" id="disc" src="img/coaster.webp" width="800" height="800" loading="lazy" alt="תחתית תידור הגשמה עצמית: מגן דוד זהוב עם המילים ביטחון, ערך עצמי, אהבה, סיפוק, אמונה וקבלה, ובמרכז ימלא ה׳ כל משאלות ליבך לטובה">
-      </div>
-    </div>
-  </section>
-
-  <section class="ritual" id="ritual">
-    <div class="wrap">
-      <span class="eyebrow">איך משתמשים</span>
-      <h2>שלושה רגעים, לגימה אחת</h2>
-      <ol class="steps">
-        <li><h3>בוחרים כוונה</h3><p>קוראים את המילים שעל התחתית ובוחרים את מה שהלב צריך היום.</p></li>
-        <li><h3>מניחים כוס מים</h3><p>מניחים את הכוס על התחתית ונותנים לה כמה דקות של שקט.</p></li>
-        <li><h3>שותים בכוונה</h3><p>לוגמים לאט, עם המילה הטובה בלב. שינוי גדול מתחיל כאן.</p></li>
-      </ol>
-    </div>
-  </section>
-
-  <section class="gift" aria-labelledby="gift-h">
-    <div class="wrap">
-      <img class="lid" src="img/lid.webp" width="1100" height="675" loading="lazy" alt="מכסה הקופסה עם הלוגו משינוי לריפוי – סימן אינסוף זהוב ופרח לוטוס על רקע תכלת">
-      <div>
-        <span class="eyebrow">קופסת מתנה</span>
-        <h2 id="gift-h">למי שמאמינים באנרגיות טובות</h2>
-        <ul>
-          <li><b>לעצמך</b><span>טקס קטן על השולחן, שמזכיר כל בוקר במה בוחרים להאמין.</span></li>
-          <li><b>מתנה עם משמעות</b><span>לחג, לבית חדש, ליום הולדת, או סתם כך – למי שרוצים לאחל לו טוב.</span></li>
-          <li><b>לבית ולמשפחה</b><span>תחתיות שנשארות על השולחן ומכניסות הביתה מילים של אהבה ואמונה.</span></li>
+  <main id="top">
+    <!-- 1 · hero -->
+    <section class="screen gut" aria-labelledby="mark">
+      <div class="row">
+        <ul class="services">
+          <li class="label shadow rv" style="--d:150ms">/ מים</li>
+          <li class="label shadow rv" style="--d:270ms">/ תדר</li>
+          <li class="label shadow rv" style="--d:390ms">/ תפילה</li>
         </ul>
+        <p class="intro lead shadow rv" style="--d:300ms">תחתיות שמתדרות את המים במילים טובות של אהבה, אמונה וביטחון. כוס מים אחת ביום, עם כוונה.</p>
       </div>
-    </div>
-  </section>
-
-  <section class="order" id="order" aria-labelledby="order-h">
-    <canvas id="deep" aria-hidden="true"></canvas>
-    <div class="wrap">
-      <div>
-        <span class="eyebrow">הזמנה</span>
-        <h2 id="order-h">הִתְעַלִי בקופסת מתנה</h2>
-        <p class="lede">שולחים הודעה בוואטסאפ או מתקשרים, ומתאמים יחד את ההזמנה והמסירה.</p>
-        <p class="price"><strong>200 ₪</strong><span>לקופסה</span></p>
-      </div>
-      <div class="panel">
-        <a class="btn btn-wa" href="https://wa.me/972526879434?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%A7%D7%95%D7%A4%D7%A1%D7%AA%20%D7%94%D7%AA%D7%A2%D7%9C%D7%99" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-wa"/></svg>להזמנה בוואטסאפ</a>
-        <a class="btn btn-line" href="tel:+972526879434">להתקשר</a>
-        <div class="phone">
-          <span class="num" id="phone">052-6879434</span>
-          <button class="copy" id="copy" type="button">העתקת המספר</button>
+      <div class="hero-bottom">
+        <div>
+          <span class="badge rv" style="--d:150ms">משינוי לריפוי · תחתיות מתדרות מים</span>
+          <h1 class="mark shadow rv" id="mark" style="--d:280ms"><span>הִתְעַלִי</span></h1>
+          <p class="motto shadow rv" style="--d:360ms">כי שינוי גדול מתחיל בלגימה קטנה.</p>
         </div>
-        <small>אפשר גם לשמור את המספר ולשלוח הודעה מתי שנוח.</small>
+        <div class="card rv" style="--d:420ms">
+          <img src="img/box.webp" width="1100" height="803" alt="קופסת הִתְעַלִי בגווני תכלת וזהב">
+          <div class="c-txt">
+            <p class="c-t">קופסת הִתְעַלִי</p>
+            <p class="c-s">200 ₪ לקופסה</p>
+            <a class="btn btn-primary" href="https://wa.me/972526879434?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%A7%D7%95%D7%A4%D7%A1%D7%AA%20%D7%94%D7%AA%D7%A2%D7%9C%D7%99" target="_blank" rel="noopener">להזמנה בוואטסאפ<svg aria-hidden="true"><use href="#chev"/></svg></a>
+          </div>
+        </div>
       </div>
-    </div>
-  </section>
-</main>
+    </section>
 
-<footer>
-  <div class="wrap">
-    <img src="img/logo-light.webp" width="900" height="482" alt="משינוי לריפוי">
-    <span>כי שינוי גדול מתחיל בלגימה קטנה.</span>
-  </div>
-</footer>
+    <div class="spacer" aria-hidden="true"></div>
+
+    <!-- 2 · the words + ritual -->
+    <section class="screen gut" id="words" aria-labelledby="words-h">
+      <div class="row">
+        <span class="badge rv" style="--d:120ms">תידור הגשמה עצמית</span>
+        <p class="intro lead shadow rv" style="--d:220ms">על כל תחתית מגן דוד זהוב, ובכל קודקוד מילה אחת. במרכז: ימלא ה׳ כל משאלות ליבך לטובה.</p>
+      </div>
+      <div class="two-bottom">
+        <div class="two-copy">
+          <h2 class="headline shadow rv" id="words-h" style="--d:180ms">בחרו מילה<br>לשתות איתה.</h2>
+          <div class="words rv" id="wordlist" role="group" aria-label="המילים שעל התחתית" style="--d:320ms">
+            <button class="word" type="button" data-a="-7" data-t="יש בי ביטחון בדרך שלי. כל צעד מוביל למקום הנכון." aria-pressed="true">ביטחון</button>
+            <button class="word" type="button" data-a="54" data-t="מגיע לי טוב, בדיוק כמו שאני." aria-pressed="false">ערך עצמי</button>
+            <button class="word" type="button" data-a="117" data-t="הלב שלי פתוח לתת ולקבל אהבה." aria-pressed="false">אהבה</button>
+            <button class="word" type="button" data-a="180" data-t="יש לי די. שמחה במה שיש, ובמה שעוד בדרך." aria-pressed="false">סיפוק</button>
+            <button class="word" type="button" data-a="-106" data-t="הכל לטובה. שהכל נהיה בדברו." aria-pressed="false">אמונה</button>
+            <button class="word" type="button" data-a="-46" data-t="אוהבת את מה שיש, כמו שהוא. משם מתחיל השינוי." aria-pressed="false">קבלה</button>
+          </div>
+          <p class="affirm shadow rv" id="affirm" aria-live="polite" style="--d:380ms">יש בי ביטחון בדרך שלי. כל צעד מוביל למקום הנכון.</p>
+          <div class="ctas rv" style="--d:420ms">
+            <a class="btn btn-primary" href="https://wa.me/972526879434?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%A7%D7%95%D7%A4%D7%A1%D7%AA%20%D7%94%D7%AA%D7%A2%D7%9C%D7%99" target="_blank" rel="noopener">להזמנה בוואטסאפ<svg aria-hidden="true"><use href="#chev"/></svg></a>
+            <a class="btn btn-glass" href="tel:+972526879434">להתקשר</a>
+          </div>
+        </div>
+
+        <div class="panel" id="ritual" aria-label="איך משתמשים">
+          <div class="step rv" style="--d:300ms"><span class="n">01</span><div><h3>בוחרים כוונה<svg aria-hidden="true"><use href="#chev"/></svg></h3><p>קוראים את המילים שעל התחתית ובוחרים את מה שהלב צריך היום.</p></div></div>
+          <div class="step rv" style="--d:410ms"><span class="n">02</span><div><h3>מניחים כוס מים<svg aria-hidden="true"><use href="#chev"/></svg></h3><p>מניחים את הכוס על התחתית ונותנים לה כמה דקות של שקט.</p></div></div>
+          <div class="step rv" style="--d:520ms"><span class="n">03</span><div><h3>שותים בכוונה<svg aria-hidden="true"><use href="#chev"/></svg></h3><p>לוגמים לאט, עם המילה הטובה בלב. שינוי גדול מתחיל כאן.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="spacer" aria-hidden="true"></div>
+
+    <!-- 3 · order -->
+    <section class="screen gut" id="order" aria-labelledby="order-h">
+      <div class="row">
+        <span class="badge rv" style="--d:120ms">קופסת מתנה</span>
+        <p class="intro lead shadow rv" style="--d:220ms">למי שמאמינים באנרגיות טובות, ולמי שרוצים לאחל לו טוב.</p>
+      </div>
+      <div class="three-bottom">
+        <div class="two-copy">
+          <h2 class="headline shadow rv" id="order-h" style="--d:180ms">הִתְעַלִי<br>בקופסת מתנה.</h2>
+          <p class="price shadow rv" style="--d:300ms"><strong>200 ₪</strong><span>לקופסה</span></p>
+          <div class="ctas rv" style="--d:420ms">
+            <a class="btn btn-primary" href="https://wa.me/972526879434?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%A7%D7%95%D7%A4%D7%A1%D7%AA%20%D7%94%D7%AA%D7%A2%D7%9C%D7%99" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#wa"/></svg>להזמנה בוואטסאפ</a>
+            <a class="btn btn-glass" href="tel:+972526879434">להתקשר</a>
+          </div>
+        </div>
+        <div class="panel">
+          <ul class="who">
+            <li class="rv" style="--d:300ms"><b>לעצמך</b><span>טקס קטן על השולחן, שמזכיר כל בוקר במה בוחרים להאמין.</span></li>
+            <li class="rv" style="--d:410ms"><b>מתנה עם משמעות</b><span>לחג, לבית חדש, ליום הולדת, או סתם כך.</span></li>
+            <li class="rv" style="--d:520ms"><b>לבית ולמשפחה</b><span>מילים של אהבה ואמונה שנשארות על השולחן.</span></li>
+          </ul>
+          <div class="phone rv" style="--d:600ms">
+            <span class="num" id="phone">052-6879434</span>
+            <button class="copy" id="copy" type="button">העתקת המספר</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="gut">
+      <img src="img/logo-light.webp" width="900" height="482" alt="משינוי לריפוי">
+      <span>כי שינוי גדול מתחיל בלגימה קטנה.</span>
+    </div>
+  </footer>
+</div>
 
 <div class="dock" aria-label="הזמנה מהירה">
   <span class="p">200 ₪<small>קופסת הִתְעַלִי</small></span>
-  <a class="btn btn-wa" href="https://wa.me/972526879434?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%A7%D7%95%D7%A4%D7%A1%D7%AA%20%D7%94%D7%AA%D7%A2%D7%9C%D7%99" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#i-wa"/></svg>להזמנה בוואטסאפ</a>
+  <a class="btn btn-primary" href="https://wa.me/972526879434?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%A7%D7%95%D7%A4%D7%A1%D7%AA%20%D7%94%D7%AA%D7%A2%D7%9C%D7%99" target="_blank" rel="noopener"><svg aria-hidden="true"><use href="#wa"/></svg>להזמנה בוואטסאפ</a>
 </div>
 
 <script>
 (function(){
   var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function tok(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
 
-  /* ---------- watercolor shore + gold glitter ---------- */
-  function rng(seed){return function(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646}}
-  function Painter(canvas,opts){
-    var ctx=canvas.getContext('2d'),w=0,h=0,dpr=1,base=null,specks=[],raf=0;
-    function wave(r,y0,amp,phase,len){var pts=[],n=48;for(var i=0;i<=n;i++){var x=i/n*w;pts.push([x,y0+Math.sin(i/n*Math.PI*len+phase)*amp+Math.sin(i/n*Math.PI*len*2.7+phase*1.9)*amp*.35+(r()-.5)*amp*.12])}return pts}
-    function bandPath(c,pts,edge){c.beginPath();c.moveTo(0,edge);pts.forEach(function(p){c.lineTo(p[0],p[1])});c.lineTo(w,edge);c.closePath()}
-    function paint(){
-      var r=rng(opts.seed),wash=tok('--wash'),soft=tok('--wash-soft'),gold=tok('--gold'),hi=tok('--gold-hi');
-      base=document.createElement('canvas');base.width=w*dpr;base.height=h*dpr;var c=base.getContext('2d');c.scale(dpr,dpr);
-      specks=[];
-      opts.bands.forEach(function(b){
-        var edge=b.top?0:h, y=b.top?b.y*h:h-b.y*h;
-        for(var k=0;k<7;k++){ /* layered translucent washes = watercolor bleed */
-          var pts=wave(r,y+(r()-.5)*h*.05,h*b.amp*(.7+r()*.6),r()*6,1.4+r()*.8);
-          c.globalAlpha=.10+r()*.10;c.fillStyle=k%3?wash:soft;bandPath(c,pts,edge);c.fill();
-        }
-        c.globalAlpha=1;
-        /* gold vein */
-        var vein=wave(r,y+(b.top?1:-1)*h*.02,h*b.amp*.8,r()*6,1.6);
-        c.strokeStyle=gold;c.lineWidth=1.4;c.globalAlpha=.85;c.setLineDash([2,5,9,3,1,6]);c.beginPath();
-        vein.forEach(function(p,i){i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1])});c.stroke();c.setLineDash([]);c.globalAlpha=1;
-        /* glitter clustered along the vein */
-        for(var i=0;i<Math.round(w/4);i++){var p=vein[Math.floor(r()*vein.length)],t=r();
-          specks.push({x:p[0]+(r()-.5)*90,y:p[1]+(r()-.5)*(t<.7?18:70),s:r()*1.8+.4,ph:r()*6.28,sp:.6+r()*1.6,c:r()<.4?hi:gold})}
-      });
-      draw(0);
+  /* ---------- reveals ---------- */
+  var rv=document.querySelectorAll('.rv');
+  if('IntersectionObserver' in window&&!reduce){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.15});
+    rv.forEach(function(el){io.observe(el)});
+  }else rv.forEach(function(el){el.classList.add('in')});
+
+  /* ---------- scroll-scrubbed scene ---------- */
+  var cv=document.getElementById('scene'),ctx=cv.getContext&&cv.getContext('2d');
+  var img=new Image();img.src='img/coaster.webp';
+  var w=0,h=0,dpr=1,smooth=0,rot=0,rotTarget=0,lastP=-1,lastR=1e9,dirty=true;
+  var seed=11;function rnd(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646}
+  var bokeh=[];for(var i=0;i<80;i++){var big=rnd()<.18;bokeh.push({x:rnd(),y:rnd()*1.6,r:big?6+rnd()*16:.6+rnd()*2.2,a:big?.05+rnd()*.08:.35+rnd()*.5,v:.25+rnd()*.9,ph:rnd()*6.28,c:rnd()<.55?'226,195,119':(rnd()<.6?'169,220,213':'255,255,255')})}
+
+  function size(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);dirty=true}
+  function progress(){var m=document.documentElement.scrollHeight-innerHeight;return m>0?Math.min(1,Math.max(0,scrollY/m)):0}
+
+  function draw(p){
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var narrow=w<720;
+    /* water */
+    var g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#0F2C29');g.addColorStop(1,'#061210');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    function glow(x,y,r,c,a){var rg=ctx.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba('+c+','+a+')');rg.addColorStop(1,'rgba('+c+',0)');ctx.fillStyle=rg;ctx.fillRect(0,0,w,h)}
+    glow(w*(.18+.3*p),h*(.25+.4*p),Math.max(w,h)*.65,'95,184,174',.26);
+    glow(w*(.9-.35*p),h*(.9-.6*p),Math.max(w,h)*.5,'226,195,119',.10);
+
+    /* coaster: turns, grows and drifts with scroll (+ chosen word) */
+    var s=narrow?w*(.95+.35*p):Math.min(w,h)*(.66+.3*p);
+    var cx=narrow?w*.5:w*(.3+.18*p), cy=h*(.44+.12*Math.sin(p*Math.PI));
+    /* ripples */
+    for(var k=0;k<5;k++){var f=(k/5+p*3)%1,rr=s/2*(1.04+f*.95);ctx.beginPath();ctx.arc(cx,cy,rr,0,6.283);ctx.strokeStyle='rgba(169,220,213,'+((1-f)*.32).toFixed(3)+')';ctx.lineWidth=1.2;ctx.stroke()}
+    if(img.complete&&img.naturalWidth){
+      ctx.save();ctx.translate(cx,cy);ctx.rotate((-p*220+rot)*Math.PI/180);
+      ctx.globalAlpha=narrow?.32:.6-.2*p;ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=60;
+      ctx.beginPath();ctx.arc(0,0,s/2,0,6.283);ctx.closePath();ctx.save();ctx.clip();ctx.drawImage(img,-s/2,-s/2,s,s);ctx.restore();
+      ctx.restore();ctx.globalAlpha=1;ctx.shadowBlur=0;
+      /* gold rim */
+      ctx.beginPath();ctx.arc(cx,cy,s/2+10,0,6.283);ctx.strokeStyle='rgba(226,195,119,.35)';ctx.lineWidth=1;ctx.stroke();
     }
-    function draw(t){
-      ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);if(base)ctx.drawImage(base,0,0,w,h);
-      for(var i=0;i<specks.length;i++){var s=specks[i],a=reduce?.75:.35+.65*Math.abs(Math.sin(t/1000*s.sp+s.ph));
-        ctx.globalAlpha=a;ctx.fillStyle=s.c;ctx.beginPath();ctx.arc(s.x,s.y,s.s,0,6.283);ctx.fill()}
-      ctx.globalAlpha=1;
-    }
-    function loop(t){draw(t);raf=requestAnimationFrame(loop)}
-    function size(){var r=canvas.getBoundingClientRect();if(!r.width)return;dpr=Math.min(devicePixelRatio||1,2);w=r.width;h=r.height;canvas.width=w*dpr;canvas.height=h*dpr;paint()}
-    size();
-    if(!reduce&&opts.animate){var vis=true;new IntersectionObserver(function(e){vis=e[0].isIntersecting;cancelAnimationFrame(raf);if(vis)raf=requestAnimationFrame(loop)}).observe(canvas)}
-    var to;addEventListener('resize',function(){clearTimeout(to);to=setTimeout(size,150)});
-    return {repaint:size};
+    /* bokeh — positions and twinkle are functions of scroll only */
+    for(var j=0;j<bokeh.length;j++){var b=bokeh[j],y=((b.y-p*b.v*1.4)%1.6+1.6)%1.6-.3,a=b.a*(.55+.45*Math.sin(p*18*b.v+b.ph));
+      ctx.beginPath();ctx.arc(b.x*w,y*h,b.r,0,6.283);ctx.fillStyle='rgba('+b.c+','+a.toFixed(3)+')';ctx.fill()}
+    /* vignette + text-side dimming */
+    var vg=ctx.createRadialGradient(w/2,h/2,Math.min(w,h)*.3,w/2,h/2,Math.max(w,h)*.8);vg.addColorStop(0,'rgba(4,10,10,0)');vg.addColorStop(1,'rgba(4,10,10,.7)');ctx.fillStyle=vg;ctx.fillRect(0,0,w,h);
+    if(!narrow){var dg=ctx.createLinearGradient(w,0,w*.4,0);dg.addColorStop(0,'rgba(6,18,16,.45)');dg.addColorStop(1,'rgba(6,18,16,0)');ctx.fillStyle=dg;ctx.fillRect(0,0,w,h)}
   }
-  var painters=[];
-  var shore=document.getElementById('shore');
-  if(shore&&shore.getContext)painters.push(Painter(shore,{seed:7,animate:true,bands:[{top:true,y:.09,amp:.035},{top:false,y:.11,amp:.04}]}));
-  var deep=document.getElementById('deep');
-  if(deep&&deep.getContext)painters.push(Painter(deep,{seed:31,animate:true,bands:[{top:true,y:.05,amp:.03}]}));
-  function repaintAll(){painters.forEach(function(p){p.repaint()})}
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',repaintAll);
-  new MutationObserver(repaintAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(repaintAll);
 
-  /* ---------- the turning coaster ---------- */
-  var words=document.querySelectorAll('.word'),disc=document.getElementById('disc'),stage=document.getElementById('stage'),
-      aw=document.getElementById('aff-w'),at=document.getElementById('aff-t'),rot=7;
-  if(disc)disc.style.transform='rotate('+rot+'deg)';
+  function tick(){
+    var t=progress();
+    smooth+=reduce?(t-smooth):(t-smooth)*.12;
+    rot+=reduce?(rotTarget-rot):(rotTarget-rot)*.08;
+    if(dirty||Math.abs(smooth-lastP)>.0002||Math.abs(rot-lastR)>.05){draw(smooth);lastP=smooth;lastR=rot;dirty=false}
+    requestAnimationFrame(tick);
+  }
+  if(ctx){size();addEventListener('resize',size);img.onload=function(){dirty=true};requestAnimationFrame(tick)}
+
+  /* ---------- words turn the coaster ---------- */
+  var words=document.querySelectorAll('.word'),aff=document.getElementById('affirm');
   words.forEach(function(b){b.addEventListener('click',function(){
     words.forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')});
-    var target=-parseFloat(b.dataset.a),d=((target-rot)%360+540)%360-180;rot+=d;
-    disc.style.transform='rotate('+rot+'deg)';
-    if(!reduce){var rp=document.createElement('span');rp.className='ripple';stage.appendChild(rp);setTimeout(function(){rp.remove()},1700)}
-    at.classList.add('fade');
-    setTimeout(function(){aw.textContent=b.textContent;at.textContent=b.dataset.t;at.classList.remove('fade')},reduce?0:300);
+    var target=-parseFloat(b.dataset.a)+smooth*220,d=((target-rotTarget)%360+540)%360-180;rotTarget+=d;
+    aff.classList.add('fade');setTimeout(function(){aff.textContent=b.dataset.t;aff.classList.remove('fade')},reduce?0:300);
   })});
 
   /* ---------- copy phone ---------- */
   var cb=document.getElementById('copy'),num=document.getElementById('phone');
-  if(cb)cb.addEventListener('click',function(){
+  cb.addEventListener('click',function(){
     var ok=function(){cb.textContent='הועתק ✓';setTimeout(function(){cb.textContent='העתקת המספר'},2000)};
     var sel=function(){var r=document.createRange();r.selectNodeContents(num);var s=getSelection();s.removeAllRanges();s.addRange(r);cb.textContent='המספר מסומן'};
     try{navigator.clipboard.writeText('0526879434').then(ok,sel)}catch(e){sel()}
