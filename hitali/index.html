@@ -115,8 +115,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .face,.layer,.side{position:absolute;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .face{inset:0;background-size:cover;background-position:center}
 .obj.coaster .face,.obj.coaster .layer{border-radius:50%}
-.obj.coaster .layer{inset:0;background:#6E9E87;backface-visibility:visible;-webkit-backface-visibility:visible}
-.obj.coaster .layer.rim{background:#86B49C}
+.obj.coaster .layer{inset:0;background:#B8925F;backface-visibility:visible;-webkit-backface-visibility:visible}
+.obj.coaster .layer.rim{background:#D2B183}
 .obj.coaster .back{background:radial-gradient(circle,#F7F1E1 0 58%,#EFE5CB 100%);display:grid;place-items:center}
 .obj.coaster .back img{width:62%}
 .obj.box .face{border-radius:4px}
@@ -347,7 +347,7 @@ section.block#order{padding-bottom:76px}
         <div class="product-carousel">
           <div class="carousel-cards" role="group" aria-label="בחירת תצוגה">
             <button class="card active" type="button" data-flavor="coaster" aria-pressed="true">
-              <img src="img/coaster.webp" width="800" height="800" alt="">
+              <img src="img/wood-hagshama.webp" width="800" height="800" alt="">
               <span class="card-info"><span>התחתית</span><span>תידור הגשמה עצמית</span></span>
             </button>
             <button class="card" type="button" data-flavor="box" aria-pressed="false">
@@ -379,7 +379,7 @@ section.block#order{padding-bottom:76px}
       </div>
       <div class="turner">
         <svg class="pin" aria-hidden="true"><use href="#i-dropline"/></svg>
-        <img id="turnImg" src="img/coaster.webp" width="800" height="800" loading="lazy" alt="תחתית תידור הגשמה עצמית: מגן דוד זהוב עם המילים ביטחון, ערך עצמי, אהבה, סיפוק, אמונה וקבלה">
+        <img id="turnImg" src="img/wood-hagshama.webp" width="800" height="800" loading="lazy" alt="תחתית עץ תידור הגשמה עצמית: מגן דוד זהוב עם המילים ביטחון, ערך עצמי, אהבה, סיפוק, אמונה וקבלה">
       </div>
     </div>
   </section>
@@ -539,7 +539,7 @@ section.block#order{padding-bottom:76px}
       var d=narrow?Math.min(vw*.62,320):Math.min(vh*.48,vw*.32),t=Math.max(10,d*.045),n=14;
       stage.style.setProperty('--sw',d+'px');stage.style.setProperty('--sh',d+'px');
       for(var i=0;i<n;i++){var z=-t/2+t*i/(n-1);html+='<div class="layer'+(i===0||i===n-1?' rim':'')+'" style="transform:translateZ('+z.toFixed(1)+'px)"></div>'}
-      html+='<div class="face" style="background-image:url(img/coaster.webp);transform:translateZ('+(t/2+.5)+'px)"></div>';
+      html+='<div class="face" style="background-image:url(img/wood-hagshama.webp);transform:translateZ('+(t/2+.5)+'px)"></div>';
       html+='<div class="face back" style="transform:rotateY(180deg) translateZ('+(t/2+.5)+'px)"><img src="img/logo.webp" alt=""></div>';
     }else{
       var w=narrow?Math.min(vw*.7,360):Math.min(vw*.36,vh*.62),h=w*803/1100,tk=w*.16;
