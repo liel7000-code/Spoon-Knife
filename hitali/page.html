@@ -157,6 +157,26 @@ section.block > .gut{width:100%}
 .ritual-pic{margin:0;overflow:hidden;border-radius:18px;box-shadow:0 34px 60px -36px rgba(31,82,84,.55)}
 .ritual-pic img{width:100%;transition:transform .6s cubic-bezier(.22,1,.36,1)}
 .ritual-pic:hover img{transform:scale(1.03)}
+/* package 1: natural wood */
+#packages{background:linear-gradient(180deg,var(--paper),#F3ECDD 50%,var(--paper))}
+.pack-head{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:clamp(24px,5vw,72px);align-items:end}
+.pack-side{display:grid;gap:18px;justify-items:start}
+.pack-lead{color:var(--ink);font-size:1.08rem;max-width:34ch}
+.wood-grid{list-style:none;margin-top:clamp(28px,5vh,48px);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(16px,2.4vw,32px)}
+.wc{display:flex;flex-direction:column;align-items:center;text-align:center}
+.wc-pic{margin:0;width:min(100%,250px);aspect-ratio:1;border-radius:50%;overflow:hidden;box-shadow:0 26px 44px -26px rgba(90,58,34,.55)}
+.wc-pic img{width:100%;height:100%;object-fit:cover;transition:transform .6s cubic-bezier(.22,1,.36,1)}
+.wc:hover .wc-pic img{transform:scale(1.03)}
+.wc-n{margin-top:18px;font-size:.75rem;letter-spacing:.16em;color:var(--gold-ink);font-weight:600}
+.wc h3{font-family:var(--font-heading);font-weight:500;font-size:1.35rem;color:var(--brown);margin-top:4px}
+.wc-words{margin-top:6px;font-size:.95rem;color:var(--muted);max-width:24ch}
+@media (max-width:900px){
+  .pack-head{grid-template-columns:minmax(0,1fr);align-items:start}
+  .wood-grid{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:32px}
+  .wc-pic{width:min(100%,180px)}
+  .wc h3{font-size:1.15rem}
+}
+
 .ritual{background:linear-gradient(180deg,var(--paper),#E6F4F1 40%,var(--paper))}
 .panel{border-radius:24px;border:1px solid var(--glass-border);background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);padding-inline:26px;box-shadow:0 30px 60px -40px rgba(31,82,84,.5)}
 .steps{list-style:none;margin-top:2.2rem;display:grid;gap:1.6rem}
@@ -267,6 +287,7 @@ section.block#order{padding-bottom:76px}
     <a href="#top" class="nav-item active">בית</a>
     <a href="#words" class="nav-item">המילים</a>
     <a href="#ritual" class="nav-item">איך משתמשים</a>
+    <a href="#packages" class="nav-item">חבילת עץ</a>
     <a href="#order" class="nav-item">למי זה מתאים</a>
     <a href="#order" class="nav-item">הזמנה</a>
   </nav>
@@ -362,6 +383,47 @@ section.block#order{padding-bottom:76px}
         </ol>
       </div>
       <figure class="ritual-pic"><img src="img/box.webp" width="1100" height="803" loading="lazy" alt="קופסת הִתְעַלִי – תחתיות מתדרות מים, מים • תדר • תפילה"></figure>
+    </div>
+  </section>
+
+  <section class="block" id="packages" aria-labelledby="pack-h">
+    <div class="gut">
+      <div class="pack-head">
+        <div>
+          <span class="eyebrow">חבילה 1 · עץ טבעי</span>
+          <h2 class="h2" id="pack-h">ארבע תחתיות עץ, ארבע כוונות.</h2>
+        </div>
+        <div class="pack-side">
+          <p class="pack-lead">תחתיות מעץ טבעי, בלי צבע, עם מגן דוד זהוב. בחבילה ארבע תחתיות, כל אחת עם תידור משלה.</p>
+          <a class="btn btn-primary" href="https://wa.me/972526879434?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%97%D7%91%D7%99%D7%9C%D7%94%201%20%E2%80%93%20%D7%90%D7%A8%D7%91%D7%A2%20%D7%AA%D7%97%D7%AA%D7%99%D7%95%D7%AA%20%D7%A2%D7%A5%20%D7%98%D7%91%D7%A2%D7%99%20%D7%A9%D7%9C%20%D7%94%D6%B4%D7%AA%D6%B0%D7%A2%D6%B7%D7%9C%D6%B4%D7%99" target="_blank" rel="noopener"><span class="btn-ico"><svg aria-hidden="true"><use href="#i-wa"/></svg></span>להזמנת חבילה 1</a>
+        </div>
+      </div>
+      <ol class="wood-grid">
+          <li class="wc">
+            <figure class="wc-pic"><img src="img/wood-tihur.webp" width="800" height="800" loading="lazy" alt="תחתית עץ תידור טיהור רוחני: מגן דוד זהוב עם המילים טיהור, ניקוי, הרפיה, זרימה, איזון, שחרור"></figure>
+            <span class="wc-n">תחתית 1</span>
+            <h3>תידור טיהור רוחני</h3>
+            <p class="wc-words">טיהור · ניקוי · הרפיה · זרימה · איזון · שחרור</p>
+          </li>
+          <li class="wc">
+            <figure class="wc-pic"><img src="img/wood-simcha.webp" width="800" height="800" loading="lazy" alt="תחתית עץ תידור שמחה והתעלות: מגן דוד זהוב עם המילים שמחה, ריקוד, חיים, תשוקה, חיוניות, התעלות"></figure>
+            <span class="wc-n">תחתית 2</span>
+            <h3>תידור שמחה והתעלות</h3>
+            <p class="wc-words">שמחה · ריקוד · חיים · תשוקה · חיוניות · התעלות</p>
+          </li>
+          <li class="wc">
+            <figure class="wc-pic"><img src="img/wood-refua.webp" width="800" height="800" loading="lazy" alt="תחתית עץ תידור ריפוי ובריאות: מגן דוד זהוב עם המילים בריאות, ריפוי, שמחה, חוסן, איזון, התחדשות"></figure>
+            <span class="wc-n">תחתית 3</span>
+            <h3>תידור ריפוי ובריאות</h3>
+            <p class="wc-words">בריאות · ריפוי · שמחה · חוסן · איזון · התחדשות</p>
+          </li>
+          <li class="wc">
+            <figure class="wc-pic"><img src="img/wood-zugiut.webp" width="800" height="800" loading="lazy" alt="תחתית עץ תידור זוגיות מוצלחת: מגן דוד זהוב עם המילים אהבה, חיבור נשמתי, כבוד, שותפות, חברות, שמחה"></figure>
+            <span class="wc-n">תחתית 4</span>
+            <h3>תידור זוגיות מוצלחת</h3>
+            <p class="wc-words">אהבה · חיבור נשמתי · כבוד · שותפות · חברות · שמחה</p>
+          </li>
+      </ol>
     </div>
   </section>
 
