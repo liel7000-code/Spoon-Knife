@@ -1,7 +1,6 @@
 // Entry point: renderer, fixed-timestep loop, screen flow.
 import './style.css';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { PLAYER_CARS, loadSupraGLB } from './cars.js';
 import { Game } from './game.js';
 import { Showroom } from './showroom.js';
@@ -26,20 +25,21 @@ renderer.toneMappingExposure = 0.68;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-const pmrem = new THREE.PMREMGenerator(renderer);
-const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 const settings = {
   car: store.get('driftgame.car', 0),
   colors: store.get('driftgame.colors', {}),
   cam: store.get('driftgame.cam', 'third'),
   quality: store.get('driftgame.quality', Input.isTouch() ? 'medium' : 'high'),
+  style: store.get('driftgame.supraStyle', 'stock'),
 };
 if (!QUALITY[settings.quality]) settings.quality = 'high';
 const applyPixelRatio = () => renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QUALITY[settings.quality].pixelRatio));
 applyPixelRatio();
 if (!PLAYER_CARS[settings.car]) settings.car = 0;
 const colorOf = (i) => settings.colors[PLAYER_CARS[i].id] || PLAYER_CARS[i].color;
+const styleOf = (i) => (PLAYER_CARS[i].styles ? settings.style : 'stock');
+const showCar = () => showroom.setCar(PLAYER_CARS[settings.car], colorOf(settings.car), styleOf(settings.car));
 
 const audio = new EngineAudio();
 const input = new Input();
@@ -49,7 +49,7 @@ tiltBtn.addEventListener('click', async () => {
   tiltBtn.setAttribute('aria-pressed', String(on));
   tiltBtn.parentElement.classList.toggle('tilting', on);
 });
-const showroom = new Showroom(envMap);
+const showroom = new Showroom(renderer);
 let screen = 'menu';
 
 const ui = new UI({
@@ -59,8 +59,8 @@ const ui = new UI({
   onCar: (dir) => {
     settings.car = (settings.car + dir + PLAYER_CARS.length) % PLAYER_CARS.length;
     store.set('driftgame.car', settings.car);
-    showroom.setCar(PLAYER_CARS[settings.car], colorOf(settings.car));
-    ui.setGarage(settings.car, colorOf(settings.car));
+    showCar();
+    ui.setGarage(settings.car, colorOf(settings.car), settings.style);
     refreshMenu();
   },
   onColor: (c) => {
@@ -75,11 +75,19 @@ const ui = new UI({
     ui.setCamPref(settings.cam);
   },
   onMute: () => { audio.setMuted(!audio.muted); ui.setMuted(audio.muted); },
+  onMusic: () => { audio.init(); audio.setMusic(!audio.musicOn); ui.setMusic(audio.musicOn); },
+  onStyle: (st) => {
+    settings.style = st;
+    store.set('driftgame.supraStyle', st);
+    showCar();
+    ui.setGarage(settings.car, colorOf(settings.car), settings.style);
+  },
   onQuality: () => {
     settings.quality = QUALITY_ORDER[(QUALITY_ORDER.indexOf(settings.quality) + 1) % QUALITY_ORDER.length];
     store.set('driftgame.quality', settings.quality);
     applyPixelRatio(); resize();
     game.setQuality(QUALITY[settings.quality]);
+    showroom.setQuality(QUALITY[settings.quality]);
     ui.setQuality(QUALITY[settings.quality].label);
   },
   onCamToggle: () => toggleCam(),
@@ -109,13 +117,13 @@ function go(name) {
   screen = name;
   ui.show(name === 'play' ? 'hud' : name, Input.isTouch());
   if (name === 'menu') refreshMenu();
-  if (name === 'garage') ui.setGarage(settings.car, colorOf(settings.car));
+  if (name === 'garage') ui.setGarage(settings.car, colorOf(settings.car), settings.style);
   for (const b of document.querySelectorAll('button')) b.blur();
 }
 
 function startRun() {
   audio.init();
-  game.start(settings.car, colorOf(settings.car), settings.cam);
+  game.start(settings.car, colorOf(settings.car), settings.cam, styleOf(settings.car));
   acc = 0;
   go('play');
 }
@@ -133,13 +141,18 @@ function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   game.resize(w, h);
+  showroom.setSize(w, h);
 }
 window.addEventListener('resize', resize);
 resize();
 
-showroom.setCar(PLAYER_CARS[settings.car], colorOf(settings.car));
+showCar();
+showroom.setQuality(QUALITY[settings.quality]);
 ui.setCamPref(settings.cam);
 ui.setMuted(audio.muted);
+ui.setMusic(audio.musicOn);
+// browsers only allow sound after a gesture: start it (and the menu music) on the first click or key
+for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => audio.init(), { once: true });
 ui.setQuality(QUALITY[settings.quality].label);
 go('menu');
 
@@ -168,4 +181,4 @@ window.__drift = { game, settings, showroom };
 window.__cars = PLAYER_CARS;
 
 // optional hero model: public/models/supra.glb replaces the procedural Supra when present
-loadSupraGLB().then((m) => { if (m && PLAYER_CARS[settings.car].id === 'supra') showroom.setCar(PLAYER_CARS[settings.car], colorOf(settings.car)); });
+loadSupraGLB().then((m) => { if (m && PLAYER_CARS[settings.car].id === 'supra') showCar(); });

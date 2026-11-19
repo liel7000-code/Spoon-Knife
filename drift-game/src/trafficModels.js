@@ -35,7 +35,9 @@ function wheels(list, r, w = 0.22) {
 const DETAIL_COLORS = { trim: [0.02, 0.02, 0.022], chrome: [0.75, 0.77, 0.8], plate: [0.85, 0.65, 0.05], tire: [0.018, 0.018, 0.018], rim: [0.55, 0.57, 0.6], refl: [0.9, 0.9, 0.9] };
 const LIGHT_COLORS = { tail: [2.6, 0.08, 0.05], head: [3.2, 3.0, 2.6] };
 const DETAILS = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.35 });
-const LIGHTS = new THREE.MeshBasicMaterial({ vertexColors: true });
+const LIGHTS = new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(0.75, 0.75, 0.75) });
+// some drivers have their lights on: brighter tails (bloom) and headlights
+const LIGHTS_ON = new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(1.6, 1.6, 1.6) });
 function tinted(groups, colors) {
   const out = [];
   for (const [key, rgb] of Object.entries(colors)) {
@@ -62,6 +64,7 @@ function finish(parts, { hw, hl }, paint, cargo) {
     const m = new THREE.Mesh(mergeGeometries(geos.map((x) => (x.index ? x.toNonIndexed() : x))), mats[key]);
     m.castShadow = key === 'paint' || key === 'cargo';
     if (key === 'glass') m.renderOrder = 2;
+    if (key === 'lights') g.userData.lightsMesh = m;
     if (key === 'indL' || key === 'indR') { m.visible = false; m.material.emissiveIntensity = 3; g.userData[key + 'Mesh'] = m; }
     g.add(m);
   }
@@ -69,6 +72,7 @@ function finish(parts, { hw, hl }, paint, cargo) {
   g.userData.paint = paint;
   g.userData.indL = indL;
   g.userData.indR = indR;
+  g.userData.setLightsOn = (on) => { if (g.userData.lightsMesh) g.userData.lightsMesh.material = on ? LIGHTS_ON : LIGHTS; };
   g.userData.recolor = () => {
     const c = new THREE.Color(PAINTS[(Math.random() * PAINTS.length) | 0]);
     const hsl = {}; c.getHSL(hsl);

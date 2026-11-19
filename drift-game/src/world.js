@@ -125,6 +125,52 @@ function roadTextures(maxAniso) {
   return { map: make(cc, true), normalMap: make(nc, false), roughnessMap: make(rc, false) };
 }
 
+// r: broad light/dark variation, g: resurfacing patches, b: damp (shinier) areas
+function macroTexture() {
+  const [c, g] = canvas(256, 512);
+  const img = g.createImageData(256, 512);
+  const noise = (x, y, s) => { const n = Math.sin(x * 12.9898 / s + y * 78.233 / s) * 43758.5453; return n - Math.floor(n); };
+  const smoothNoise = (x, y, s) => {
+    const xi = Math.floor(x / s), yi = Math.floor(y / s), xf = x / s - xi, yf = y / s - yi;
+    const a = noise(xi, yi, 1), b = noise(xi + 1, yi, 1), cc = noise(xi, yi + 1, 1), d = noise(xi + 1, yi + 1, 1);
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    return a * (1 - u) * (1 - v) + b * u * (1 - v) + cc * (1 - u) * v + d * u * v;
+  };
+  for (let y = 0; y < 512; y++) for (let x = 0; x < 256; x++) {
+    const o = (y * 256 + x) * 4;
+    const r = 0.55 * smoothNoise(x, y, 64) + 0.3 * smoothNoise(x, y, 24) + 0.15 * smoothNoise(x, y, 8);
+    const b = Math.max(0, smoothNoise(x + 99, y, 48) - 0.55) * 2.2;
+    img.data[o] = r * 255; img.data[o + 1] = 0; img.data[o + 2] = Math.min(1, b) * 255; img.data[o + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  // rectangular resurfacing patches in the green channel
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 9; i++) {
+    const w = 30 + Math.random() * 120, h = 20 + Math.random() * 90;
+    g.fillStyle = `rgba(0,${120 + Math.random() * 100 | 0},0,1)`;
+    g.fillRect(Math.random() * (256 - w), Math.random() * (512 - h), w, h);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+// soft cumulus layer (alpha) for the sky dome
+function cloudTexture() {
+  const [c, g] = canvas(1024, 256);
+  g.clearRect(0, 0, 1024, 256);
+  for (let i = 0; i < 220; i++) {
+    const x = Math.random() * 1024, y = 40 + Math.random() * 170, r = 14 + Math.random() * 46;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, 'rgba(255,255,255,0.32)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd; g.fillRect(x - r, y - r, r * 2, r * 2);
+    // wrap around horizontally so the dome has no seam
+    if (x < r) { g.fillStyle = grd; g.save(); g.translate(1024, 0); g.fillRect(x - r, y - r, r * 2, r * 2); g.restore(); }
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 function grassTexture() {
   const [c, g] = canvas(512, 512);
   g.fillStyle = '#5a6a36'; g.fillRect(0, 0, 512, 512);
@@ -215,6 +261,7 @@ export class World {
     sun.shadow.radius = 3;
     scene.add(sun, sun.target);
 
+    this.buildBackdrop();
     this.buildRoad();
     this.strips = [this.buildStrip(0), this.buildStrip(1)];
     this.strips[0].position.z = 60;
@@ -222,11 +269,54 @@ export class World {
     this.setQuality(quality);
   }
 
+  // distant mountain ridges (atmospheric perspective) + drifting cloud dome; both ride with the camera
+  buildBackdrop() {
+    const horizon = new THREE.Color('#d7a582'), far = new THREE.Color('#8a7f8f'), near = new THREE.Color('#4d5149');
+    this.backdrop = new THREE.Group();
+    const layers = [[1450, 120, 0.25], [1100, 90, 0.55], [800, 60, 0.85]];
+    layers.forEach(([R, H, k], li) => {
+      const seg = 260, pos = [], col = [], idx = [];
+      const cTop = far.clone().lerp(near, k).lerp(horizon, 0.35 * (1 - k));
+      const cBot = cTop.clone().lerp(horizon, 0.55);
+      for (let i = 0; i <= seg; i++) {
+        const a = (i / seg) * Math.PI * 2;
+        const n = Math.sin(a * 5 + li) * 0.35 + Math.sin(a * 13 + li * 2) * 0.25 + Math.sin(a * 31 + li * 5) * 0.12 + Math.sin(a * 71) * 0.05;
+        const h = H * (0.45 + 0.55 * Math.abs(n)) * (Math.abs(Math.sin(a)) > 0.25 ? 1 : 0.35); // lower straight ahead/behind
+        pos.push(Math.sin(a) * R, -20, Math.cos(a) * R, Math.sin(a) * R, h, Math.cos(a) * R);
+        col.push(cBot.r, cBot.g, cBot.b, cTop.r, cTop.g, cTop.b);
+        if (i < seg) { const o = i * 2; idx.push(o, o + 2, o + 1, o + 1, o + 2, o + 3); }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      g.setIndex(idx);
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide }));
+      m.renderOrder = -5;
+      this.backdrop.add(m);
+    });
+    this.cloudTex = cloudTexture();
+    const clouds = new THREE.Mesh(new THREE.SphereGeometry(1700, 48, 12, 0, Math.PI * 2, 0, Math.PI * 0.42),
+      new THREE.MeshBasicMaterial({ map: this.cloudTex, color: '#ffd8b8', transparent: true, depthWrite: false, fog: false, side: THREE.BackSide }));
+    clouds.renderOrder = -6;
+    this.clouds = clouds;
+    this.backdrop.add(clouds);
+    this.scene.add(this.backdrop);
+  }
+
   buildRoad() {
     const s = this.scene, aniso = this.renderer.capabilities.getMaxAnisotropy();
     this.road = roadTextures(aniso);
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W, ROAD_LEN).rotateX(-Math.PI / 2),
-      new THREE.MeshStandardMaterial({ ...this.road, roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.8, 0.8) }));
+    const roadMat = new THREE.MeshStandardMaterial({ ...this.road, roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.8, 0.8) });
+    // large-scale variation (patches, darker/lighter stretches, damp sheen) so the 24 m tile never reads as repeating
+    const macro = macroTexture();
+    roadMat.onBeforeCompile = (sh) => {
+      sh.uniforms.macroMap = { value: macro };
+      sh.fragmentShader = 'uniform sampler2D macroMap;\n' + sh.fragmentShader
+        .replace('#include <map_fragment>', '#include <map_fragment>\n vec4 mac = texture2D(macroMap, vec2(vMapUv.x * 0.8 + 0.1, vMapUv.y * 0.09));\n diffuseColor.rgb *= mix(0.78, 1.14, mac.r) * mix(1.0, 0.72, mac.g);')
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor *= mix(1.0, 0.55, mac.b);');
+    };
+    this.roadMat = roadMat;
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W, ROAD_LEN).rotateX(-Math.PI / 2), roadMat);
     road.position.set(0, 0, ROAD_Z);
     road.receiveShadow = true;
     s.add(road);
@@ -323,6 +413,14 @@ export class World {
     }
     inst(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.85, emissive: '#ffffff', emissiveMap: windowTexture(), emissiveIntensity: 0.55 }), blds, { cast: false, colors: bColors });
 
+    // concrete overpass crossing the highway
+    const concrete = new THREE.MeshStandardMaterial({ color: '#a8a39b', roughness: 0.9, metalness: 0 });
+    const bz = -STRIP * (k === 0 ? 0.32 : 0.78), bw = 60;
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(bw, 1.3, 13), concrete); deck.position.set(0, 7.4, bz); deck.castShadow = true; deck.receiveShadow = true; grp.add(deck);
+    for (const zz of [-6.3, 6.3]) { const par = new THREE.Mesh(new THREE.BoxGeometry(bw, 1.0, 0.35), concrete); par.position.set(0, 8.5, bz + zz); par.castShadow = true; grp.add(par); }
+    for (const sx of [-1, 1]) for (const px of [X + 2.5, X + 14]) {
+      const pier = new THREE.Mesh(new THREE.BoxGeometry(1.2, 6.8, 9), concrete); pier.position.set(sx * px, 3.4, bz); pier.castShadow = true; pier.receiveShadow = true; grp.add(pier);
+    }
     // overhead gantry with direction signs, plus roadside signs
     const steel = new THREE.MeshStandardMaterial({ color: '#7e858d', metalness: 0.85, roughness: 0.4 });
     const gz = -STRIP * 0.55;
@@ -364,6 +462,7 @@ export class World {
       this.sun.shadow.mapSize.set(q.shadowSize, q.shadowSize);
       if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
     }
+    if (this.clouds) this.clouds.visible = q.clouds;
     for (const strip of this.strips) {
       for (const m of strip.children) if (m.isInstancedMesh) m.count = Math.max(1, Math.round(m.userData.full * (m.userData.full > 40 ? q.scenery : 1)));
     }
@@ -382,8 +481,10 @@ export class World {
   }
 
   // sky follows the camera; the shadow box follows the player
-  update(camera, player) {
+  update(camera, player, dt = 0.016) {
     this.sky.position.copy(camera.position);
+    this.backdrop.position.set(camera.position.x, 0, camera.position.z);
+    this.cloudTex.offset.x += dt * 0.0009; // clouds drift slowly
     const px = player ? player.position.x : 0;
     this.sun.target.position.set(px * 0.5, 0, -14);
     this.sun.position.copy(this.sun.target.position).addScaledVector(SUN_DIR, 120);

@@ -5,7 +5,7 @@ import { buildPlayerCar, PLAYER_CARS } from './cars.js';
 import { Traffic, LANE_X } from './traffic.js';
 import { CameraRig } from './camera.js';
 import { CarPhysics, obbDistance, xExtent } from './physics.js';
-import { World, BARRIER_X } from './world.js';
+import { World, BARRIER_X, SUN_DIR } from './world.js';
 import { Effects } from './effects.js';
 import { Post } from './post.js';
 import { CONFIG } from './config.js';
@@ -42,10 +42,10 @@ export class Game {
   }
 
   /* ------------------------------------------------------- lifecycle */
-  start(defIndex, color, camMode) {
+  start(defIndex, color, camMode, style = 'stock') {
     const def = (this.def = PLAYER_CARS[defIndex]);
     if (this.player) this.scene.remove(this.player);
-    this.player = buildPlayerCar(def, color);
+    this.player = buildPlayerCar(def, color, style);
     this.player.traverse((o) => { if (o.isMesh && !o.userData.blob) o.castShadow = true; });
     this.scene.add(this.player);
     // headlights: one shadowless spot for the light pool + two faint additive beams
@@ -75,6 +75,7 @@ export class Game {
     this.fx.reset();
     this.rig.setMode(camMode);
     this.rig.shake = 0;
+    this.rig.startIntro();
     this.state = 'play';
   }
 
@@ -213,6 +214,7 @@ export class Game {
       this.fx.spark(wallSide * BARRIER_X, 0.6, -this.phl * 0.8, 80, 7);
     }
     this.rig.shake = 1.3;
+    this.rig.startCrash(Math.sign(ph.x || 1));
     this.audio.crash();
     this.finalScore = this.score;
     this.isRecord = this.finalScore > this.best;
@@ -251,14 +253,14 @@ export class Game {
       body.rotation.x += (pitch - body.rotation.x) * k;
       body.rotation.z += (roll - body.rotation.z) * k;
       this.buzz = (this.buzz || 0) + realDt * this.timeScale;
-      body.position.y = (Math.sin(this.buzz * 41) * 0.6 + Math.sin(this.buzz * 23.7) * 0.4) * 0.0025 * speedFrac;
+      body.position.y = (body.userData.baseY || 0) + (Math.sin(this.buzz * 41) * 0.6 + Math.sin(this.buzz * 23.7) * 0.4) * 0.0025 * speedFrac;
     }
     const braking = playing && this.input.brake;
     if (ud.tail) ud.tail.emissiveIntensity = braking ? 4.5 : 1.3;
     this.rpm = this.engineRpm(speedFrac);
     if (ud.setGauges) ud.setGauges(ph.speed * 3.6, this.rpm);
     this.rig.update(realDt, car, speedFrac);
-    this.world.update(this.camera, car);
+    this.world.update(this.camera, car, realDt);
 
     this.ui.hud({
       speed: ph.speed * 3.6,
@@ -266,8 +268,11 @@ export class Game {
       best: Math.max(this.best, playing ? this.score : 0),
       combo: this.combo,
       comboFrac: this.comboT / CONFIG.nearMiss.comboTime,
+      rpm: this.rpm,
+      gear: Math.min(6, Math.floor(speedFrac * 6) + 1),
     });
-    this.audio.update(speedFrac, this.input.gas ? 1 : 0.35, playing);
+    const slip = playing ? clamp((Math.abs(ph.slip) - CONFIG.grip.skidThreshold * 0.6) / 0.08, 0, 1) : this.state === 'crash' && ph.speed > 5 ? 0.8 : 0;
+    this.audio.update(speedFrac, this.input.gas ? 1 : 0.35, playing || this.state === 'crash', { rpm: this.rpm, slip, scrape: this.scrape > 0 ? 1 : 0 });
   }
 
   // simple 6-speed ladder shared with the gauges
@@ -293,6 +298,15 @@ export class Game {
       this.v3.copy(ex).applyMatrix4(this.player.userData.body.matrixWorld).project(cam);
       if (this.v3.z < 1) { haze = this.hazeUv || (this.hazeUv = new THREE.Vector2()); haze.set(this.v3.x * 0.5 + 0.5, this.v3.y * 0.5 + 0.5); hazeAmt = 0.6 + (this.input.gas ? 0.4 : 0); }
     }
-    this.post.render(realDt || 0.016, { speed: blur * blur, lines: blur, haze, hazeAmt });
+    // sun rays when the sun is on screen; crash grade while slowed down
+    let sun = null, sunAmt = 0;
+    this.v3.copy(cam.position).addScaledVector(SUN_DIR, 1000).project(cam);
+    if (this.v3.z < 1) {
+      sun = this.sunUv || (this.sunUv = new THREE.Vector2());
+      sun.set(this.v3.x * 0.5 + 0.5, this.v3.y * 0.5 + 0.5);
+      sunAmt = clamp(1.4 - Math.max(Math.abs(this.v3.x), Math.abs(this.v3.y)), 0, 1);
+    }
+    const crash = this.state === 'crash' ? Math.min(1, this.crashReal * 2.5) * (this.overShown ? 0.6 : 1) : 0;
+    this.post.render(realDt || 0.016, { speed: blur * blur, lines: blur, haze, hazeAmt, sun, sunAmt, crash });
   }
 }

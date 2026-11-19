@@ -74,6 +74,62 @@ export function loft(stations, section) {
   return g;
 }
 
+/**
+ * Sweep a closed 2D profile along a smooth curve. `axis` stays fixed (the
+ * profile's first coordinate); the second runs along the in-plane normal.
+ * profile(t) returns counter-clockwise [[a, b], ...] (same count for every t).
+ */
+export function sweep(points, axis, profile, segs = 48) {
+  const curveP = new THREE.CatmullRomCurve3(points, false, 'centripetal');
+  const A = axis.clone().normalize(), N = new THREE.Vector3();
+  const n = profile(0).length, pos = [], idx = [];
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs, p = curveP.getPointAt(t), T = curveP.getTangentAt(t);
+    N.crossVectors(A, T).normalize();
+    for (const [a, b] of profile(t)) pos.push(p.x + A.x * a + N.x * b, p.y + A.y * a + N.y * b, p.z + A.z * a + N.z * b);
+  }
+  for (let i = 0; i < segs; i++) for (let j = 0; j < n; j++) {
+    const a = i * n + j, b = i * n + ((j + 1) % n), c = (i + 1) * n + ((j + 1) % n), d = (i + 1) * n + j;
+    idx.push(a, c, b, a, d, c);
+  }
+  for (const [ring, start] of [[0, true], [segs, false]]) {
+    let cx = 0, cy = 0, cz = 0;
+    for (let j = 0; j < n; j++) { cx += pos[(ring * n + j) * 3]; cy += pos[(ring * n + j) * 3 + 1]; cz += pos[(ring * n + j) * 3 + 2]; }
+    const ci = pos.length / 3; pos.push(cx / n, cy / n, cz / n);
+    for (let j = 0; j < n; j++) { const a = ring * n + j, b = ring * n + ((j + 1) % n); if (start) idx.push(ci, a, b); else idx.push(ci, b, a); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+// counter-clockwise airfoil in (chord, thickness); leading edge at -chord/2
+export function airfoil(chord, thick, k = 10) {
+  const pts = [];
+  for (let i = 0; i <= k; i++) { const u = 1 - i / k; pts.push([chord * (u - 0.5), thick * 0.6 * Math.sin(Math.PI * Math.pow(u, 0.7))]); }
+  for (let i = 1; i < k; i++) { const u = i / k; pts.push([chord * (u - 0.5), -thick * 0.4 * Math.sin(Math.PI * Math.pow(u, 0.7))]); }
+  return pts;
+}
+
+export function roundedRectShape(w, h, r) {
+  const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+  r = Math.min(r, w / 2, h / 2);
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+
+// rounded-rect plate/housing facing +z, centred, `depth` deep with soft bevel
+export function roundedPlate(w, h, r, depth, bevel = 0.008) {
+  const g = new THREE.ExtrudeGeometry(roundedRectShape(w - bevel * 2, h - bevel * 2, Math.max(0.001, r - bevel)), { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 10 });
+  g.translate(0, 0, -depth / 2);
+  return g;
+}
+
 export function range(a, b, n) {
   const out = [];
   for (let i = 0; i < n; i++) out.push(lerp(a, b, i / (n - 1)));
@@ -121,14 +177,14 @@ function tireGeometry(r, rimR, w) {
 
 function spokeGeometry(rimR, w, spokes, style) {
   const parts = [];
-  const face = w / 2 - 0.02;
+  const face = w / 2 - (style === 'dish' ? 0.06 : 0.02); // dished wheels sit the spokes deeper
   for (let i = 0; i < spokes; i++) {
     const a = (i / spokes) * Math.PI * 2;
     const len = rimR - 0.05;
     const doubles = style === 'double' ? [-0.07, 0.07] : [0];
     for (const off of doubles) {
       // x = thickness along the axle, y = radial length, z = tangential width
-      const s = new THREE.BoxGeometry(0.03, len, style === 'double' ? 0.03 : 0.046);
+      const s = new THREE.BoxGeometry(0.03, len, style === 'double' ? 0.03 : style === 'dish' ? 0.085 : style === 'wide' ? 0.06 : 0.046);
       s.translate(0, 0.05 + len / 2, 0);
       // taper: narrow at the rim
       const p = s.attributes.position;
@@ -141,8 +197,13 @@ function spokeGeometry(rimR, w, spokes, style) {
       parts.push(s);
     }
   }
-  const hub = new THREE.CylinderGeometry(0.055, 0.065, 0.06, 16).rotateZ(Math.PI / 2).translate(face, 0, 0);
+  const hubR = style === 'dish' ? 0.085 : 0.055;
+  const hub = new THREE.CylinderGeometry(hubR, hubR + 0.01, 0.06, 20).rotateZ(Math.PI / 2).translate(face, 0, 0);
   parts.push(hub);
+  if (style === 'dish') {
+    // polished dish: a cone from the rim lip down to the spoke face
+    parts.push(new THREE.CylinderGeometry(rimR - 0.012, rimR - 0.045, 0.06, 32, 1, true).rotateZ(-Math.PI / 2).translate(w / 2 - 0.035, 0, 0));
+  }
   return mergeGeometries(parts.map((p) => p.toNonIndexed()));
 }
 
@@ -150,7 +211,26 @@ function spokeGeometry(rimR, w, spokes, style) {
  * Detailed wheel. Returns a Group (steer pivot) with userData.spin (rotating
  * part). The spokes face +x; mirror is handled by rotating left wheels.
  */
-export function buildWheel({ r = 0.33, rimR = 0.23, width = 0.245, spokes = 10, style = 'single', rimMat = MAT.alloy, caliper = MAT.caliperRed }) {
+let sidewallTex = null;
+function sidewallTexture() {
+  if (sidewallTex) return sidewallTex;
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.translate(256, 256);
+  g.fillStyle = 'rgba(150,150,150,0.55)'; g.font = 'bold 30px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const words = ['PERFORMANCE', '255/40 ZR18', 'RADIAL', 'TUBELESS'];
+  for (let w = 0; w < 4; w++) {
+    const text = words[w], a0 = (w / 4) * Math.PI * 2;
+    for (let i = 0; i < text.length; i++) {
+      g.save(); g.rotate(a0 + (i - text.length / 2) * 0.045); g.translate(0, -226); g.fillText(text[i], 0, 0); g.restore();
+    }
+  }
+  g.strokeStyle = 'rgba(120,120,120,0.35)'; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 246, 0, 7); g.stroke();
+  sidewallTex = new THREE.CanvasTexture(c); sidewallTex.colorSpace = THREE.SRGBColorSpace;
+  return sidewallTex;
+}
+
+export function buildWheel({ r = 0.33, rimR = 0.23, width = 0.245, spokes = 10, style = 'single', rimMat = MAT.alloy, caliper = MAT.caliperRed, sidewall = false }) {
   const key = `${r}|${rimR}|${width}|${spokes}|${style}`;
   if (!wheelCache.has(key)) {
     const ni = (g) => (g.index ? g.toNonIndexed() : g);
@@ -170,6 +250,14 @@ export function buildWheel({ r = 0.33, rimR = 0.23, width = 0.245, spokes = 10, 
   const cal = mesh(G.caliper, caliper, 0, 0, 0, false);
   cal.rotation.x = -0.6; // sits at the top-rear of the disc
   pivot.add(spin, cal);
+  if (sidewall) {
+    // lettering decal on the outer sidewall (RingGeometry UVs are planar, so the canvas maps straight on)
+    const ring = new THREE.Mesh(new THREE.RingGeometry(rimR + 0.012, r - 0.012, 48, 1).rotateY(Math.PI / 2),
+      new THREE.MeshStandardMaterial({ map: sidewallTexture(), transparent: true, roughness: 0.8, depthWrite: false }));
+    ring.position.x = width / 2 + 0.003;
+    ring.scale.setScalar(1);
+    spin.add(ring);
+  }
   pivot.userData.spin = spin;
   return pivot;
 }

@@ -19,7 +19,7 @@ const std = (o) => new THREE.MeshStandardMaterial(o);
 export const MAT = {
   glass: new THREE.MeshPhysicalMaterial({
     color: 0x05080c, metalness: 0.0, roughness: 0.05, transparent: true, opacity: 0.86,
-    envMapIntensity: 0.9, depthWrite: false,
+    envMapIntensity: 0.6, specularIntensity: 0.3, depthWrite: false,
   }),
   lens: new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: 0.02, transparent: true, opacity: 0.22, envMapIntensity: 2.5, depthWrite: false }),
   tire: std({ color: 0x151515, roughness: 0.9, metalness: 0 }),

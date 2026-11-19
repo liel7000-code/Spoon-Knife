@@ -83,6 +83,7 @@ export class Traffic {
       });
       it.x = LANE_X[lane] + it.jitter;
       it.mesh.userData.recolor();
+      it.mesh.userData.setLightsOn(Math.random() < 0.35);
       it.mesh.rotation.set(0, 0, 0);
       it.mesh.position.set(it.x, 0, it.z);
       it.mesh.visible = true;
