@@ -175,6 +175,10 @@ kbd { font-family: var(--num); font-size: 11px; border: 1px solid var(--line); b
 .g-gear { margin-top: 6px; font: 700 20px var(--num); color: var(--accent-2); border: 1px solid rgba(255,194,61,.4); border-radius: 6px; padding: 0 8px; }
 .gauge.redline .g-arc { animation: limiter .12s steps(2) infinite; }
 @keyframes limiter { 50% { opacity: .55; } }
+/* cockpit view: the dash has real gauges, so the HUD one moves out of the way */
+#hud.cockpit .gauge { left: auto; right: max(16px, env(safe-area-inset-right)); transform: none; width: 140px; height: 140px; }
+#hud.cockpit .g-center b { font-size: 40px; }
+#hud.cockpit .g-ticks text { display: none; }
 .tool { display: grid; place-items: center; width: 42px; height: 42px; padding: 0; }
 .tool svg { width: 22px; height: 22px; }
 .tool .cross { display: none; }

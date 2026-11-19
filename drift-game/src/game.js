@@ -48,22 +48,14 @@ export class Game {
     this.player = buildPlayerCar(def, color, style);
     this.player.traverse((o) => { if (o.isMesh && !o.userData.blob) o.castShadow = true; });
     this.scene.add(this.player);
-    // headlights: one shadowless spot for the light pool + two faint additive beams
+    // headlights: one shadowless spot for the light pool
     const body = this.player.userData.body;
     const spot = (this.headlight = new THREE.SpotLight('#fff0d0', 90, 80, 0.38, 0.55, 1.4));
     spot.position.set(0, 0.62, -def.length / 2 + 0.2);
     spot.target.position.set(0, 0, -30);
     spot.visible = this.quality.headlights;
     body.add(spot, spot.target);
-    const beamMat = new THREE.MeshBasicMaterial({ color: '#ffe9c4', transparent: true, opacity: 0.016, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
-    const beamGeo = new THREE.ConeGeometry(2.2, 16, 18, 1, true).rotateX(Math.PI / 2).translate(0, 0, -8); // apex at the lamp
-    for (const s of [-1, 1]) {
-      const beam = new THREE.Mesh(beamGeo, beamMat);
-      beam.position.set(s * 0.6, 0.62, -def.length / 2 + 0.1);
-      beam.rotation.x = 0.03;
-      beam.renderOrder = 4;
-      body.add(beam);
-    }
+    // the spotlight alone lights the road; visible beam cones looked like grey wedges
     this.phys = new CarPhysics(def);
     this.phys.reset(LANE_X[1]);
     this.crashSpin = 0; this.crashVx = 0;
@@ -260,6 +252,8 @@ export class Game {
     this.rpm = this.engineRpm(speedFrac);
     if (ud.setGauges) ud.setGauges(ph.speed * 3.6, this.rpm);
     this.rig.update(realDt, car, speedFrac);
+    const cockpit = this.rig.mode === 'first' && !this.rig.crash;
+    if (cockpit !== this.cockpitHud) { this.cockpitHud = cockpit; document.getElementById('hud').classList.toggle('cockpit', cockpit); }
     this.world.update(this.camera, car, realDt);
 
     this.ui.hud({

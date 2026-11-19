@@ -100,7 +100,7 @@ export class Showroom {
     if (mode === 'menu' && !portrait) cam.setViewOffset(size.x, size.y, size.x * 0.2, 0, size.x, size.y);
     else cam.clearViewOffset();
     if (portrait) lookY = mode === 'garage' ? -2.4 : -2.0;
-    else if (mode === 'garage') lookY = -0.55;
+    else if (mode === 'garage') lookY = -1.25;
     cam.lookAt(0, lookY, 0);
     cam.updateProjectionMatrix();
     if (this.post) {
