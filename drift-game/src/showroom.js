@@ -20,6 +20,7 @@ export class Showroom {
       new THREE.MeshStandardMaterial({ color: '#23262d', metalness: 0.6, roughness: 0.25 }),
     );
     podium.position.y = 0.07;
+    podium.receiveShadow = true;
     scene.add(podium);
     const ring = new THREE.Mesh(
       new THREE.TorusGeometry(3.38, 0.03, 8, 96).rotateX(Math.PI / 2),
@@ -31,6 +32,10 @@ export class Showroom {
     scene.add(new THREE.HemisphereLight('#c9d6ff', '#2a2420', 0.6));
     const key = new THREE.SpotLight('#ffffff', 140, 30, 0.55, 0.6, 1.4);
     key.position.set(4, 7, 4);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.bias = -0.0005;
+    key.shadow.radius = 4;
     scene.add(key, key.target);
     const rim = new THREE.DirectionalLight('#ff9a5c', 1.4);
     rim.position.set(-6, 3, -5);
@@ -46,6 +51,7 @@ export class Showroom {
   setCar(def, color) {
     if (this.car) this.turn.remove(this.car);
     this.car = buildPlayerCar(def, color);
+    this.car.traverse((o) => { if (o.isMesh && !o.userData.blob) o.castShadow = true; });
     this.turn.add(this.car);
   }
 

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 
 const v1 = new THREE.Vector3();
 const v2 = new THREE.Vector3();
+const q1 = new THREE.Quaternion();
 
 export class CameraRig {
   constructor(camera) {
@@ -39,14 +40,14 @@ export class CameraRig {
       cam.up.set(0, 1, 0);
       cam.lookAt(this.look);
     } else {
-      baseFov = 70;
+      baseFov = 62;
       car.updateMatrixWorld();
-      const eye = car.userData.eye;
-      v1.copy(eye).applyMatrix4(car.matrixWorld);
-      v2.set(eye.x, eye.y - 0.32, eye.z - 14).applyMatrix4(car.matrixWorld);
+      const eye = car.userData.eye, frame = car.userData.body || car; // body rolls/pitches
+      v1.copy(eye).applyMatrix4(frame.matrixWorld);
+      v2.set(eye.x, eye.y - 0.3, eye.z - 14).applyMatrix4(frame.matrixWorld);
       cam.position.copy(v1);
       // roll with the body so lane changes feel physical
-      cam.up.set(0, 1, 0).applyQuaternion(car.quaternion);
+      cam.up.set(0, 1, 0).applyQuaternion(frame.getWorldQuaternion(q1));
       cam.lookAt(v2);
     }
     this.snap = false;

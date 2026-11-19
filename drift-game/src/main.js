@@ -2,12 +2,13 @@
 import './style.css';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { PLAYER_CARS } from './cars.js';
+import { PLAYER_CARS, loadSupraGLB } from './cars.js';
 import { Game } from './game.js';
 import { Showroom } from './showroom.js';
 import { UI } from './ui.js';
 import { Input } from './input.js';
 import { EngineAudio } from './audio.js';
+import { QUALITY, QUALITY_ORDER } from './config.js';
 
 const STEP = 1 / 120; // fixed logic step (seconds)
 const MAX_FRAME = 0.1;
@@ -19,9 +20,11 @@ const store = {
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 0.68;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const pmrem = new THREE.PMREMGenerator(renderer);
 const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -30,12 +33,22 @@ const settings = {
   car: store.get('driftgame.car', 0),
   colors: store.get('driftgame.colors', {}),
   cam: store.get('driftgame.cam', 'third'),
+  quality: store.get('driftgame.quality', Input.isTouch() ? 'medium' : 'high'),
 };
+if (!QUALITY[settings.quality]) settings.quality = 'high';
+const applyPixelRatio = () => renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QUALITY[settings.quality].pixelRatio));
+applyPixelRatio();
 if (!PLAYER_CARS[settings.car]) settings.car = 0;
 const colorOf = (i) => settings.colors[PLAYER_CARS[i].id] || PLAYER_CARS[i].color;
 
 const audio = new EngineAudio();
-const input = new Input(canvas);
+const input = new Input();
+const tiltBtn = document.getElementById('btnTilt');
+tiltBtn.addEventListener('click', async () => {
+  const on = await input.setTilt(!input.tiltEnabled); // asks for motion permission on iOS
+  tiltBtn.setAttribute('aria-pressed', String(on));
+  tiltBtn.parentElement.classList.toggle('tilting', on);
+});
 const showroom = new Showroom(envMap);
 let screen = 'menu';
 
@@ -62,13 +75,20 @@ const ui = new UI({
     ui.setCamPref(settings.cam);
   },
   onMute: () => { audio.setMuted(!audio.muted); ui.setMuted(audio.muted); },
+  onQuality: () => {
+    settings.quality = QUALITY_ORDER[(QUALITY_ORDER.indexOf(settings.quality) + 1) % QUALITY_ORDER.length];
+    store.set('driftgame.quality', settings.quality);
+    applyPixelRatio(); resize();
+    game.setQuality(QUALITY[settings.quality]);
+    ui.setQuality(QUALITY[settings.quality].label);
+  },
   onCamToggle: () => toggleCam(),
   onRetry: () => startRun(),
   onMenu: () => { game.stop(); go('menu'); },
 });
 
 const game = new Game(renderer, {
-  ui, audio, input, envMap,
+  ui, audio, input, quality: QUALITY[settings.quality],
   onGameOver: (result) => { ui.gameOver(result); go('over'); },
 });
 
@@ -79,7 +99,6 @@ function toggleCam() {
   ui.setCamPref(settings.cam);
 }
 
-input.onLane = (dir) => game.lane(dir);
 input.onCamera = () => toggleCam();
 
 function refreshMenu() {
@@ -121,6 +140,7 @@ resize();
 showroom.setCar(PLAYER_CARS[settings.car], colorOf(settings.car));
 ui.setCamPref(settings.cam);
 ui.setMuted(audio.muted);
+ui.setQuality(QUALITY[settings.quality].label);
 go('menu');
 
 // fixed-timestep simulation, variable-rate rendering
@@ -134,7 +154,7 @@ function loop(now) {
     let steps = 0;
     while (acc >= STEP && steps < 24) { game.update(STEP); acc -= STEP; steps++; }
     game.frame(realDt);
-    game.render();
+    game.render(realDt);
   } else {
     showroom.render(renderer, realDt, screen);
   }
@@ -144,4 +164,8 @@ requestAnimationFrame(loop);
 
 document.addEventListener('visibilitychange', () => { last = performance.now(); });
 // for automated checks
-window.__drift = { game, settings };
+window.__drift = { game, settings, showroom };
+window.__cars = PLAYER_CARS;
+
+// optional hero model: public/models/supra.glb replaces the procedural Supra when present
+loadSupraGLB().then((m) => { if (m && PLAYER_CARS[settings.car].id === 'supra') showroom.setCar(PLAYER_CARS[settings.car], colorOf(settings.car)); });

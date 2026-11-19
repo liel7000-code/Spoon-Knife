@@ -2,7 +2,7 @@
 import { PLAYER_CARS, STAT_RANGE } from './cars.js';
 
 const $ = (id) => document.getElementById(id);
-const SWATCHES = ['#d6281f', '#f2b300', '#7d8a96', '#f4f4f0', '#16181c', '#1f4fd1', '#1f8a5b', '#ff6a00', '#7a2fd0', '#e8c8a0'];
+const SWATCHES = ['#8c0b12', '#f1efe9', '#e8b10c', '#1f4fa8', '#d6281f', '#7d8a96', '#16181c', '#1f4fd1', '#1f8a5b', '#ff6a00', '#7a2fd0', '#e8c8a0'];
 const fmt = (n) => Math.round(n).toLocaleString('he-IL');
 
 export class UI {
@@ -15,6 +15,7 @@ export class UI {
     $('btnGarage').onclick = () => handlers.onGarage();
     $('btnCamPref').onclick = () => handlers.onCamPref();
     $('btnMuteMenu').onclick = () => handlers.onMute();
+    $('btnQuality').onclick = () => handlers.onQuality();
     $('garageBack').onclick = () => handlers.onBack();
     $('garageStart').onclick = () => handlers.onStart();
     $('prevCar').onclick = () => handlers.onCar(-1);
@@ -51,6 +52,10 @@ export class UI {
 
   setCamPref(mode) {
     $('btnCamPref').textContent = `מצלמה: ${mode === 'first' ? 'גוף ראשון' : 'גוף שלישי'}`;
+  }
+
+  setQuality(label) {
+    $('btnQuality').textContent = `איכות גרפיקה: ${label}`;
   }
 
   setMuted(m) {

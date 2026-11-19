@@ -23,6 +23,7 @@
         <button id="btnGarage" class="btn">בחירת רכב</button>
         <button id="btnCamPref" class="btn ghost">מצלמה: גוף שלישי</button>
         <button id="btnMuteMenu" class="btn ghost">צליל: פועל</button>
+        <button id="btnQuality" class="btn ghost">איכות גרפיקה: גבוהה</button>
       </div>
       <div class="menu-best">שיא: <b id="menuBest" dir="ltr">0</b></div>
       <div class="keys">
@@ -91,9 +92,11 @@
 
   <!-- Touch controls (physical left/right, so LTR) -->
   <div id="touch" dir="ltr" hidden>
-    <div class="tgroup">
-      <button data-act="left" aria-label="נתיב שמאלה">◀</button>
-      <button data-act="right" aria-label="נתיב ימינה">▶</button>
+    <div class="tgroup steer-group">
+      <div id="steerPad" class="steer-pad" role="slider" aria-label="הגה" aria-valuemin="-1" aria-valuemax="1">
+        <div id="steerKnob" class="steer-knob">⟷</div>
+      </div>
+      <button id="btnTilt" class="tilt" aria-pressed="false">הטיה</button>
     </div>
     <div class="tgroup">
       <button data-act="brake" aria-label="בלם">▼</button>

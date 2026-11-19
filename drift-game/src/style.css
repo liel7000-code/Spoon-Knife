@@ -177,6 +177,21 @@ kbd { font-family: var(--num); font-size: 11px; border: 1px solid var(--line); b
   font-size: 22px; touch-action: none;
 }
 #touch button.on { background: rgba(255, 90, 31, .55); }
+.steer-group { flex-direction: column; align-items: flex-start; gap: 8px; }
+.steer-pad {
+  position: relative; width: min(220px, 46vw); height: 64px; border-radius: 32px;
+  background: rgba(15,17,22,.55); border: 1px solid rgba(255,255,255,.25); touch-action: none;
+  display: grid; place-items: center;
+}
+.steer-pad::before { content: ""; position: absolute; inset: 31px 22px auto; height: 2px; background: rgba(255,255,255,.18); }
+.steer-knob {
+  width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,.88); color: #1a1c20;
+  display: grid; place-items: center; font-size: 20px; font-weight: 800; pointer-events: none; transition: transform .12s ease-out;
+}
+.steer-pad:active .steer-knob { transition: none; }
+#touch button.tilt { width: auto; height: 34px; border-radius: 17px; font-size: 13px; padding: 0 14px; font-family: var(--font); }
+#touch button.tilt[aria-pressed="true"] { background: rgba(255, 90, 31, .7); }
+.steer-group.tilting .steer-pad { opacity: .35; }
 
 /* ---------- game over ---------- */
 .over-card { text-align: center; }
