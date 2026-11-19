@@ -382,6 +382,8 @@ export const STAT_RANGE = { topSpeed: [220, 330], accel: [0.4, 1], handling: [0.
 /* ------------------------------------------------------- optional GLB */
 let supraGLB = null;
 export async function loadSupraGLB() {
+  // single-file builds have no models folder; skip the probe so nothing 404s
+  if (location.protocol === 'file:' || window.__driftNoModels) return null;
   try {
     const res = await fetch('models/supra.glb', { method: 'HEAD' });
     const type = res.headers.get('content-type') || '';
