@@ -23,6 +23,7 @@ import { QUALITY, QUALITY_ORDER } from './config.js';
 import { DriftGame } from './drift/driftGame.js';
 import { DriftUI } from './drift/driftUI.js';
 import { TRACKS } from './drift/trackData.js';
+import { loadTune, saveTune, resetTune } from './drift/tune.js';
 
 const STEP = 1 / 120; // fixed logic step (seconds)
 const MAX_FRAME = 0.1;
@@ -51,9 +52,18 @@ const settings = {
   mode: 'highway',
   track: store.get('driftgame.track', 0),
   session: store.get('driftgame.session', 'attack'),
-  assist: store.get('driftgame.assist', Input.isTouch() ? 'drift' : 'counter'),
+  assist: store.get('driftgame.assist2', null),
 };
 if (!TRACKS[settings.track]) settings.track = 0;
+// drift assists: level (beginner / pro / sim) + traction control, ABS, manual gearbox. TC and ABS are off by
+// default in drift mode (they fight a slide); older saves stored only a level name
+if (!settings.assist || typeof settings.assist !== 'object') {
+  const old = store.get('driftgame.assist', null);
+  const level = { drift: 'beginner', counter: 'pro', off: 'sim' }[old] || (Input.isTouch() ? 'beginner' : 'pro');
+  settings.assist = { level, tc: false, abs: false, manual: false };
+}
+const saveAssist = () => { store.set('driftgame.assist2', settings.assist); dui.setAssist(settings.assist); if (drift) drift.setAssist(settings.assist); document.getElementById('touch').classList.toggle('manual', !!settings.assist.manual); };
+let tuneDraft = null;
 if (!QUALITY[settings.quality]) settings.quality = 'high';
 // pixel ratio: device ratio capped at 2 (or the quality preset's cap); the adaptive
 // fallback in the loop steps it down if the frame rate drops
@@ -151,7 +161,13 @@ const dui = new DriftUI({
   onBack: (from) => go(from === 'sessions' ? 'tracks' : 'garage'),
   onTrack: (i) => { settings.track = i; store.set('driftgame.track', i); go('sessions'); },
   onSession: (id) => { settings.session = id; store.set('driftgame.session', id); dui.renderSessions(settings.track, id, settings.assist); },
-  onAssist: (a) => { settings.assist = a; store.set('driftgame.assist', a); dui.setAssist(a); if (drift) drift.setAssist(a); },
+  onAssist: (level) => { settings.assist = { ...settings.assist, level }; saveAssist(); },
+  onToggle: (key) => { settings.assist = { ...settings.assist, [key]: !settings.assist[key] }; saveAssist(); },
+  onTune: () => { tuneDraft = loadTune(PLAYER_CARS[settings.car].id); dui.renderTune(PLAYER_CARS[settings.car], tuneDraft); go('tune'); },
+  onTuneChange: (k, v) => { tuneDraft[k] = v; },
+  onTuneClose: (save) => { if (save && tuneDraft) saveTune(PLAYER_CARS[settings.car].id, tuneDraft); tuneDraft = null; go('sessions'); },
+  onTuneReset: () => { tuneDraft = resetTune(PLAYER_CARS[settings.car].id); dui.renderTune(PLAYER_CARS[settings.car], tuneDraft); },
+  onDebug: () => toggleDebug(),
   onStart: () => startDrift(),
   onPause: () => pauseDrift(),
   onResume: () => { drift.resume(); go('drift'); },
@@ -172,6 +188,9 @@ function startDrift() {
   acc = 0;
   go('drift');
 }
+function ui_tuneClose() { dui.h.onTuneClose(false); }
+function toggleDebug() { if (drift) drift.setDebug(!drift.debug); }
+input.onDebug = () => { if (screen === 'drift' || screen === 'dpause') toggleDebug(); };
 function pauseDrift() { if (drift && (drift.state === 'play' || drift.state === 'countdown')) { drift.pause(); go('dpause'); } }
 // back to the highway look (its exposure and shadow settings) when leaving drift mode
 function leaveDrift() { game.setTime(settings.night); game.setQuality(QUALITY[settings.quality]); }
@@ -183,11 +202,12 @@ function refreshMenu() {
 
 function go(name) {
   screen = name;
-  const driftScreen = { tracks: 'tracks', sessions: 'sessions', drift: 'hud', dpause: 'pause', dover: 'results', replay: 'replay' }[name];
+  const driftScreen = { tracks: 'tracks', sessions: 'sessions', tune: 'tune', drift: 'hud', dpause: 'pause', dover: 'results', replay: 'replay' }[name];
   ui.show(name === 'play' ? 'hud' : driftScreen ? '_none' : name, Input.isTouch());
   if (driftScreen) dui.show(driftScreen); else dui.hideAll();
   const touch = document.getElementById('touch');
   touch.classList.toggle('drift', name === 'drift');
+  touch.classList.toggle('manual', !!settings.assist.manual);
   if (name === 'drift') touch.hidden = false;
   document.getElementById('garageStart').textContent = settings.mode === 'drift' ? 'המשך לבחירת מסלול' : 'התחל';
   if (name === 'tracks') dui.renderTracks(PLAYER_CARS[settings.car], settings.track);
@@ -218,6 +238,7 @@ window.addEventListener('keydown', (e) => {
   if (k === 'escape' && screen === 'garage') go('menu');
   else if (k === 'escape' && screen === 'tracks') go('garage');
   else if (k === 'escape' && screen === 'sessions') go('tracks');
+  else if (k === 'escape' && screen === 'tune') ui_tuneClose();
   else if (k === 'escape' && screen === 'drift') pauseDrift();
   else if (k === 'escape' && screen === 'dpause') { drift.resume(); go('drift'); }
   else if (k === 'escape' && screen === 'replay') { drift.stopReplay(); go('dover'); }
@@ -271,7 +292,8 @@ function loop(now) {
     acc += realDt;
     let steps = 0;
     while (acc >= STEP && steps < 24) { drift.update(STEP); acc -= STEP; steps++; }
-    if (steps >= 24) acc = 0;
+    if (steps >= 24) acc = 0; // lag spike: drop the backlog instead of fast-forwarding
+    drift.alpha = acc / STEP;  // render between the last two physics steps
     drift.frame(realDt);
     drift.render(realDt);
   } else if (screen === 'play' || screen === 'over') {

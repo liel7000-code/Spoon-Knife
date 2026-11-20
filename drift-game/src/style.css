@@ -408,3 +408,24 @@ kbd { font-family: var(--num); font-size: 11px; border: 1px solid var(--line); b
   .pick-top h2 { font-size: 20px; }
   .screen { padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: max(10px, env(safe-area-inset-bottom)); }
 }
+
+/* drift: assists toggles, tuning, debug, paddles, rpm bar */
+.toggles { display: flex; gap: 6px; flex-wrap: wrap; }
+.tog { flex: 1; font: inherit; font-size: 13px; font-weight: 600; color: var(--dim); background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; cursor: pointer; }
+.tog.on { color: #1a0a03; background: var(--accent-2); border-color: transparent; }
+.tune-list { display: grid; gap: 10px; }
+.tune-row { display: grid; gap: 3px; }
+.tune-row .tr-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.tune-row b { font: 700 15px var(--num); color: var(--accent-2); }
+.tune-row input[type=range] { width: 100%; accent-color: var(--accent); direction: ltr; }
+.tune-row p { margin: 0; font-size: 12px; color: var(--dim); line-height: 1.35; }
+.dbg { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: calc(max(12px, env(safe-area-inset-bottom)) + 110px); margin: 0; padding: 8px 10px; background: rgba(0,0,0,.72); color: #c8f7ff; font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace; border-radius: 8px; pointer-events: none; white-space: pre; z-index: 8; }
+#touch .paddles { display: none; }
+#touch.drift.manual .paddles { display: flex; flex-direction: row; position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 70px); right: max(14px, env(safe-area-inset-right)); gap: 10px; }
+#touch button.paddle { width: 54px; height: 54px; min-width: 54px; min-height: 54px; border-radius: 14px; font: 800 26px var(--num); }
+@media (pointer: fine) { #touch.drift.manual .paddles { display: none; } }
+.d-rpm { grid-column: 1 / -1; display: block; height: 4px; border-radius: 2px; background: rgba(255,255,255,.15); overflow: hidden; margin-top: 3px; }
+.d-rpm i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #3ddc84, #ffc23d 70%, #ff3a2a); }
+/* debug readout beside the minimap, clear of the touch controls */
+.dbg { top: calc(max(12px, env(safe-area-inset-top)) + 84px); left: calc(max(12px, env(safe-area-inset-left)) + 124px); bottom: auto; font-size: 10.5px; }
+@media (max-width: 720px) { .dbg { top: calc(max(12px, env(safe-area-inset-top)) + 74px); left: calc(max(12px, env(safe-area-inset-left)) + 98px); font-size: 9px; } }

@@ -62,38 +62,8 @@ export const QUALITY = {
 export const QUALITY_ORDER = ['high', 'medium', 'low'];
 
 /* ------------------------------------------------------------ drift mode */
-// Drift physics per car (rear-wheel drive in drift mode, a deliberate choice for the
-// Shogun too: its "drift setup" sends everything to the rear).
-//   mass kg, power kW, muF/muR front/rear tyre friction, lock = max front-wheel angle (rad),
-//   wb = wheelbase m, front = share of weight on the front axle, inertia = yaw inertia scale,
-//   cgH = centre of gravity height m, top = top speed km/h
-export const DRIFT_TUNING = {
-  kaito: { mass: 1450, power: 330, muF: 1.02, muR: 1.08, lock: 0.66, wb: 2.55, front: 0.53, inertia: 1.0, cgH: 0.5, top: 240 },
-  hoshi: { mass: 1250, power: 250, muF: 1.04, muR: 1.09, lock: 0.7, wb: 2.43, front: 0.5, inertia: 0.88, cgH: 0.46, top: 225 },
-  shogun: { mass: 1560, power: 380, muF: 1.05, muR: 1.12, lock: 0.6, wb: 2.67, front: 0.55, inertia: 1.08, cgH: 0.52, top: 250 },
-  valkor: { mass: 1830, power: 440, muF: 1.0, muR: 1.06, lock: 0.56, wb: 2.98, front: 0.53, inertia: 1.2, cgH: 0.54, top: 255 },
-  adler: { mass: 1720, power: 400, muF: 1.0, muR: 1.03, lock: 0.6, wb: 2.84, front: 0.55, inertia: 1.12, cgH: 0.53, top: 245 },
-  strassen: { mass: 1180, power: 290, muF: 1.0, muR: 1.07, lock: 0.72, wb: 2.27, front: 0.4, inertia: 0.82, cgH: 0.45, top: 230 },
-};
-export const driftTuningFor = (id) => ({ ...DRIFT_TUNING.kaito, ...(DRIFT_TUNING[id] || {}) });
-
+// Drift-mode car physics lives in src/physics/ (vehicle.js + carSpecs.js); only scoring is set here.
 export const DRIFT = {
-  gravity: 9.81,
-  peakSlipF: 0.13, peakSlipR: 0.11, // slip angle (rad) where a tyre gives its most grip
-  slideGrip: 0.82,                  // fraction of peak grip left when fully sliding
-  brakeG: 1.0,                      // brake force in g
-  handbrakeGrip: 0.45,              // rear lateral grip while the handbrake locks the wheels
-  dragArea: 0.72, rolling: 0.015,
-  steerRate: 4.2, steerReturn: 6.5, // keyboard steering speed (lock fractions per second)
-  throttleRate: 5, throttleDrop: 9,
-  clutchKick: { time: 0.3, boost: 2.2 },
-  offroadGrip: 0.62, offroadDrag: 0.9, // run-off surface
-  assist: {
-    counterGain: 1.05,  // counter-steer assist: front wheels follow the slide
-    holdAngle: 0.62,    // drift assist: angle (rad) it tries not to go beyond
-    yawDamp: 7,         // drift assist: correction strength past holdAngle
-    sustain: 0.12,      // drift assist: extra drive that keeps a slide from dying
-  },
   score: {
     minAngle: 12, minKmh: 25, rate: 0.12, // points per second = angle deg * km/h * rate * multiplier
     straightGrace: 0.75, slowGrace: 1.0,  // seconds before a straightened/slow drift ends

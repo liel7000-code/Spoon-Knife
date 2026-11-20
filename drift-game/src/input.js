@@ -12,6 +12,8 @@ export class Input {
     this.hand = false;
     this.kickPending = false;   // drift: clutch kick (Shift, or a quick double tap on the gas)
     this.resetPending = false;  // drift: put the car back on the track (R)
+    this.shiftUpPending = false; this.shiftDownPending = false; // drift, manual gearbox (E / Q, paddles)
+    this.onDebug = () => {};
     this.lastGasUp = -1;
     this.slider = 0;          // -1..1 from the on-screen slider
     this.sliderActive = false;
@@ -28,6 +30,9 @@ export class Input {
       if (!e.repeat && k === 'c') this.onCamera();
       if (!e.repeat && k === 'shift') this.kickPending = true;
       if (!e.repeat && k === 'r') this.resetPending = true;
+      if (!e.repeat && k === 'e') this.shiftUpPending = true;
+      if (!e.repeat && k === 'q') this.shiftDownPending = true;
+      if (!e.repeat && (k === 'f3' || k === '`')) { e.preventDefault(); this.onDebug(); }
     });
     window.addEventListener('keyup', (e) => { this.keysHeld.delete(e.key.toLowerCase()); this.sync(); });
     window.addEventListener('blur', () => { this.keysHeld.clear(); this.sync(); });
@@ -43,6 +48,11 @@ export class Input {
       for (const ev of ['pointerup', 'pointercancel', 'pointerleave', 'lostpointercapture']) btn.addEventListener(ev, release);
       btn.addEventListener('contextmenu', (e) => e.preventDefault()); // long-press menu on phones
     });
+    // gear paddles (drift, manual gearbox): one shift per tap
+    for (const [id, key] of [['padUp', 'shiftUpPending'], ['padDown', 'shiftDownPending']]) {
+      const b = document.getElementById(id);
+      if (b) b.addEventListener('pointerdown', (e) => { e.preventDefault(); this[key] = true; b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 120); });
+    }
     // safety net: a finger lifted anywhere releases anything it was holding
     window.addEventListener('pointerup', (e) => document.querySelectorAll('#touch [data-act]').forEach((b) => b.dispatchEvent(new PointerEvent('pointercancel', { pointerId: e.pointerId }))));
 

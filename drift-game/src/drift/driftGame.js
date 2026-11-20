@@ -5,8 +5,10 @@ import * as THREE from 'three';
 import { buildPlayerCar, PLAYER_CARS } from '../cars.js';
 import { maxAnisotropy } from '../parts.js';
 import { Post } from '../post.js';
-import { tuningFor, DRIFT } from '../config.js';
-import { DriftPhysics } from './driftPhysics.js';
+import { tuningFor } from '../config.js';
+import { Vehicle, SURFACES } from '../physics/vehicle.js';
+import { specFor } from '../physics/carSpecs.js';
+import { loadTune, toPhysics } from './tune.js';
 import { Track } from './track.js';
 import { THEMES } from './scenery.js';
 import { DriftFx } from './driftFx.js';
@@ -83,13 +85,20 @@ export class DriftGame {
     const head = (this.headlight = new THREE.SpotLight('#fff0d0', this.ctx.night ? 260 : 0, 70, 0.5, 0.5, 1.4));
     head.position.set(0, 0.62, -carDef.length / 2 + 0.2); head.target.position.set(0, -1, -25);
     this.player.userData.body.add(head, head.target);
-    this.ph = new DriftPhysics(carDef);
-    this.ph.assist = assist;
+    this.ph = new Vehicle(specFor(carDef.id), toPhysics(loadTune(carDef.id)));
+    this.setAssist(assist);
     this.tune = tuningFor(carDef.id);
     this.audio.setProfile && this.audio.setProfile(this.tune);
     const sp = this.track.spawn(14);
-    this.ph.reset(sp.x, sp.z, sp.yaw, sp.y);
     this.hint = sp.i;
+    // what is under each wheel (surface + height, curbs are bumpy)
+    this.whint = [sp.i, sp.i, sp.i, sp.i]; this.wq = {};
+    this.env = { sample: (x, z, i, out) => { this.whint[i] = this.track.surfaceAt(x, z, this.whint[i], out, this.wq); } };
+    this.ph.reset(sp.x, sp.z, sp.yaw, sp.y);
+    this.ph.sampleGround(this.env, 1 / 120);
+    this.pose = makePose(); this.prev = makePose();
+    this.syncPose(); copyPose(this.prev, this.pose);
+    this.curbT = 0; this.slideShake = 0;
     this.scoring = new DriftScoring((k, p, x) => this.onScore(k, p, x));
     this.fx.reset();
     this.time = 0; this.lap = 0; this.lapT = 0; this.bestLap = null; this.laps = [];
@@ -121,7 +130,67 @@ export class DriftGame {
   pause() { if (this.state === 'play' || this.state === 'countdown') { this.resumeTo = this.state; this.state = 'paused'; } }
   resume() { if (this.state === 'paused') this.state = this.resumeTo || 'play'; }
 
-  setAssist(a) { if (this.ph) this.ph.assist = a; }
+  // assists: { level: 'beginner' | 'pro' | 'sim', tc, abs, manual }
+  setAssist(a) {
+    this.assistCfg = a;
+    if (!this.ph) return;
+    this.ph.assist.level = a.level; this.ph.assist.tc = !!a.tc; this.ph.assist.abs = !!a.abs;
+    this.ph.manual = !!a.manual;
+  }
+
+  /* ------------------------------------------------------ debug overlay */
+  setDebug(on) {
+    this.debug = on;
+    const el = document.getElementById('dbg');
+    if (el) el.hidden = !on;
+    if (on && !this.dbgArrows && this.scene) {
+      this.dbgArrows = [];
+      for (let i = 0; i < 8; i++) {
+        const a = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), 1, i < 4 ? 0x2fd8ff : 0xffc23d, 0.22, 0.12);
+        a.line.material.depthTest = false; a.cone.material.depthTest = false; a.renderOrder = 10;
+        this.scene.add(a); this.dbgArrows.push(a);
+      }
+    }
+    if (this.dbgArrows) for (const a of this.dbgArrows) a.visible = on;
+  }
+
+  // tyre force (cyan, horizontal, length = force / weight) and load (yellow, up) per wheel + numbers
+  debugDraw() {
+    const ph = this.ph, sy = Math.sin(ph.yaw), cy = Math.cos(ph.yaw), wgt = ph.c.mass * 9.81;
+    if (!this.dbgArrows || this.dbgArrows[0].parent !== this.scene) { this.dbgArrows = null; this.setDebug(true); }
+    ph.wheels.forEach((w, i) => {
+      const cs = Math.cos(w.steer), sn = Math.sin(w.steer);
+      const ff = w.fx * cs + w.fy * sn, fs = -w.fx * sn + w.fy * cs;
+      const fx = -sy * ff + cy * fs, fz = -cy * ff - sy * fs, mag = Math.hypot(fx, fz);
+      const fa = this.dbgArrows[i], la = this.dbgArrows[i + 4];
+      fa.position.set(w.wx, w.gY + 0.12, w.wz);
+      if (mag > 1) { fa.setDirection(V.set(fx / mag, 0, fz / mag)); fa.setLength(0.3 + (mag / wgt) * 6, 0.22, 0.12); fa.visible = true; } else fa.visible = false;
+      la.position.set(w.wx, w.gY + 0.12, w.wz); la.setLength(0.15 + (w.load / wgt) * 4, 0.18, 0.1);
+    });
+    this.dbgT = (this.dbgT || 0) - 1;
+    if (this.dbgT > 0) return;
+    this.dbgT = 6;
+    const el = document.getElementById('dbg');
+    if (!el) return;
+    const d = (r) => ((r * 180) / Math.PI).toFixed(1).padStart(6);
+    const names = ['FL', 'FR', 'RL', 'RR'];
+    const rows = ph.wheels.map((w, i) => `${names[i]} ${d(w.alpha)}° ${w.kappa.toFixed(2).padStart(6)} ${(w.load / 1000).toFixed(2).padStart(5)}kN ${w.slip.toFixed(2).padStart(5)} ${(SURFACES[w.surface] || SURFACES[0]).name.padEnd(8)} ${w.steer ? d(w.steer) + '°' : ''}`);
+    el.textContent = [
+      `speed ${ph.kmh.toFixed(1)} km/h   rpm ${ph.rpm.toFixed(0)}   gear ${ph.gear}${ph.shiftT > 0 ? ' (shifting)' : ''}   clutch ${ph.clutchLocked ? 'locked' : 'slip ' + ph.engage.toFixed(2)}`,
+      `drift angle ${d(ph.beta)}°   yaw rate ${(ph.w * 57.3).toFixed(0)}°/s   steer ${d(ph.delta)}°   thr ${ph.thr.toFixed(2)} brk ${ph.brk.toFixed(2)}${ph.in.hand ? ' HB' : ''}`,
+      `pitch ${d(ph.pitch)}°  roll ${d(ph.roll)}°   assist ${ph.assist.level}${ph.assist.tc ? ' TC' : ''}${ph.assist.abs ? ' ABS' : ''}${ph.manual ? ' manual' : ' auto'}`,
+      '     slipAng  ratio   load  slip  surface   steer',
+      ...rows,
+    ].join('\n');
+  }
+
+  // physics state -> render pose (root of the car mesh, body pitch/roll, wheels)
+  syncPose() {
+    const ph = this.ph, P = this.pose, ry = ph.rootY;
+    P.x = ph.rootX; P.z = ph.rootZ; P.y = ry; P.yaw = ph.yaw; P.pitch = ph.pitch; P.roll = ph.roll;
+    P.delta = ph.delta; P.speed = ph.speed;
+    ph.wheels.forEach((w, i) => { P.wy[i] = w.gY + w.R + Math.max(0, -w.x) - ry; P.wa[i] = w.angle; P.ws[i] = w.steer; });
+  }
   toggleCamera() { const o = ['third', 'bumper', 'first']; this.camMode = o[(o.indexOf(this.camMode) + 1) % o.length]; this.snapCam = true; return this.camMode; }
 
   setQuality(q) {
@@ -145,27 +214,33 @@ export class DriftGame {
   update(dt) {
     if (!this.ph || this.state === 'idle' || this.state === 'paused' || this.state === 'done' || this.state === 'replay') return;
     const ph = this.ph, inp = this.input, T = this.track;
+    copyPose(this.prev, this.pose); // for interpolation between physics steps
     if (this.state === 'countdown') {
       this.countdown -= dt;
       if (this.countdown <= 0) { this.state = 'play'; this.ui.popup('GO!', 'go'); }
       return;
     }
     this.time += dt; this.lapT += dt;
-    if (inp.kickPending) { inp.kickPending = false; if (ph.speed > 4) { ph.clutchKick(); this.ui.feed('CLUTCH KICK', 'kick'); } }
+    if (inp.kickPending) { inp.kickPending = false; if (ph.speed > 3) { ph.in.clutchKick = true; this.ui.feed('CLUTCH KICK', 'kick'); } }
+    if (inp.shiftUpPending) { inp.shiftUpPending = false; ph.in.shiftUp = true; }
+    if (inp.shiftDownPending) { inp.shiftDownPending = false; ph.in.shiftDown = true; }
     if (inp.resetPending) { inp.resetPending = false; this.respawn(); }
-    const st = inp.steering();
-    const q = T.query(ph.x, ph.z, this.hint, this.q); this.hint = q.i;
-    const onRoad = Math.abs(q.lat) < T.width / 2 + 0.9;
-    ph.step(dt, { steer: st.target, analog: st.analog, gas: inp.gas, brake: inp.brake, hand: inp.hand }, { grip: onRoad ? 1 : DRIFT.offroadGrip, drag: onRoad ? 0 : DRIFT.offroadDrag, slope: q.slope });
+    const st = inp.steering(), vin = ph.in;
+    vin.steer = st.target; vin.analog = st.analog;
+    // analog throttle (gamepad / autopilot) when the input provides one, else the digital gas key
+    vin.analogPedals = inp.throttleAxis != null;
+    vin.throttle = inp.throttleAxis != null ? inp.throttleAxis : inp.gas ? 1 : 0; vin.brake = inp.brake ? 1 : 0; vin.hand = inp.hand ? 1 : 0;
+    ph.step(dt, this.env);
+    this.syncPose();
     this.walls(dt);
-    const q2 = T.query(ph.x, ph.z, this.hint, this.q); this.hint = q2.i;
-    ph.y = q2.y;
+    const P = this.pose;
+    const q2 = T.query(P.x, P.z, this.hint, this.q); this.hint = q2.i;
     this.progress(q2);
     const kmh = ph.speed * 3.6, beta = ph.beta;
     this.scoring.tick(dt, beta, kmh, this.proximity);
     this.clips(q2);
     // stuck / wrong way / respawn
-    const fwd = -Math.sin(ph.yaw) * q2.tx - Math.cos(ph.yaw) * q2.tz;
+    const fwd = -Math.sin(P.yaw) * q2.tx - Math.cos(P.yaw) * q2.tz;
     this.wrong = fwd < -0.4 && ph.speed > 4 ? this.wrong + dt : 0;
     if (this.wrong > 2.5) { this.ui.popup('WRONG WAY', 'bad'); this.wrong = -3; }
     this.stuck = ph.speed < 1.2 && (inp.gas || inp.brake) ? this.stuck + dt : 0;
@@ -174,32 +249,42 @@ export class DriftGame {
     if (this.session === 'attack' && this.time >= this.sessionDef.time) this.finish();
     // recording, ghost, effects
     const slipK = this.slipAmount();
-    this.recorder.tick(dt, ph, slipK);
+    this.recorder.tick(dt, P, slipK);
+    this.curbs(dt);
     this.ghostT += dt;
-    this.tyres(dt, slipK);
+    this.tyres(dt);
     this.exhaustFx(dt);
     this.fx.update(dt);
     if (this.scrape > 0) this.scrape -= dt;
   }
 
-  slipAmount() {
-    const ph = this.ph;
-    if (ph.speed < 3) return 0;
-    const lat = clamp((Math.abs(ph.rearSlip) - 0.1) / 0.3, 0, 1);
-    const spin = clamp(ph.wheelSpin / 6, 0, 1) * (ph.throttle > 0.5 ? 1 : 0);
-    const hand = ph.hand && ph.speed > 4 ? 0.8 : 0;
-    return Math.max(lat, spin, hand);
+  // how hard one tyre is sliding, 0..1, from its combined slip (1 = at the grip peak)
+  wheelSlide(w) {
+    if (!w.contact || this.ph.speed < 2.5) return 0;
+    return clamp((w.slip - 1.35) / 2.2, 0, 1);
+  }
+  // the rear axle's slide (smoke, replay) - only when the rear really slides
+  slipAmount() { const w = this.ph.wheels; return Math.max(this.wheelSlide(w[2]), this.wheelSlide(w[3])); }
+  // any tyre (screech)
+  screech() { let m = 0; for (const w of this.ph.wheels) m = Math.max(m, this.wheelSlide(w)); return m; }
+
+  // curb hits: a light camera bump and a short vibration
+  curbs(dt) {
+    this.curbT -= dt;
+    let hit = false;
+    for (const w of this.ph.wheels) { if (w.surface === 2 && w.prevSurface !== 2 && this.ph.speed > 6) hit = true; w.prevSurface = w.surface; }
+    if (hit && this.curbT <= 0) { this.curbT = 0.18; this.rigShake = Math.max(this.rigShake || 0, 0.18); vibrate(12); }
   }
 
   // car corners against the walls (offset curves either side of the centre line)
   walls() {
-    const ph = this.ph, T = this.track, def = this.carDef;
+    const ph = this.ph, T = this.track, def = this.carDef, P = this.pose;
     const hl = def.length / 2 - 0.12, hw = def.width / 2 - 0.06;
-    const s = Math.sin(ph.yaw), c = Math.cos(ph.yaw);
     let worst = 0, prox = Infinity;
-    for (const [lx, lz] of [[-hw, -hl], [hw, -hl], [-hw, hl], [hw, hl]]) {
-      // local (lx, lz) -> world, rotation.y = yaw
-      const x = ph.x + lx * c + lz * s, z = ph.z - lx * s + lz * c;
+    for (const [lx, lz] of CORNERS) {
+      // local (lx, lz) of the mesh -> world, rotation.y = yaw (pose follows each push)
+      const s = Math.sin(ph.yaw), c = Math.cos(ph.yaw), rx = ph.rootX, rz = ph.rootZ;
+      const x = rx + lx * hw * c + lz * hl * s, z = rz - lx * hw * s + lz * hl * c;
       const q = T.query(x, z, this.hint, this.cq);
       let depth = 0, nx = 0, nz = 0;
       if (q.lat > q.wallL) { depth = q.lat - q.wallL; nx = -q.nx; nz = -q.nz; }
@@ -209,16 +294,17 @@ export class DriftGame {
         const hit = ph.collide(nx, nz, depth + 0.002, x, z);
         worst = Math.max(worst, hit);
         this.scrape = 0.12;
-        if (Math.random() < 0.7) this.fx.spark(x, ph.y + 0.4, z, 3, 3);
+        if (Math.random() < 0.7) this.fx.spark(x, P.y + 0.4, z, 3, 3);
       }
     }
     this.proximity = prox;
+    if (worst > 0) this.syncPose();
     if (worst > 0 && this.time - this.lastHit > 0.35) {
       if (this.scoring.wall(worst)) {
         this.lastHit = this.time;
         this.audio.hit && this.audio.hit(Math.min(1, worst / 10));
         vibrate(worst > 7 ? 90 : 45);
-        this.fx.spark(ph.x, ph.y + 0.5, ph.z, 24, 6);
+        this.fx.spark(P.x, P.y + 0.5, P.z, 24, 6);
         this.rigShake = Math.min(1, worst / 8);
       }
     }
@@ -255,7 +341,7 @@ export class DriftGame {
   clips(q) {
     const sc = this.scoring;
     if (!sc.active) return;
-    const T = this.track, ph = this.ph, w = T.width / 2, def = this.carDef;
+    const T = this.track, ph = this.pose, w = T.width / 2, def = this.carDef;
     const s = Math.sin(ph.yaw), c = Math.cos(ph.yaw);
     for (const cl of T.clips) {
       if (this.clipsHit.has(cl.id)) continue;
@@ -292,6 +378,8 @@ export class DriftGame {
     const T = this.track, i = this.hint;
     const p = T.at(i, 0);
     this.ph.reset(p.x, p.z, Math.atan2(-T.tx[i], -T.tz[i]), p.y);
+    this.ph.sampleGround(this.env, 1 / 120);
+    this.syncPose(); copyPose(this.prev, this.pose);
     if (this.scoring.active) this.scoring.lose('reset');
     this.stuck = 0; this.snapCam = true;
     this.ui.popup('RESET', 'info');
@@ -313,27 +401,23 @@ export class DriftGame {
     else if (kind === '360') this.ui.popup(`360°! +${f(pts)}`, 'clip');
   }
 
-  // rear tyre smoke + skid marks (front marks too when the fronts scrub)
-  tyres(dt, k) {
-    const ph = this.ph, def = this.carDef;
-    const s = Math.sin(ph.yaw), c = Math.cos(ph.yaw);
-    const rz = def.length * 0.3, tx = def.width / 2 - 0.15;
-    const vx = ph.vx, vz = ph.vz;
-    [-1, 1].forEach((side, w) => {
-      const lx = side * tx;
-      const x = ph.x + lx * c + rz * s, z = ph.z - lx * s + rz * c;
-      const on = k > 0.08;
-      this.fx.skid(w, x, ph.y, z, on, k);
-      if (on && this.state === 'play') this.fx.puff(x, ph.y, z, k, vx, vz, dt);
-    });
+  // skid marks under every sliding tyre, thick smoke only from sliding rear tyres
+  tyres(dt) {
+    const ph = this.ph;
+    for (const w of ph.wheels) {
+      const k = this.wheelSlide(w), on = k > 0.04;
+      this.fx.skid(w.i, w.wx, w.gY, w.wz, on, k);
+      if (!w.front && on && this.state === 'play') this.fx.puff(w.wx, w.gY, w.wz, k, ph.vx, ph.vz, dt);
+    }
   }
 
   // backfire flames on lift-off from high revs
   exhaustFx(dt) {
-    const ph = this.ph, ud = this.player.userData;
+    const ph = this.pose, ud = this.player.userData, rpm = this.ph.rpm;
     const tips = ud.exhausts || (ud.exhaust ? [ud.exhaust] : []);
     const gas = this.input.gas;
-    if (this.prevGas && !gas && ph.rpm > 5000) this.flameT = rand(0.3, 0.6) * this.tune.flameTime;
+    if (this.prevGas && !gas && rpm > 5000) this.flameT = rand(0.3, 0.6) * this.tune.flameTime;
+    if (this.ph.cutT > 0 && gas && Math.random() < 0.3) this.flameT = Math.max(this.flameT, 0.08); // limiter crackle
     if (this.input.hand && !this.prevHand && ph.speed > 12) this.flameT = Math.max(this.flameT, 0.25);
     this.prevGas = gas; this.prevHand = this.input.hand;
     const s = Math.sin(ph.yaw), c = Math.cos(ph.yaw), by = ud.body ? ud.body.position.y : 0;
@@ -341,7 +425,7 @@ export class DriftGame {
     if (tips.length && this.flameT > 0 && Math.random() < 0.55) {
       tips.forEach((t, i) => {
         const x = ph.x + t.x * c + t.z * s, z = ph.z - t.x * s + t.z * c, y = ph.y + t.y + by;
-        this.fx.flame(x, y, z, s, c, ph.vx, ph.vz, (0.8 + this.flameT) * this.tune.flames, this.tune.flames);
+        this.fx.flame(x, y, z, s, c, this.ph.vx, this.ph.vz, (0.8 + this.flameT) * this.tune.flames, this.tune.flames);
         if (this.flash[i]) this.flash[i].position.set(x + s * 0.3, y + 0.1, z + c * 0.3);
         flash = 1;
       });
@@ -369,38 +453,31 @@ export class DriftGame {
   frame(realDt) {
     if (!this.ph || this.state === 'idle') return;
     const ph = this.ph, car = this.player, ud = car.userData;
-    let pose = ph;
+    let pose;
     if (this.state === 'replay') pose = this.replayFrame(realDt);
+    else pose = lerpPose(this.view || (this.view = makePose()), this.prev, this.pose, this.state === 'play' ? clamp(this.alpha ?? 1, 0, 1) : 1);
     car.position.set(pose.x, pose.y, pose.z);
-    car.rotation.y = pose.yaw;
-    // slope: pitch the whole car with the road
-    const pitch = Math.atan(this.q.slope || 0);
-    car.quaternion.setFromEuler(this.eul || (this.eul = new THREE.Euler()).set(0, pose.yaw, 0));
-    Q.setFromAxisAngle(V.set(Math.cos(pose.yaw), 0, -Math.sin(pose.yaw)), pitch * 0.9);
-    car.quaternion.premultiply(Q);
-    const playing = this.state === 'play' || this.state === 'countdown';
-    const delta = this.state === 'replay' ? pose.delta : ph.delta;
-    if (ud.steerWheels) for (const w of ud.steerWheels) w.rotation.y = (w.userData.baseY || 0) + delta;
-    if (ud.steeringWheel) ud.steeringWheel.rotation.z = delta * 4;
-    const sp = this.state === 'replay' ? pose.speed : ph.u;
-    const rimR = ud.wheelR || 0.33;
-    if (ud.wheels) ud.wheels.forEach((w, i) => {
-      const extra = i >= 2 && this.state !== 'replay' ? ph.wheelSpin : 0;
-      (w.userData.spin || w).rotation.x -= ((sp + extra) * realDt * this.timeScale / rimR) * (w.userData.sign || 1);
-    });
-    // body roll / pitch from the accelerations
+    car.rotation.set(0, pose.yaw, 0);
+    const replay = this.state === 'replay';
+    // body: pitch and roll from the suspension (includes the slope of the road)
     const body = ud.body;
-    if (body && this.state !== 'replay') {
-      const k = 1 - Math.exp(-realDt * 7);
-      body.rotation.x += (clamp(ph.ax * 0.006, -0.05, 0.04) - body.rotation.x) * k;
-      body.rotation.z += (clamp(-ph.ay * 0.0065, -0.075, 0.075) - body.rotation.z) * k;
-    }
+    if (body) { body.rotation.x = replay ? 0 : pose.pitch; body.rotation.z = replay ? 0 : -pose.roll; }
+    // wheels: ride height from the suspension, own spin, Ackermann steering on the fronts
+    if (ud.wheels) ud.wheels.forEach((w, i) => {
+      const spin = w.userData.spin || w;
+      if (replay) { spin.rotation.x -= ((pose.speed * realDt) / (ud.wheelR || 0.33)) * (w.userData.sign || 1); w.position.y = ud.wheelR || 0.33; }
+      else { spin.rotation.x = -pose.wa[i] * (w.userData.sign || 1); w.position.y = pose.wy[i]; }
+      if (i < 2) w.rotation.y = (w.userData.baseY || 0) + (replay ? pose.delta : pose.ws[i]);
+    });
+    if (ud.steeringWheel) ud.steeringWheel.rotation.z = pose.delta * 4;
+    const playing = this.state === 'play' || this.state === 'countdown';
     if (ud.tail) ud.tail.emissiveIntensity = playing && this.input.brake ? 4.5 : this.ctx.night ? 1.6 : 0.55;
-    if (ud.setGauges) ud.setGauges(ph.speed * 3.6, ph.rpm);
+    if (ud.setGauges) ud.setGauges(ph.kmh, ph.rpm);
+    if (this.debug) this.debugDraw();
     // ghost
     if (this.ghost && this.ghostData && this.state === 'play' && this.lap >= 1) {
       const g = sample(this.ghostData.data, this.ghostT, this.gs || (this.gs = {}));
-      this.ghost.visible = !!g && !g.done && Math.hypot(g.x - ph.x, g.z - ph.z) > 3;
+      this.ghost.visible = !!g && !g.done && Math.hypot(g.x - pose.x, g.z - pose.z) > 3;
       if (g) { this.ghost.position.set(g.x, g.y, g.z); this.ghost.rotation.y = g.yaw; }
     } else if (this.ghost) this.ghost.visible = false;
     this.cameraUpdate(realDt, pose);
@@ -424,18 +501,20 @@ export class DriftGame {
     }
     // HUD + audio
     if (this.state !== 'replay') {
-      const kmh = ph.speed * 3.6, sc = this.scoring;
+      const kmh = ph.kmh, sc = this.scoring;
       this.ui.hud({
-        score: sc.total, chain: sc.live, active: sc.active, mult: sc.mult, angle: sc.angle, kmh, gear: ph.gear, rpm: ph.rpm,
+        score: sc.total, chain: sc.live, active: sc.active, mult: sc.mult, angle: sc.angle, kmh, gear: ph.gear === -1 ? 'R' : ph.shiftT > 0 ? 'N' : ph.gear, rpm: ph.rpm, redline: ph.c.redline,
         time: this.session === 'attack' ? Math.max(0, this.sessionDef.time - this.time) : this.session === 'trial' ? this.lapT : this.time,
         lap: this.session === 'trial' ? Math.min(this.lap, this.sessionDef.laps) : this.lap, laps: this.session === 'trial' ? this.sessionDef.laps : 0,
         bestLap: this.bestLap, countdown: this.state === 'countdown' ? this.countdown : 0,
         hand: this.input.hand, x: pose.x, z: pose.z,
         ghost: this.ghost && this.ghost.visible ? this.ghost.position : null,
       });
-      const slip = this.slipAmount(), cd = this.state === 'countdown';
-      const rpm = cd ? (this.input.gas ? 6800 : 1000) : ph.rpm, thr = cd ? (this.input.gas ? 1 : 0.2) : ph.throttle;
+      // screech from the real tyre slip, engine from the simulated rpm
+      const slip = this.screech(), cd = this.state === 'countdown';
+      const rpm = cd ? (this.input.gas ? 6800 : 1000) : ph.rpm, thr = cd ? (this.input.gas ? 1 : 0.2) : ph.thr;
       this.audio.update(clamp(ph.speed / 60, 0, 1), playing ? thr : 0, playing, { rpm, slip: this.state === 'play' ? slip : 0, scrape: this.scrape > 0 ? 1 : 0 });
+      this.slideShake = this.state === 'play' ? slip : 0;
     } else this.audio.update(0, 0, false, {});
   }
 
@@ -444,10 +523,10 @@ export class DriftGame {
     let fov = 60;
     if (this.state === 'replay') { this.tvCamera(dt, pose); return; }
     car.updateMatrixWorld();
-    const travel = ph.speed > 3 ? ph.yaw + ph.beta : ph.yaw;
+    const travel = ph.speed > 3 ? pose.yaw + ph.beta : pose.yaw;
     if (this.camMode === 'third') {
       // chase camera that swings partly towards the direction of travel, so the drift angle shows
-      const target = ph.yaw + clamp(ph.beta, -1.2, 1.2) * 0.55;
+      const target = pose.yaw + clamp(ph.speed > 3 ? ph.beta : 0, -1.2, 1.2) * 0.55;
       let d = target - this.camYaw; d = Math.atan2(Math.sin(d), Math.cos(d));
       this.camYaw = this.snapCam ? target : this.camYaw + d * (1 - Math.exp(-dt * 4.5));
       const dist = 6.4 + clamp(ph.speed / 40, 0, 1) * 1.2, hgt = 2.45;
@@ -477,6 +556,10 @@ export class DriftGame {
       V.set(pose.x + Math.sin(a) * 7, pose.y + 1.6, pose.z + Math.cos(a) * 7);
       cam.position.lerpVectors(V, cam.position, e);
       cam.lookAt(pose.x, pose.y + 0.6, pose.z);
+    }
+    if (this.slideShake > 0.05 && this.camMode === 'third') { // tyres fighting for grip: a fine buzz
+      cam.position.x += (Math.random() - 0.5) * this.slideShake * 0.03;
+      cam.position.y += (Math.random() - 0.5) * this.slideShake * 0.03;
     }
     if (this.rigShake > 0.01) {
       cam.position.x += (Math.random() - 0.5) * this.rigShake * 0.3;
@@ -542,6 +625,24 @@ export class DriftGame {
     }
     this.post.render(realDt || 0.016, { speed: this.state === 'replay' ? 0 : sf * sf * 0.35, lines: 0, sun, sunAmt, crash: 0 });
   }
+}
+
+/* ------------------------------------------------- pose interpolation */
+const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+function makePose() { return { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, delta: 0, speed: 0, wy: [0, 0, 0, 0], wa: [0, 0, 0, 0], ws: [0, 0, 0, 0] }; }
+function copyPose(o, p) {
+  o.x = p.x; o.y = p.y; o.z = p.z; o.yaw = p.yaw; o.pitch = p.pitch; o.roll = p.roll; o.delta = p.delta; o.speed = p.speed;
+  for (let i = 0; i < 4; i++) { o.wy[i] = p.wy[i]; o.wa[i] = p.wa[i]; o.ws[i] = p.ws[i]; }
+  return o;
+}
+// render pose between the last two physics steps (alpha = fraction of the next step already elapsed)
+function lerpPose(o, a, b, t) {
+  const L = (x, y) => x + (y - x) * t;
+  o.x = L(a.x, b.x); o.y = L(a.y, b.y); o.z = L(a.z, b.z);
+  let dy = b.yaw - a.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); o.yaw = a.yaw + dy * t;
+  o.pitch = L(a.pitch, b.pitch); o.roll = L(a.roll, b.roll); o.delta = L(a.delta, b.delta); o.speed = L(a.speed, b.speed);
+  for (let i = 0; i < 4; i++) { o.wy[i] = L(a.wy[i], b.wy[i]); o.wa[i] = L(a.wa[i], b.wa[i]); o.ws[i] = L(a.ws[i], b.ws[i]); }
+  return o;
 }
 
 export function fmtTime(t) {

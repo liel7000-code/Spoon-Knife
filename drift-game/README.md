@@ -59,6 +59,8 @@ menu), **Score Attack** (3 minutes) and **Time Trial** (3 laps; the fastest lap 
 | Gas / brake (reverse when stopped) | W / S or ↑ / ↓ | ▲ ▼ |
 | Handbrake (locks the rear wheels) | Space | HAND BRAKE |
 | Clutch kick (short burst of wheelspin) | Shift, or double-tap W | Double-tap ▲ |
+| Shift up / down (manual gears) | E / Q | + / − paddles |
+| Physics debug overlay | F3 | pause menu |
 | Reset onto the track | R (also automatic when stuck) | Pause → restart |
 | Camera (chase / bumper / cockpit) | C | camera button |
 | Pause | Esc | pause button |
@@ -68,15 +70,25 @@ throttle to break the rear loose. Steer the other way (counter-steer) to hold th
 more gas swings the rear wider, less gas tightens it. Flick from one corner into the next without straightening up
 to link drifts.
 
-**Physics** (`src/drift/driftPhysics.js`): a single-track model with a slip-angle tyre curve per axle, longitudinal
-weight transfer, a friction circle on the driven rear axle (wheelspin eats lateral grip, which is what lets the rear
-step out), a handbrake that locks the rear, the clutch kick, aero drag, slopes and a softer run-off surface. It runs
-on the fixed 120 Hz logic step (two sub-steps), so it behaves the same at 30 and 60 FPS. Every car has its own mass,
-power, front/rear grip, steering lock, wheelbase, weight split and yaw inertia in `DRIFT_TUNING` (`src/config.js`).
+**Physics** (`src/physics/vehicle.js`, no Three.js, unit-tested by `npm run test:physics`): a simulation-style
+vehicle model on a fixed 120 Hz step with 4 sub-steps (the render interpolates between steps, so 30 and 60 FPS look
+the same; a long pause or lag spike is clamped, never fast-forwarded). One rigid body (mass, centre of mass, yaw
+inertia) with heave/pitch/roll from four raycast spring/damper struts and front/rear anti-roll bars; each tyre computes
+its slip angle and slip ratio and a simplified Pacejka Magic Formula force on the combined slip (a spinning or locked
+tyre loses side grip), with load sensitivity and per-surface grip (asphalt, painted lines, bumpy curbs, run-off
+concrete/dirt). Each wheel has its own spin and inertia; the drivetrain has a torque curve, rev limiter, engine
+braking, engine inertia, a slipping clutch (clutch kick), real gear ratios (auto or manual) and open / LSD / locked
+differentials, RWD or AWD with a torque split. Steering has Ackermann geometry, a big drift lock, speed-sensitive
+steering speed and self-aligning: let go and the front wheels follow the direction of travel. Brakes have a bias,
+the handbrake locks only the rear, ABS and traction control are optional (off by default in drift mode).
+Per-car data: `src/physics/carSpecs.js`; the tuning screen (session screen → **כוונון רכב**) changes tyre pressure,
+camber, diff lock, brake bias, steering lock and springs per car (saved in localStorage).
 
-**Assists** (session screen or pause menu): **Full** (default on touch devices) holds the angle, corrects before a
-spin, counter-steers and adds a little traction control on straights; **Counter-steer** only turns the front wheels
-into the slide (default on desktop); **Off** is the raw model.
+**Assists** (session screen or pause menu): **Beginner** (default on touch: drift assist helps the counter-steer hold
+the angle you chose and eases the throttle near a spin), **Pro** (light counter-steer help), **Simulation** (none);
+plus traction control, ABS and manual gears (E / Q or the on-screen paddles). **F3** (or pause → דיבאג פיזיקה) shows
+the physics debug overlay: speed, rpm, gear, clutch, drift angle, slip angle / slip ratio / load / surface per wheel and
+force (cyan) and load (yellow) arrows on the car.
 
 **Scoring** (`src/drift/driftScoring.js`): while sliding (angle ≥ 12°, speed ≥ 25 km/h) a drift collects
 angle × speed × time. Linking into the opposite direction raises the multiplier (+0.5, up to ×5). Bonuses: clipping
@@ -165,7 +177,10 @@ See [`ASSETS_LICENSES.md`](ASSETS_LICENSES.md) and the licence texts in [`licens
 | `src/drift/trackData.js` | The three drift tracks (control points, width, theme, par times, grade thresholds) and sessions |
 | `src/drift/track.js` | Centre-line sampling, position queries, road/run-off/kerb/wall meshes, baked lamp light, clip markers, minimap |
 | `src/drift/scenery.js` | Track themes: sky, lights, walls, instanced scenery in chunks with near/far detail |
-| `src/drift/driftPhysics.js` | Drift vehicle model and assists |
+| `src/physics/vehicle.js` | Drift-mode vehicle simulation (no Three.js) |
+| `src/physics/carSpecs.js` | Full physics config of every car |
+| `src/drift/tune.js` | Tuning screen fields and saved tunes |
+| `tests/vehicle.test.mjs` | Physics tests (`npm run test:physics`) |
 | `src/drift/driftScoring.js` | Drift scoring, grades, best scores |
 | `src/drift/driftGame.js` | Drift session: walls, laps, clips, effects, cameras, ghost, replay |
 | `src/drift/driftFx.js`, `src/drift/ghost.js`, `src/drift/driftUI.js` | Smoke and fading skid marks; ghost and replay; drift screens and HUD |

@@ -121,6 +121,10 @@
       <button class="arrow-btn" data-act="left" aria-label="פנייה שמאלה">◀</button>
     </div>
     <button id="btnTilt" class="tilt" aria-pressed="false">הטיה</button>
+    <div class="tgroup paddles">
+      <button id="padDown" class="paddle" aria-label="הילוך למטה">−</button>
+      <button id="padUp" class="paddle" aria-label="הילוך למעלה">+</button>
+    </div>
     <div class="tgroup hbg">
       <button class="pedal hb" data-act="hand" aria-label="בלם יד">HAND<br>BRAKE</button>
     </div>
@@ -153,14 +157,22 @@
       <div id="sessionList" class="session-list"></div>
       <div class="assist">
         <span class="lbl">עזרי דריפט</span>
-        <div class="styles" id="assistRow" role="group" aria-label="עזרי דריפט">
-          <button class="seg" data-assist="drift">עזרה מלאה</button>
-          <button class="seg" data-assist="counter">היגוי נגדי</button>
-          <button class="seg" data-assist="off">כבוי</button>
+        <div class="styles" id="assistRow" role="group" aria-label="רמת עזרים">
+          <button class="seg" data-assist="beginner">מתחילים</button>
+          <button class="seg" data-assist="pro">מקצוען</button>
+          <button class="seg" data-assist="sim">סימולציה</button>
         </div>
         <p id="assistHint" class="hint"></p>
+        <div class="toggles">
+          <button class="tog" data-tog="tc">בקרת משיכה</button>
+          <button class="tog" data-tog="abs">ABS</button>
+          <button class="tog" data-tog="manual">הילוכים ידניים</button>
+        </div>
       </div>
-      <button id="sessionStart" class="btn primary">לנסוע</button>
+      <div class="menu-btns">
+        <button id="sessionTune" class="btn">כוונון רכב</button>
+        <button id="sessionStart" class="btn primary">לנסוע</button>
+      </div>
     </div>
   </section>
 
@@ -193,7 +205,24 @@
     <div id="dFeed" class="feed d-feed" aria-live="polite"></div>
     <div id="dPop" class="d-pop" dir="ltr" aria-live="polite"></div>
     <div id="dCount" class="d-count" dir="ltr" hidden></div>
-    <div class="d-speed" dir="ltr"><b id="dSpeed">0</b><span class="g-unit">KM/H</span><span class="g-gear" id="dGear">1</span></div>
+    <div class="d-speed" dir="ltr"><b id="dSpeed">0</b><span class="g-unit">KM/H</span><span class="g-gear" id="dGear">1</span><i class="d-rpm"><i id="dRpm"></i></i></div>
+    <pre id="dbg" class="dbg" dir="ltr" hidden></pre>
+  </section>
+
+  <!-- Drift: tuning -->
+  <section id="tuneScreen" class="screen" hidden>
+    <div class="menu-card">
+      <header class="pick-top">
+        <button id="tuneBack" class="btn ghost small">חזרה</button>
+        <h2>כוונון רכב</h2>
+        <span id="tuneCar" class="pick-car" dir="ltr"></span>
+      </header>
+      <div id="tuneList" class="tune-list"></div>
+      <div class="menu-btns">
+        <button id="tuneReset" class="btn ghost">ברירת מחדל</button>
+        <button id="tuneDone" class="btn primary">שמור</button>
+      </div>
+    </div>
   </section>
 
   <!-- Drift: pause -->
@@ -202,16 +231,22 @@
       <h2 class="board-title">השהיה</h2>
       <div class="assist">
         <span class="lbl">עזרי דריפט</span>
-        <div class="styles" id="assistRow2" role="group" aria-label="עזרי דריפט">
-          <button class="seg" data-assist="drift">עזרה מלאה</button>
-          <button class="seg" data-assist="counter">היגוי נגדי</button>
-          <button class="seg" data-assist="off">כבוי</button>
+        <div class="styles" id="assistRow2" role="group" aria-label="רמת עזרים">
+          <button class="seg" data-assist="beginner">מתחילים</button>
+          <button class="seg" data-assist="pro">מקצוען</button>
+          <button class="seg" data-assist="sim">סימולציה</button>
+        </div>
+        <div class="toggles">
+          <button class="tog" data-tog="tc">בקרת משיכה</button>
+          <button class="tog" data-tog="abs">ABS</button>
+          <button class="tog" data-tog="manual">הילוכים ידניים</button>
         </div>
       </div>
       <div class="menu-btns">
         <button id="dResume" class="btn primary">המשך</button>
         <button id="dRestart" class="btn">התחל מחדש</button>
         <button id="dEnd" class="btn">סיים ותוצאות</button>
+        <button id="dDebug" class="btn ghost">דיבאג פיזיקה (F3)</button>
         <button id="dQuit" class="btn ghost">יציאה לתפריט</button>
       </div>
     </div>

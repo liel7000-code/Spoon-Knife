@@ -3,19 +3,20 @@ import { TRACKS, SESSIONS } from './trackData.js';
 import { Track } from './track.js';
 import { loadBests, bestKey } from './driftScoring.js';
 import { fmtTime } from './driftGame.js';
+import { TUNE_FIELDS } from './tune.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 const ASSIST_HINT = {
-  drift: 'מחזיקה את הזווית, מתקנת לפני סחרור ומוסיפה היגוי נגדי. מומלץ לטלפון.',
-  counter: 'הגלגלים הקדמיים מסתובבים לבד לכיוון ההחלקה. את הזווית אתם מחזיקים.',
-  off: 'בלי עזרה: היגוי נגדי, גז ובלם יד הם רק שלכם. למומחים.',
+  beginner: 'עוזר להיגוי הנגדי להחזיק את הזווית שבחרתם, והגה מוחלק למגע. הגז והזווית עדיין בידיים שלכם. מומלץ לטלפון.',
+  pro: 'עזרה עדינה בהיגוי הנגדי בלבד. את רוב העבודה עושים אתם.',
+  sim: 'בלי עזרים: היגוי, גז, בלם ובלם יד הם רק שלכם. ההגה עדיין מתיישר מעצמו כשעוזבים אותו, כמו במכונית אמיתית.',
 };
 
 export class DriftUI {
   constructor(handlers) {
     this.h = handlers;
-    this.screens = { tracks: $('trackScreen'), sessions: $('sessionScreen'), hud: $('dhud'), pause: $('dpause'), results: $('dover') };
+    this.screens = { tracks: $('trackScreen'), sessions: $('sessionScreen'), tune: $('tuneScreen'), hud: $('dhud'), pause: $('dpause'), results: $('dover') };
     $('trackBack').onclick = () => handlers.onBack('tracks');
     $('sessionBack').onclick = () => handlers.onBack('sessions');
     $('sessionStart').onclick = () => handlers.onStart();
@@ -31,6 +32,12 @@ export class DriftUI {
     $('dMenu').onclick = () => handlers.onQuit();
     $('replayExit').onclick = () => handlers.onReplayExit();
     for (const row of ['assistRow', 'assistRow2']) for (const b of document.querySelectorAll(`#${row} .seg`)) b.onclick = () => handlers.onAssist(b.dataset.assist);
+    for (const b of document.querySelectorAll('.tog')) b.onclick = () => handlers.onToggle(b.dataset.tog);
+    $('sessionTune').onclick = () => handlers.onTune();
+    $('tuneBack').onclick = () => handlers.onTuneClose(false);
+    $('tuneDone').onclick = () => handlers.onTuneClose(true);
+    $('tuneReset').onclick = () => handlers.onTuneReset();
+    $('dDebug').onclick = () => handlers.onDebug();
     this.last = {};
     this.previews = TRACKS.map(() => null);
   }
@@ -79,9 +86,28 @@ export class DriftUI {
     this.setAssist(assist);
   }
 
+  // a = { level, tc, abs, manual }
   setAssist(a) {
-    for (const row of ['assistRow', 'assistRow2']) for (const b of document.querySelectorAll(`#${row} .seg`)) b.classList.toggle('on', b.dataset.assist === a);
-    $('assistHint').textContent = ASSIST_HINT[a] || '';
+    for (const row of ['assistRow', 'assistRow2']) for (const b of document.querySelectorAll(`#${row} .seg`)) b.classList.toggle('on', b.dataset.assist === a.level);
+    for (const b of document.querySelectorAll('.tog')) b.classList.toggle('on', !!a[b.dataset.tog]);
+    $('assistHint').textContent = ASSIST_HINT[a.level] || '';
+  }
+
+  /* -------------------------------------------------------------- tuning */
+  renderTune(carDef, tune) {
+    $('tuneCar').textContent = carDef.name;
+    const list = $('tuneList');
+    list.innerHTML = '';
+    for (const f of TUNE_FIELDS) {
+      const row = document.createElement('label');
+      row.className = 'tune-row';
+      const fmtv = (v) => `${Number(v).toFixed(f.step < 1 ? (f.step < 0.1 ? 2 : 1) : 0)} ${f.unit}`;
+      row.innerHTML = `<span class="tr-top"><span>${f.label}</span><b dir="ltr">${fmtv(tune[f.key])}</b></span>
+        <input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${tune[f.key]}" aria-label="${f.label}"><p>${f.help}</p>`;
+      const input = row.querySelector('input'), out = row.querySelector('b');
+      input.addEventListener('input', () => { out.textContent = fmtv(input.value); this.h.onTuneChange(f.key, Number(input.value)); });
+      list.appendChild(row);
+    }
   }
 
   /* --------------------------------------------------------------- HUD */
@@ -109,6 +135,8 @@ export class DriftUI {
     if (this.last.active !== s.active) { this.last.active = s.active; $('dChainBox').classList.toggle('on', s.active); }
     this.set('dSpeed', String(Math.round(s.kmh)));
     this.set('dGear', String(s.gear));
+    const rp = Math.round(Math.min(1, s.rpm / (s.redline || 8000)) * 50);
+    if (this.last.rp !== rp) { this.last.rp = rp; $('dRpm').style.width = `${rp * 2}%`; }
     this.set('dTime', this.session === 'trial' ? fmtTime(s.time) : fmtClock(s.time));
     this.set('dLap', s.laps ? `LAP ${Math.max(1, s.lap)}/${s.laps}${s.bestLap ? ' · BEST ' + fmtTime(s.bestLap) : ''}` : s.lap > 1 ? `LAP ${s.lap}` : '');
     const cd = s.countdown > 0 ? (s.countdown > 0.4 ? String(Math.ceil(s.countdown - 0.4)) : '') : '';

@@ -28,7 +28,7 @@ export class DriftScoring {
   tick(dt, beta, kmh, prox) {
     const a = Math.abs(deg(beta));
     this.angle = a;
-    const drifting = a >= S.minAngle && kmh >= S.minKmh;
+    const drifting = a >= S.minAngle && a <= 100 && kmh >= S.minKmh; // past ~100° the car is going backwards, not drifting
     this.stats.topAngle = Math.max(this.stats.topAngle, drifting ? Math.min(a, 120) : 0);
     // 360: count rotation relative to the direction of travel while the car keeps moving
     if (this.active && kmh > 15) {

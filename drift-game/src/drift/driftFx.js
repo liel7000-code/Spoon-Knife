@@ -25,9 +25,9 @@ class Skids {
     this.mesh = new THREE.InstancedMesh(geo, this.mat, max);
     this.mesh.count = 0; this.mesh.frustumCulled = false; this.mesh.renderOrder = 1;
     scene.add(this.mesh);
-    this.head = 0; this.o = new THREE.Object3D(); this.last = [null, null];
+    this.head = 0; this.o = new THREE.Object3D(); this.last = [null, null, null, null];
   }
-  reset() { this.mesh.count = 0; this.head = 0; this.last = [null, null]; this.birth.fill(-1e9); this.mesh.geometry.attributes.aBirth.needsUpdate = true; }
+  reset() { this.mesh.count = 0; this.head = 0; this.last = [null, null, null, null]; this.birth.fill(-1e9); this.mesh.geometry.attributes.aBirth.needsUpdate = true; }
   // continuous trail for wheel w; strength 0..1 sets how dark the rubber is
   add(w, x, y, z, on, strength, time) {
     const prev = this.last[w];

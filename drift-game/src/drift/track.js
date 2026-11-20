@@ -100,6 +100,7 @@ export class Track {
     this.width = def.width;
     this.sample();
     this.makeWalls();
+    this.makeKerbs();
     this.makeClips();
     this.lamps = []; // { x, y, z, color, radius, power } filled in by the scenery before baking
   }
@@ -156,6 +157,35 @@ export class Track {
   }
 
   key(x, z) { return Math.floor(x / this.cell) * 100003 + Math.floor(z / this.cell); }
+
+  // kerb runs on the corners (the physics reads this map, the meshes are built from it)
+  makeKerbs() {
+    const N = this.N, th = 1 / 110;
+    this.kerb = new Uint8Array(N);
+    this.kerbRuns = [];
+    let i = 0;
+    while (i < N) {
+      if (Math.abs(this.k[i]) < th) { i++; continue; }
+      const a = i; while (i < N && Math.abs(this.k[i]) >= th) i++;
+      if (i - a < 4) continue;
+      const i0 = Math.max(0, a - 2), i1 = Math.min(N - 1, i + 2);
+      this.kerbRuns.push([i0, i1]);
+      for (let k = i0; k <= i1; k++) this.kerb[k] = 1;
+    }
+  }
+
+  // what is under a wheel: { y, surface } (surface ids match physics/vehicle.js SURFACE)
+  surfaceAt(x, z, hint, out, q) {
+    const r = this.query(x, z, hint, q), w = this.width / 2, a = Math.abs(r.lat);
+    out.y = r.y;
+    if (a <= w - 0.32) out.surface = 0;                        // asphalt
+    else if (a <= w - 0.1) out.surface = 1;                    // painted edge line
+    else if (this.kerb[r.i] && a <= w + 0.9) {                 // kerb: grippy-ish and bumpy
+      out.surface = 2;
+      out.y += 0.022 + 0.018 * Math.abs(Math.sin(r.s * Math.PI));
+    } else out.surface = this.def.theme === 'mountain' ? 4 : 3; // run-off: dirt / concrete
+    return r.i;
+  }
 
   // wall offsets: base run-off plus extra room on the outside of corners
   makeWalls() {
@@ -363,14 +393,9 @@ export class Track {
     // kerbs on the corners: red/white blocks just outside the white line
     const kerbTex = stripeTexture('#c8261c', '#efefea');
     const kerbMat = bakedMaterial(new THREE.MeshStandardMaterial({ map: kerbTex, vertexColors: true, roughness: 0.6 }));
-    const N = this.N, th = 1 / 110;
     for (const side of [1, -1]) {
-      let i = 0;
-      while (i < N) {
-        if (Math.abs(this.k[i]) < th) { i++; continue; }
-        const a = i; while (i < N && Math.abs(this.k[i]) >= th) i++;
-        if (i - a < 4) continue;
-        const geo = this.ribbon(side * (w - 0.15), side * (w + 0.9), 2, { y: 0.02, yB: 0.045, vScale: 1 / 2, i0: Math.max(0, a - 2), i1: Math.min(N - 1, i + 2), closed: false });
+      for (const [i0, i1] of this.kerbRuns) {
+        const geo = this.ribbon(side * (w - 0.15), side * (w + 0.9), 2, { y: 0.02, yB: 0.045, vScale: 1 / 2, i0, i1, closed: false });
         const m = new THREE.Mesh(this.bake(geo), kerbMat); m.receiveShadow = true; this.group.add(m);
       }
     }
