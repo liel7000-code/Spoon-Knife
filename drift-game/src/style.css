@@ -245,8 +245,8 @@ kbd { font-family: var(--num); font-size: 11px; border: 1px solid var(--line); b
   .garage-panel { padding: 14px 16px; gap: 10px; }
   .car-title h3 { font-size: 22px; }
   .stat { grid-template-columns: 84px 1fr 48px; }
-  /* phones: small, bottom centre, just above the steering slider and pedals */
-  .gauge { width: 92px; height: 92px; right: auto; left: 50%; transform: translateX(-50%); bottom: calc(98px + env(safe-area-inset-bottom)); }
+  /* phones: small, bottom right just above the pedals, clear of the car and the road */
+  .gauge { width: 92px; height: 92px; right: max(14px, env(safe-area-inset-right)); bottom: calc(96px + env(safe-area-inset-bottom)); }
   .gauge .g-center b { font-size: 26px; }
   .gauge .g-unit { font-size: 8px; letter-spacing: .1em; }
   .gauge .g-gear { font-size: 11px; padding: 0 4px; }
