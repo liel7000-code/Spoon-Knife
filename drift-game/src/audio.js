@@ -10,6 +10,7 @@ const store = {
 export class EngineAudio {
   constructor() {
     this.ctx = null;
+    this.vol = 1;
     this.muted = store.get('driftgame.muted', false);
     this.musicOn = store.get('driftgame.music', true);
   }
@@ -95,11 +96,14 @@ export class EngineAudio {
   }
 
   // exhaust pop/crackle on the overrun
+  // per-car exhaust character (loudness of engine, pops and blow-off)
+  setProfile(tune) { this.vol = tune.exhaust || 1; }
+
   pop() {
     const ctx = this.ctx, t = ctx.currentTime + Math.random() * 0.04;
     const src = ctx.createBufferSource(); src.buffer = this.noise;
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 350 + Math.random() * 700; bp.Q.value = 1.2;
-    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35 + Math.random() * 0.3, t + 0.004); g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime((0.35 + Math.random() * 0.3) * this.vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
     src.connect(bp).connect(g).connect(this.sfx); src.start(t, Math.random()); src.stop(t + 0.09);
   }
 
@@ -112,7 +116,7 @@ export class EngineAudio {
     this.o2.frequency.setTargetAtTime(f * 0.5, t, 0.02);
     this.o3.frequency.setTargetAtTime(f * 2.01, t, 0.02);
     this.engLP.frequency.setTargetAtTime(380 + throttle * 1900 + rpm * 0.22, t, 0.04);
-    this.engGain.gain.setTargetAtTime(on * (0.12 + throttle * 0.12), t, 0.06);
+    this.engGain.gain.setTargetAtTime(on * (0.12 + throttle * 0.12) * this.vol, t, 0.06);
     this.intakeBP.frequency.setTargetAtTime(400 + rpm * 0.25, t, 0.05);
     this.intakeGain.gain.setTargetAtTime(on * throttle * 0.06 * (rpm / 8000), t, 0.08);
     this.squealGain.gain.setTargetAtTime(on * Math.min(1, slip) * 0.22, t, 0.06);

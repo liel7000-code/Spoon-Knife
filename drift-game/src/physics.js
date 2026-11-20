@@ -3,7 +3,7 @@
 // Model: smoothed steer input -> front wheel angle (reduced with speed) -> target
 // yaw rate (kinematic bicycle) -> heading. The velocity direction then follows the
 // heading at a rate set by tyre grip, so at high speed the car slides a little.
-import { CONFIG } from './config.js';
+import { CONFIG, tuningFor } from './config.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const WHEELBASE = 2.55;
@@ -11,6 +11,7 @@ const WHEELBASE = 2.55;
 export class CarPhysics {
   constructor(def) {
     this.def = def;
+    this.tune = tuningFor(def.id); // per-car handling multipliers
     this.reset(0);
   }
 
@@ -53,18 +54,18 @@ export class CarPhysics {
     // steering geometry: less wheel angle at speed (understeer feel)
     const v = this.speed;
     const handling = 0.7 + def.handling * 0.6;
-    this.wheelAngle = this.steer * S.maxWheelAngle * S.sensitivity * handling / (1 + v / S.falloffSpeed);
+    this.wheelAngle = this.steer * S.maxWheelAngle * S.sensitivity * this.tune.steer * handling / (1 + v / S.falloffSpeed);
     let desiredYaw = (v * Math.tan(this.wheelAngle)) / WHEELBASE;
     // the tyres can only deliver so much sideways force: yaw rate <= aLat / v
-    const yawCap = (G.maxLatAccel * (0.8 + def.handling * 0.4)) / Math.max(v, 5);
+    const yawCap = (G.maxLatAccel * this.tune.lat * (0.8 + def.handling * 0.4)) / Math.max(v, 5);
     desiredYaw = clamp(desiredYaw, -yawCap, yawCap);
     // hands-off: the car straightens up along the road
     desiredYaw -= this.heading * S.centerAssist * (1 - Math.abs(this.steer));
-    this.yawRate += (desiredYaw - this.yawRate) * (1 - Math.exp(-G.yawResponse * dt));
+    this.yawRate += (desiredYaw - this.yawRate) * (1 - Math.exp(-G.yawResponse * this.tune.yaw * dt));
     this.heading = clamp(this.heading + this.yawRate * dt, -S.maxHeading, S.maxHeading);
 
     // grip: travel direction chases the heading; weaker at high speed -> small drift
-    const grip = G.lateral * (0.75 + def.handling * 0.5) / (1 + (v / G.slipSpeed) ** 2);
+    const grip = G.lateral * this.tune.grip * (0.75 + def.handling * 0.5) / (1 + (v / G.slipSpeed) ** 2);
     this.velAng += (this.heading - this.velAng) * (1 - Math.exp(-grip * dt));
     this.slip = this.heading - this.velAng;
     this.speed -= Math.abs(this.slip) * v * G.scrub * dt;

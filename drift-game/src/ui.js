@@ -41,17 +41,30 @@ export class UI {
     $('colorPick').addEventListener('input', (e) => handlers.onColor(e.target.value));
     for (const b of document.querySelectorAll('#styleRow .seg')) b.onclick = () => handlers.onStyle(b.dataset.style);
 
+    this.buildSwatches(SWATCHES);
+    this.popupTimer = 0;
+    this.initGauge();
+  }
+
+  // colour swatches: each car can bring its own list (the custom picker stays at the end)
+  buildSwatches(list) {
     const sw = $('swatches');
-    for (const c of SWATCHES) {
+    if (this.swatchList === list) return;
+    this.swatchList = list;
+    for (const b of [...sw.querySelectorAll('.swatch')]) b.remove();
+    const picker = sw.querySelector('.picker');
+    for (const c of list) {
       const b = document.createElement('button');
       b.className = 'swatch'; b.style.background = c; b.dataset.color = c;
       b.setAttribute('aria-label', `צבע ${c}`);
-      b.onclick = () => handlers.onColor(c);
-      sw.appendChild(b);
+      b.onclick = () => this.h.onColor(c);
+      if (picker) sw.insertBefore(b, picker); else sw.appendChild(b);
     }
-    sw.appendChild(document.querySelector('.picker')); // custom colour sits in the same row
-    this.popupTimer = 0;
-    // tachometer: static track, redline and ticks
+    if (!picker) sw.appendChild(document.querySelector('.picker')); // custom colour sits in the same row
+  }
+
+  // tachometer: static track, redline and ticks (built once)
+  initGauge() {
     $('rpmTrack').setAttribute('d', arc(G.a0, G.a1));
     $('rpmRed').setAttribute('d', arc(rpmAngle(G.red), G.a1));
     let ticks = '';
@@ -100,6 +113,7 @@ export class UI {
 
   setGarage(index, color, style) {
     const def = PLAYER_CARS[index];
+    this.buildSwatches(def.colors || SWATCHES);
     $('styleRow').hidden = !def.styles;
     for (const b of document.querySelectorAll('#styleRow .seg')) b.classList.toggle('on', b.dataset.style === style);
     $('carName').textContent = def.name;

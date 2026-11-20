@@ -40,6 +40,20 @@ export const CONFIG = {
   },
 };
 
+// Per-car feel. Multipliers on the shared steering/grip settings above, plus exhaust character.
+//   steer: wheel angle (quicker steering)   grip: lateral grip      lat: cornering limit (m/s^2 cap)
+//   yaw: how fast the car rotates into a turn (lower = heavier, more stable)
+//   flames / flameTime: backfire size and duration   exhaust: exhaust/engine loudness
+export const CAR_TUNING = {
+  supra: { steer: 1.0, grip: 1.0, lat: 1.0, yaw: 1.0, flames: 1.0, flameTime: 1.0, exhaust: 1.0 },
+  rx7: { steer: 1.12, grip: 1.02, lat: 1.04, yaw: 1.15, flames: 1.0, flameTime: 0.9, exhaust: 0.9 },
+  gtr: { steer: 0.95, grip: 1.06, lat: 1.0, yaw: 0.95, flames: 1.0, flameTime: 1.0, exhaust: 1.0 },
+  m5: { steer: 0.86, grip: 0.94, lat: 0.9, yaw: 0.78, flames: 1.0, flameTime: 1.0, exhaust: 1.1 },   // heavy, stable, fast
+  c63: { steer: 0.95, grip: 0.95, lat: 0.95, yaw: 0.9, flames: 1.9, flameTime: 2.0, exhaust: 1.55 }, // loudest, biggest flames
+  rwb: { steer: 1.32, grip: 1.12, lat: 1.16, yaw: 1.35, flames: 1.15, flameTime: 1.0, exhaust: 1.15 }, // lightest, sharpest
+};
+export const tuningFor = (id) => ({ steer: 1, grip: 1, lat: 1, yaw: 1, flames: 1, flameTime: 1, exhaust: 1, ...(CAR_TUNING[id] || {}) });
+
 export const QUALITY = {
   low: { label: 'נמוכה', pixelRatio: 1.25, roadRes: 1024, shadows: false, shadowSize: 0, post: false, bloom: false, ao: false, clouds: false, scenery: 0.6, headlights: false },
   medium: { label: 'בינונית', pixelRatio: 2, roadRes: 1536, shadows: true, shadowSize: 2048, post: true, bloom: true, ao: false, clouds: true, scenery: 0.85, headlights: true },

@@ -8,6 +8,7 @@ import { MAT, carPaint } from './materials.js';
 import { curve, mesh, addWheels, blobShadow, mergeStatic } from './parts.js';
 import { rbox, lofted, mirrors, ringLamp, wing, addCockpit } from './carkit.js';
 import { buildSupra } from './supra.js';
+import { buildM5, buildC63, buildRWB } from './cars3.js';
 
 /* ------------------------------------------------------------- the cars */
 export const PLAYER_CARS = [
@@ -21,7 +22,7 @@ export const PLAYER_CARS = [
   {
     id: 'rx7', name: 'Mazda RX-7 FD',
     tag: 'מנוע רוטרי, פנסים קופצים, גג בועה כפולה ומשקל נוצה.',
-    topSpeed: 275, accel: 0.72, handling: 0.96,
+    topSpeed: 275, accel: 0.72, handling: 0.92,
     color: '#e8b10c', length: 4.3, width: 1.76,
     swatches: ['#e8b10c', '#b3121a'],
     build(root, body, paint) {
@@ -113,6 +114,36 @@ export const PLAYER_CARS = [
     },
   },
 ];
+// three more: M5 F90 style, C63 W205 style, 911 RWB widebody (no logos or badges)
+PLAYER_CARS.push(
+  {
+    id: 'm5', name: 'BMW M5 F90',
+    tag: 'סדאן ארבע דלתות כבדה ויציבה, תאוצה מטורפת ומהירות מרבית גבוהה.',
+    topSpeed: 310, accel: 0.95, handling: 0.6,
+    color: '#1d5cc0', colors: ['#1d5cc0', '#121316', '#eef0f2', '#6e747b'],
+    paint: { metalness: 0.7, roughness: 0.24 },
+    length: 4.97, width: 1.9,
+    build(root, body, paint) { buildM5(root, body, paint); },
+  },
+  {
+    id: 'c63', name: 'Mercedes-AMG C63',
+    tag: 'גוף רחב מקדימה, האגזוז הרועם ביותר והלהבות הארוכות ביותר בשחרור גז.',
+    topSpeed: 290, accel: 0.88, handling: 0.66,
+    color: '#5f6368', colors: ['#5f6368', '#121316', '#eef0f2', '#b3121a'],
+    paint: { matte: true },
+    length: 4.75, width: 1.88,
+    build(root, body, paint) { buildC63(root, body, paint); },
+  },
+  {
+    id: 'rwb', name: 'Porsche 911 RWB',
+    tag: 'קלאסיקה רחבת גוף, נמוכה ורחבה. הקלה ביותר, ההיגוי החד ביותר.',
+    topSpeed: 268, accel: 0.8, handling: 1.0,
+    color: '#f2f1ec', colors: ['#f2f1ec', '#121316', '#f2c80f', '#2e6b3a'],
+    length: 4.24, width: 1.95,
+    build(root, body, paint) { buildRWB(root, body, paint); },
+  },
+);
+
 export const STAT_RANGE = { topSpeed: [220, 330], accel: [0.4, 1], handling: [0.4, 1] };
 
 /* ------------------------------------------------------- optional GLB */
@@ -172,7 +203,7 @@ export function buildPlayerCar(def, color, style = 'stock') {
   root.add(body);
   // light colours get a pearl coat (the Supra's default is pearl white)
   const c = new THREE.Color(color), hsl = {}; c.getHSL(hsl);
-  const paint = carPaint(color, hsl.l > 0.75 ? { pearl: true, metalness: 0.25, roughness: 0.22 } : {});
+  const paint = carPaint(color, def.paint ? def.paint : hsl.l > 0.75 ? { pearl: true, metalness: 0.25, roughness: 0.22 } : {});
   if (def.id === 'supra' && supraGLB) buildFromGLB(root, body, def);
   else def.build(root, body, paint, style);
   root.add(blobShadow(def.width, def.length));

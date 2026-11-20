@@ -66,6 +66,7 @@ export class Game {
     body.add(spot, spot.target);
     // the spotlight alone lights the road; visible beam cones looked like grey wedges
     this.phys = new CarPhysics(def);
+    this.audio.setProfile && this.audio.setProfile(this.phys.tune);
     this.phys.reset(LANE_X[1]);
     this.crashSpin = 0; this.crashVx = 0;
     this.time = 0; this.distance = 0; this.bonus = 0; this.nearMisses = 0;
@@ -149,7 +150,7 @@ export class Game {
     const gas = this.state === 'play' && this.input.gas, kmh = ph.speed * 3.6;
     const brake = this.state === 'play' && this.input.brake;
     // lift-off (gas released) or a hard brake from high speed
-    if (this.state === 'play' && ((this.prevGas && !gas && kmh > 90) || (brake && !this.prevBrake && kmh > 120))) this.flameT = rand(0.3, 0.6);
+    if (this.state === 'play' && ((this.prevGas && !gas && kmh > 90) || (brake && !this.prevBrake && kmh > 120))) this.flameT = rand(0.3, 0.6) * this.phys.tune.flameTime;
     this.prevGas = gas; this.prevBrake = brake;
     const yaw = -ph.heading, c = Math.cos(yaw), s = Math.sin(yaw), by = (ud && ud.body ? ud.body.position.y : 0);
     let flash = 0;
@@ -158,7 +159,7 @@ export class Game {
       const flick = gas && kmh > this.def.topSpeed * 0.9 && Math.random() < dt * 24;
       tips.forEach((t, i) => {
         const x = ph.x + t.x * c + t.z * s, z = -t.x * s + t.z * c, y = t.y + by;
-        if (burst) { this.fx.flame(x, y, z, s, c, ph.vx, 0.8 + this.flameT); flash = 1; }
+        if (burst) { this.fx.flame(x, y, z, s, c, ph.vx, (0.8 + this.flameT) * this.phys.tune.flames, this.phys.tune.flames); flash = 1; }
         if (flick) this.fx.flicker(x, y, z, s, c, ph.vx);
         if (this.flash[i]) this.flash[i].position.set(x, y + 0.1, z + 0.25);
       });

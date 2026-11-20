@@ -75,15 +75,19 @@ or `FR` also steer). Without the file the procedural A80 is used.
 
 ## Cars
 
-| Car | Top speed | Acceleration | Handling |
-| --- | --- | --- | --- |
-| Toyota Supra A80 | 320 km/h | 8/10 | 8/10 |
-| Mazda RX-7 FD | 275 km/h | 7/10 | 10/10 |
-| Nissan GT-R R34 | 305 km/h | 9/10 | 7/10 |
+| Car | Top speed | Acceleration | Handling | Character |
+| --- | --- | --- | --- | --- |
+| Toyota Supra A80 | 320 km/h | 8/10 | 8/10 | Balanced hero car; Stock or Tuned style |
+| Mazda RX-7 FD | 275 km/h | 7/10 | 9/10 | Light and agile |
+| Nissan GT-R R34 | 305 km/h | 9/10 | 7/10 | Grippy, strong launch |
+| BMW M5 F90 | 310 km/h | 10/10 | 6/10 | Heavy and stable, slower to turn in |
+| Mercedes-AMG C63 | 290 km/h | 9/10 | 7/10 | Loudest exhaust, biggest and longest backfire flames |
+| Porsche 911 RWB | 268 km/h | 8/10 | 10/10 | Lightest, sharpest steering, widebody |
 
-All three are lofted from cross-sections (rounded fenders, real wheel arches, bubble cabin) with PBR paint,
-multi-spoke alloys with brake discs and calipers, and a cockpit with a three-spoke wheel and live speedometer and
-tachometer.
+All cars are lofted from cross-sections (rounded panels, real wheel arches, tinted glass cabins) with PBR paint
+(matte on the C63), multi-spoke alloys with brake discs and calipers, working head/tail/brake lights and a cockpit
+with live gauges. No brand logos or badges are modelled. Per-car feel (steering speed, grip, cornering limit, yaw
+response, flame size/duration, exhaust loudness) lives in `CAR_TUNING` in `src/config.js`.
 
 ## Code layout
 
@@ -93,7 +97,10 @@ tachometer.
 | `src/game.js` | Game state, barrier scrapes, OBB collisions, near misses, crash, car animation, effects hooks |
 | `src/physics.js` | Player vehicle model and 2D oriented-bounding-box tests |
 | `src/config.js` | All tunable numbers and quality presets |
-| `src/cars.js` | Lofted Supra A80, RX-7 FD, GT-R R34, cockpit with gauges, optional GLB loader |
+| `src/cars.js` | Car list, RX-7 FD, GT-R R34, optional GLB loader |
+| `src/supra.js` | Supra A80 (Stock / Tuned) |
+| `src/cars3.js` | M5 F90, C63 W205, 911 RWB widebody |
+| `src/carkit.js` | Shared lofted-body pieces, cockpit, mirrors, lamps |
 | `src/parts.js` | Loft builder, wheels, blob shadows, static mesh merging |
 | `src/materials.js` | Shared PBR materials |
 | `src/trafficModels.js` | Hatchback, sedan, SUV, van, truck with trailer |
