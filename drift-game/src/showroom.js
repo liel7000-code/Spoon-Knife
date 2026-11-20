@@ -9,6 +9,7 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { buildPlayerCar } from './cars.js';
+import { maxAnisotropy } from './parts.js';
 
 const BG = new THREE.Color('#dedfe2');
 
@@ -74,6 +75,7 @@ export class Showroom {
     if (this.car) this.carGroup.remove(this.car);
     this.car = buildPlayerCar(def, color, style);
     this.car.traverse((o) => { if (o.isMesh && !o.userData.blob) o.castShadow = true; });
+    maxAnisotropy(this.car, this.renderer);
     this.carGroup.add(this.car);
   }
 

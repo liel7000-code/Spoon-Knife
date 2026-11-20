@@ -55,6 +55,7 @@ export const PLAYER_CARS = [
       body.add(mesh(new THREE.BoxGeometry(0.5, 0.12, 0.02), MAT.plate, 0, 0.45, 2.16, false));
       for (const x of [0.42, 0.56]) body.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.14, 14).rotateX(Math.PI / 2), MAT.exhaust, x, 0.24, 2.12));
       root.userData.exhaust = new THREE.Vector3(0.5, 0.24, 2.2);
+      root.userData.exhausts = [new THREE.Vector3(0.42, 0.24, 2.2), new THREE.Vector3(0.56, 0.24, 2.2)];
       wing(body, paint, { span: 1.45, chord: 0.24, y: 1.0, z: 1.95, upX: 0.6, upH: 0.11, deck: 0.89 });
       addWheels(root, { front: -1.24, rear: 1.185, track: 0.745, r: 0.315, rimR: 0.215, width: 0.235, spokes: 5, style: 'single', rimMat: MAT.bronze, caliper: MAT.caliperRed });
       addCockpit(root, body, { eye: { x: -0.36, y: 1.04, z: 0.62 }, dashZ: -0.22, dashY: 0.84, maxKmh: 280, roof: S.roof });
@@ -104,6 +105,7 @@ export const PLAYER_CARS = [
       const ex = mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 18).rotateX(Math.PI / 2), MAT.exhaust, 0.6, 0.28, 2.28);
       body.add(ex);
       root.userData.exhaust = new THREE.Vector3(0.6, 0.28, 2.38);
+      root.userData.exhausts = [new THREE.Vector3(0.6, 0.28, 2.37)];
       wing(body, paint, { span: 1.7, chord: 0.36, y: 1.26, z: 2.06, upX: 0.58, upH: 0.28, deck: 0.98, mat: MAT.carbon });
       for (const s of [-1, 1]) body.add(mesh(rbox(0.02, 0.16, 0.42, 0.01), MAT.carbon, s * 0.86, 1.24, 2.06, false));
       addWheels(root, { front: -1.36, rear: 1.305, track: 0.755, r: 0.34, rimR: 0.235, width: 0.255, spokes: 6, style: 'double', rimMat: MAT.gunmetal, caliper: MAT.caliperGold });

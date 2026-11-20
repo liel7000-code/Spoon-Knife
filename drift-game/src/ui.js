@@ -67,7 +67,9 @@ export class UI {
     for (const [k, el] of Object.entries(this.screens)) {
       el.hidden = !(k === name || (name === 'over' && k === 'hud'));
     }
-    this.touch.hidden = !(name === 'hud' && touchControls);
+    // on-screen arrows/pedals work with touch and mouse, so they show on every device while driving
+    this.touch.hidden = name !== 'hud';
+    void touchControls;
   }
 
   setMenu({ carName, best }) {

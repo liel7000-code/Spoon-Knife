@@ -160,13 +160,13 @@ export function addCockpit(root, body, C) {
 
 /* ------------------------------------------------------------ assembler */
 export function lofted(root, body, S, paint) {
-  const b = mesh(loft(range(S.zF, S.zR, 110), bodySection(S)), paint);
+  const b = mesh(loft(range(S.zF, S.zR, 200), bodySection(S)), paint);
   b.receiveShadow = true;
   body.add(b);
-  const cab = mesh(loft(range(S.cabF, S.cabR, 48), cabinSection(S)), MAT.glass);
+  const cab = mesh(loft(range(S.cabF, S.cabR, 90), cabinSection(S)), MAT.glass);
   cab.renderOrder = 2;
   body.add(cab);
-  const roof = mesh(loft(range(S.roofF, S.roofR, 30), roofSection(S)), paint);
+  const roof = mesh(loft(range(S.roofF, S.roofR, 56), roofSection(S)), paint);
   roof.userData.roof = true;
   body.add(roof);
   archLiners(body, S);

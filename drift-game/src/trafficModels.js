@@ -17,7 +17,7 @@ export const TRAFFIC_TYPES = {
 const PAINTS = ['#ecebe6', '#c4c8cc', '#8d939a', '#2b2d31', '#15171a', '#1f3557', '#7a1414', '#c9bb9b', '#2c4a38', '#5a4a3e', '#7b98b8', '#9a2d1b'];
 const CARGO = ['#e8e8e3', '#d5dbe1', '#b8c3cd', '#e3d8c4', '#2f5d8a'];
 
-const rb = (w, h, d, r = 0.1) => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001));
+const rb = (w, h, d, r = 0.1) => new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001));
 const bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 const at = (g, x, y, z, rx = 0) => { if (rx) g.rotateX(rx); return g.translate(x, y, z); };
 

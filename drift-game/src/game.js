@@ -5,6 +5,7 @@ import { buildPlayerCar, PLAYER_CARS } from './cars.js';
 import { Traffic, LANE_X } from './traffic.js';
 import { CameraRig } from './camera.js';
 import { CarPhysics, obbDistance, xExtent } from './physics.js';
+import { maxAnisotropy } from './parts.js';
 import { World, BARRIER_X, SUN_DIR } from './world.js';
 import { Effects } from './effects.js';
 import { Post } from './post.js';
@@ -41,6 +42,10 @@ export class Game {
     this.pBox = { x: 0, z: 0, hw: 1, hl: 2, yaw: 0 };
     this.tBox = { x: 0, z: 0, hw: 1, hl: 2, yaw: 0 };
     this.scoring = new Scoring((kind, pts) => this.onScore(kind, pts));
+    // exhaust flash lights: created once (adding/removing lights would recompile shaders)
+    this.flash = [0, 1].map(() => { const l = new THREE.PointLight('#ff8a2a', 0, 7, 2); this.scene.add(l); return l; });
+    this.flameT = 0; this.prevGas = false;
+    maxAnisotropy(this.scene, renderer);
   }
 
   /* ------------------------------------------------------- lifecycle */
@@ -49,6 +54,7 @@ export class Game {
     if (this.player) this.scene.remove(this.player);
     this.player = buildPlayerCar(def, color, style);
     this.player.traverse((o) => { if (o.isMesh && !o.userData.blob) o.castShadow = true; });
+    maxAnisotropy(this.player, this.renderer);
     this.scene.add(this.player);
     // headlights: one shadowless spot for the light pool
     const body = this.player.userData.body;
@@ -65,6 +71,7 @@ export class Game {
     this.time = 0; this.distance = 0; this.bonus = 0; this.nearMisses = 0;
     this.combo = 0; this.comboT = 0; this.difficulty = 0;
     this.scoring.reset();
+    this.flameT = 0; this.prevGas = false;
     this.crashReal = 0; this.overShown = false; this.scrape = 0;
     this.timeScale = 1;
     this.traffic.reset();
@@ -132,6 +139,32 @@ export class Game {
     this.fx.update(dt, ph.forward);
     if (this.state === 'play') this.checkTraffic();
     this.tyres(dt);
+    this.exhaustFx(dt);
+  }
+
+  // backfire flames when the throttle is released at speed; a small flicker at full throttle near top speed
+  exhaustFx(dt) {
+    const ph = this.phys, ud = this.player && this.player.userData;
+    const tips = ud && (ud.exhausts || (ud.exhaust ? [ud.exhaust] : []));
+    const gas = this.state === 'play' && this.input.gas, kmh = ph.speed * 3.6;
+    const brake = this.state === 'play' && this.input.brake;
+    // lift-off (gas released) or a hard brake from high speed
+    if (this.state === 'play' && ((this.prevGas && !gas && kmh > 90) || (brake && !this.prevBrake && kmh > 120))) this.flameT = rand(0.3, 0.6);
+    this.prevGas = gas; this.prevBrake = brake;
+    const yaw = -ph.heading, c = Math.cos(yaw), s = Math.sin(yaw), by = (ud && ud.body ? ud.body.position.y : 0);
+    let flash = 0;
+    if (tips && tips.length) {
+      const burst = this.flameT > 0 && Math.random() < 0.55;          // crackle: bursts with gaps
+      const flick = gas && kmh > this.def.topSpeed * 0.9 && Math.random() < dt * 24;
+      tips.forEach((t, i) => {
+        const x = ph.x + t.x * c + t.z * s, z = -t.x * s + t.z * c, y = t.y + by;
+        if (burst) { this.fx.flame(x, y, z, s, c, ph.vx, 0.8 + this.flameT); flash = 1; }
+        if (flick) this.fx.flicker(x, y, z, s, c, ph.vx);
+        if (this.flash[i]) this.flash[i].position.set(x, y + 0.1, z + 0.25);
+      });
+    }
+    if (this.flameT > 0) this.flameT -= dt;
+    for (const l of this.flash) l.intensity = flash ? rand(6, 14) : l.intensity * Math.exp(-dt * 30);
   }
 
   // side barriers: scrape when brushing, crash when hit hard at an angle
@@ -269,7 +302,7 @@ export class Game {
     if (body) {
       const k = 1 - Math.exp(-realDt * 6);
       const pitch = playing ? clamp(ph.longAccel * 0.0045, -0.035, 0.025) : 0;
-      const roll = playing ? clamp(ph.latAccel * 0.0032, -0.045, 0.045) : 0;
+      const roll = playing ? clamp(ph.latAccel * 0.0045, -0.06, 0.06) : 0; // lean out of the turn
       body.rotation.x += (pitch - body.rotation.x) * k;
       body.rotation.z += (roll - body.rotation.z) * k;
       this.buzz = (this.buzz || 0) + realDt * this.timeScale;

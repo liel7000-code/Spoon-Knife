@@ -130,6 +130,18 @@ export function roundedPlate(w, h, r, depth, bevel = 0.008) {
   return g;
 }
 
+// give every texture under `root` the GPU's maximum anisotropic filtering (sharp at grazing angles)
+export function maxAnisotropy(root, renderer) {
+  const n = renderer.capabilities.getMaxAnisotropy();
+  const keys = ['map', 'normalMap', 'roughnessMap', 'emissiveMap', 'metalnessMap', 'alphaMap'];
+  root.traverse((o) => {
+    for (const m of [].concat(o.material || [])) for (const k of keys) {
+      const t = m[k];
+      if (t && t.anisotropy !== n) { t.anisotropy = n; t.needsUpdate = true; }
+    }
+  });
+}
+
 export function range(a, b, n) {
   const out = [];
   for (let i = 0; i < n; i++) out.push(lerp(a, b, i / (n - 1)));
@@ -167,10 +179,10 @@ function tireGeometry(r, rimR, w) {
   const sw = w / 2, rr = Math.min(0.045, (r - rimR) * 0.45);
   pts.push(new THREE.Vector2(rimR, -sw * 0.92));
   pts.push(new THREE.Vector2(r - rr, -sw));
-  for (let i = 0; i <= 6; i++) { const a = -Math.PI / 2 + (i / 6) * (Math.PI / 2); pts.push(new THREE.Vector2(r - rr + Math.cos(a) * rr, -sw + rr + Math.sin(a) * rr)); }
-  for (let i = 0; i <= 6; i++) { const a = (i / 6) * (Math.PI / 2); pts.push(new THREE.Vector2(r - rr + Math.cos(a) * rr, sw - rr + Math.sin(a) * rr)); }
+  for (let i = 0; i <= 10; i++) { const a = -Math.PI / 2 + (i / 10) * (Math.PI / 2); pts.push(new THREE.Vector2(r - rr + Math.cos(a) * rr, -sw + rr + Math.sin(a) * rr)); }
+  for (let i = 0; i <= 10; i++) { const a = (i / 10) * (Math.PI / 2); pts.push(new THREE.Vector2(r - rr + Math.cos(a) * rr, sw - rr + Math.sin(a) * rr)); }
   pts.push(new THREE.Vector2(rimR, sw * 0.92));
-  const g = new THREE.LatheGeometry(pts, 32);
+  const g = new THREE.LatheGeometry(pts, 64);
   g.rotateZ(Math.PI / 2); // axle along x
   return g;
 }
@@ -236,8 +248,8 @@ export function buildWheel({ r = 0.33, rimR = 0.23, width = 0.245, spokes = 10, 
     const ni = (g) => (g.index ? g.toNonIndexed() : g);
     wheelCache.set(key, {
       // rubber + dark rim barrel + backing disc share one mesh; lip + spokes share another
-      tire: mergeGeometries([tireGeometry(r, rimR, width), new THREE.CylinderGeometry(rimR, rimR, width * 0.9, 28, 1, true).rotateZ(Math.PI / 2),
-        new THREE.CircleGeometry(rimR - 0.01, 28).rotateY(Math.PI / 2).translate(-width * 0.2, 0, 0)].map(ni)),
+      tire: mergeGeometries([tireGeometry(r, rimR, width), new THREE.CylinderGeometry(rimR, rimR, width * 0.9, 56, 1, true).rotateZ(Math.PI / 2),
+        new THREE.CircleGeometry(rimR - 0.01, 56).rotateY(Math.PI / 2).translate(-width * 0.2, 0, 0)].map(ni)),
       rim: mergeGeometries([new THREE.TorusGeometry(rimR - 0.006, 0.012, 6, 32).rotateY(Math.PI / 2).translate(width / 2 - 0.012, 0, 0), spokeGeometry(rimR, width, spokes, style)].map(ni)),
       disc: new THREE.CylinderGeometry(rimR * 0.82, rimR * 0.82, 0.028, 28).rotateZ(Math.PI / 2).translate(width * 0.05, 0, 0),
       caliper: new THREE.BoxGeometry(0.06, 0.12, 0.2).translate(width * 0.12, rimR * 0.62, 0.0),

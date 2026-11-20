@@ -35,7 +35,10 @@ const settings = {
   night: store.get('driftgame.night', false),
 };
 if (!QUALITY[settings.quality]) settings.quality = 'high';
-const applyPixelRatio = () => renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QUALITY[settings.quality].pixelRatio));
+// pixel ratio: device ratio capped at 2 (or the quality preset's cap); the adaptive
+// fallback in the loop steps it down if the frame rate drops
+let pixelRatio = 1;
+const applyPixelRatio = () => { pixelRatio = Math.min(window.devicePixelRatio || 1, 2, QUALITY[settings.quality].pixelRatio); renderer.setPixelRatio(pixelRatio); };
 applyPixelRatio();
 if (!PLAYER_CARS[settings.car]) settings.car = 0;
 const colorOf = (i) => settings.colors[PLAYER_CARS[i].id] || PLAYER_CARS[i].color;
@@ -152,6 +155,7 @@ function resize() {
   showroom.setSize(w, h);
 }
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 150));
 resize();
 
 showCar();
@@ -169,9 +173,24 @@ go('menu');
 // fixed-timestep simulation, variable-rate rendering
 let last = performance.now();
 let acc = 0;
+// adaptive quality: under 40 FPS for 2 s in a row -> lower the pixel ratio a step (down to 1)
+let avgDt = 1 / 60, slowFor = 0;
+function adapt(dt) {
+  if (document.hidden) return;
+  avgDt += (dt - avgDt) * 0.1;
+  slowFor = 1 / avgDt < 40 ? slowFor + dt : 0;
+  if (slowFor > 2 && pixelRatio > 1) {
+    pixelRatio = Math.max(1, pixelRatio - 0.25);
+    renderer.setPixelRatio(pixelRatio);
+    resize();
+    slowFor = 0; avgDt = 1 / 50;
+  }
+}
+
 function loop(now) {
   const realDt = Math.min(MAX_FRAME, (now - last) / 1000);
   last = now;
+  adapt(realDt);
   if (screen === 'play' || screen === 'over') {
     acc += realDt * game.timeScale;
     let steps = 0;
@@ -187,7 +206,7 @@ requestAnimationFrame(loop);
 
 document.addEventListener('visibilitychange', () => { last = performance.now(); });
 // for automated checks
-window.__drift = { game, settings, showroom };
+window.__drift = { game, settings, showroom, pixelRatio: () => pixelRatio };
 window.__cars = PLAYER_CARS;
 
 // optional hero model: public/models/supra.glb replaces the procedural Supra when present

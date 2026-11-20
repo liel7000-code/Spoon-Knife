@@ -72,8 +72,9 @@ function scriptBadge(text) {
 }
 
 function plateTexture(text) {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128; // 2x for a crisp plate
   const g = c.getContext('2d');
+  g.scale(2, 2);
   g.fillStyle = '#f4f4f2'; g.fillRect(0, 0, 256, 64);
   g.strokeStyle = '#1a1a1a'; g.lineWidth = 3; g.strokeRect(3, 3, 250, 58);
   g.fillStyle = '#111'; g.font = 'bold 44px "Arial Narrow", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -172,14 +173,14 @@ export function buildSupra(root, body, paint, style = 'stock') {
   body.name = 'body';
 
   // --- body shell, cabin glass, roof
-  const shell = mesh(loft(range(S.zF, S.zR, 130), section), paint);
+  const shell = mesh(loft(range(S.zF, S.zR, 240), section), paint);
   shell.name = 'body.shell'; shell.receiveShadow = true;
   body.add(shell);
-  const glass = mesh(loft(range(S.cabF, S.cabR, 56), cabinSection(S)), MAT.glass);
+  const glass = mesh(loft(range(S.cabF, S.cabR, 110), cabinSection(S)), MAT.glass);
   glass.name = 'glass'; glass.renderOrder = 2;
   glass.material = SUPRA_GLASS;
   body.add(glass);
-  const roof = mesh(loft(range(S.roofF, S.roofR, 34), roofSection(S)), paint);
+  const roof = mesh(loft(range(S.roofF, S.roofR, 60), roofSection(S)), paint);
   roof.userData.roof = true; roof.name = 'body.roof';
   body.add(roof);
   archLiners(body, S);
@@ -328,6 +329,7 @@ export function buildSupra(root, body, paint, style = 'stock') {
   ex.name = 'exhaust';
   body.add(ex);
   root.userData.exhaust = new THREE.Vector3(-0.62, 0.2, 2.36);
+  root.userData.exhausts = [new THREE.Vector3(-0.62, 0.2, 2.33)];
   root.userData.brakeExtra = [hm];
 
   /* --------------------------------------------------------------- wing */

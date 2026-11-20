@@ -41,8 +41,8 @@ export const CONFIG = {
 };
 
 export const QUALITY = {
-  low: { label: 'נמוכה', pixelRatio: 1, shadows: false, shadowSize: 0, post: false, bloom: false, ao: false, clouds: false, scenery: 0.6, headlights: false },
-  medium: { label: 'בינונית', pixelRatio: 1.5, shadows: true, shadowSize: 1024, post: true, bloom: true, ao: false, clouds: true, scenery: 0.85, headlights: true },
-  high: { label: 'גבוהה', pixelRatio: 2, shadows: true, shadowSize: 2048, post: true, bloom: true, ao: true, clouds: true, scenery: 1, headlights: true },
+  low: { label: 'נמוכה', pixelRatio: 1.25, roadRes: 1024, shadows: false, shadowSize: 0, post: false, bloom: false, ao: false, clouds: false, scenery: 0.6, headlights: false },
+  medium: { label: 'בינונית', pixelRatio: 2, roadRes: 1536, shadows: true, shadowSize: 2048, post: true, bloom: true, ao: false, clouds: true, scenery: 0.85, headlights: true },
+  high: { label: 'גבוהה', pixelRatio: 2, roadRes: 2048, shadows: true, shadowSize: 2048, post: true, bloom: true, ao: true, clouds: true, scenery: 1, headlights: true },
 };
 export const QUALITY_ORDER = ['high', 'medium', 'low'];

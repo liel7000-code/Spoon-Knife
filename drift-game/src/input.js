@@ -1,4 +1,5 @@
-// Analog steering input: keyboard (smoothed in physics), on-screen slider, device tilt.
+// Steering input: keyboard and on-screen arrows (both smoothed in physics), device
+// tilt, and an analog slider path (kept for analog/automated input).
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Input {
@@ -7,7 +8,7 @@ export class Input {
     this.brake = false;
     this.onCamera = () => {};
     this.keysHeld = new Set();
-    this.touchHeld = { gas: false, brake: false };
+    this.touchHeld = { gas: false, brake: false, left: false, right: false };
     this.slider = 0;          // -1..1 from the on-screen slider
     this.sliderActive = false;
     this.tilt = 0;            // -1..1 from the gyroscope
@@ -26,12 +27,18 @@ export class Input {
     window.addEventListener('blur', () => { this.keysHeld.clear(); this.sync(); });
 
     // gas / brake buttons
+    // on-screen buttons (arrows, gas, brake). Each tracks its own set of pointers, so
+    // several fingers can hold different buttons at once (e.g. right arrow + gas).
     document.querySelectorAll('#touch [data-act]').forEach((btn) => {
-      const act = btn.dataset.act;
-      const set = (on) => (e) => { e.preventDefault(); btn.classList.toggle('on', on); this.touchHeld[act] = on; this.sync(); };
-      btn.addEventListener('pointerdown', set(true));
-      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) btn.addEventListener(ev, set(false));
+      const act = btn.dataset.act, pointers = new Set();
+      const update = () => { const on = pointers.size > 0; btn.classList.toggle('on', on); this.touchHeld[act] = on; this.sync(); };
+      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); pointers.add(e.pointerId); update(); });
+      const release = (e) => { if (pointers.delete(e.pointerId)) update(); };
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave', 'lostpointercapture']) btn.addEventListener(ev, release);
+      btn.addEventListener('contextmenu', (e) => e.preventDefault()); // long-press menu on phones
     });
+    // safety net: a finger lifted anywhere releases anything it was holding
+    window.addEventListener('pointerup', (e) => document.querySelectorAll('#touch [data-act]').forEach((b) => b.dispatchEvent(new PointerEvent('pointercancel', { pointerId: e.pointerId }))));
 
     // steering slider: drag the knob, it springs back to centre on release
     const pad = document.getElementById('steerPad');
@@ -85,8 +92,8 @@ export class Input {
     if (this.tiltEnabled) return { target: Math.abs(this.tilt) < 0.04 ? 0 : this.tilt, analog: true };
     const k = this.keysHeld;
     let t = 0;
-    if (k.has('a') || k.has('arrowleft')) t -= 1;
-    if (k.has('d') || k.has('arrowright')) t += 1;
+    if (k.has('a') || k.has('arrowleft') || this.touchHeld.left) t -= 1;
+    if (k.has('d') || k.has('arrowright') || this.touchHeld.right) t += 1;
     return { target: t, analog: false };
   }
 

@@ -28,8 +28,9 @@ export const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathU
 /* ---------------------------------------------------------- textures */
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
 
-function roadTextures(maxAniso) {
-  const W = 1024, H = 1536, px = W / ROAD_W, pz = H / TEX_LEN;
+function roadTextures(maxAniso, res = 1024) {
+  // res 2048 on High: crisp lane paint and aggregate even at a grazing angle
+  const W = res, H = Math.round(res * 1.5), px = W / ROAD_W, pz = H / TEX_LEN;
   const [cc, g] = canvas(W, H);         // colour
   const [hc, hg] = canvas(W, H);        // height (for the normal map)
   const [rc, rg] = canvas(W, H);        // roughness (green channel)
@@ -241,6 +242,7 @@ export class World {
     this.renderer = renderer;
     this.scene = scene;
     this.dist = 0;
+    this.quality0 = quality;
 
     // sky and sun
     const sky = (this.sky = new Sky());
@@ -324,7 +326,7 @@ export class World {
 
   buildRoad() {
     const s = this.scene, aniso = this.renderer.capabilities.getMaxAnisotropy();
-    this.road = roadTextures(aniso);
+    this.road = roadTextures(aniso, (this.quality0 && this.quality0.roadRes) || 1024);
     const roadMat = new THREE.MeshStandardMaterial({ ...this.road, roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.8, 0.8) });
     // large-scale variation (patches, darker/lighter stretches, damp sheen) so the 24 m tile never reads as repeating
     const macro = macroTexture();
