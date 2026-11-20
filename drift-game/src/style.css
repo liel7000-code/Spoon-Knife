@@ -398,3 +398,13 @@ kbd { font-family: var(--num); font-size: 11px; border: 1px solid var(--line); b
   .d-chain { top: max(10px, env(safe-area-inset-top)); }
   .d-speed { bottom: max(10px, env(safe-area-inset-bottom)); }
 }
+/* short landscape phones: cards scroll instead of overflowing the screen */
+.menu-card { max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+@media (max-height: 520px) {
+  .menu-card { gap: 10px; padding: 16px 18px; }
+  .session-btn { padding: 8px 12px; }
+  .session-btn b { font-size: 16px; }
+  .track-card svg { height: 80px; }
+  .pick-top h2 { font-size: 20px; }
+  .screen { padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+}

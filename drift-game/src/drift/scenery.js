@@ -497,10 +497,10 @@ function neon(track, scene, ctx) {
     for (let k = 0; k < 6; k++) {
       const i = Math.floor(((k + 0.3) / 6) * track.N), sd = k % 2 ? 1 : -1, wall = sd > 0 ? track.wallL[i] : track.wallR[i];
       const [a, bb, label] = arts[k % 3];
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(10, 3.75), new THREE.MeshBasicMaterial({ map: artTexture(a, bb, label), toneMapped: false, side: THREE.DoubleSide }));
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(10, 3.75), new THREE.MeshBasicMaterial({ map: artTexture(a, bb, label), toneMapped: false }));
       m.material.color.setScalar(1.3);
       const pp = track.at(i, sd * (wall + 1.5), 3.4); m.position.copy(pp);
-      m.rotation.y = Math.atan2(-track.tx[i], -track.tz[i]) + (sd > 0 ? -Math.PI / 2 : Math.PI / 2);
+      m.lookAt(track.at(i, 0, 3.4)); // face the track, readable from the road
       g.add(m);
     }
     skyline(g, b.x0 - 700, (b.z0 + b.z1) / 2, '#120a1e', ['#ff9fe6', '#9fdcff', '#ffcf7a'], 0.35);
