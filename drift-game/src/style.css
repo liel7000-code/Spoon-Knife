@@ -161,7 +161,12 @@ kbd { font-family: var(--num); font-size: 11px; border: 1px solid var(--line); b
 }
 
 /* tachometer + digital speed */
-.gauge { position: absolute; bottom: max(10px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: 200px; height: 200px; filter: drop-shadow(0 6px 18px rgba(0,0,0,.45)); }
+/* small, tucked into the bottom corner so it never covers the road ahead */
+.gauge { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); right: max(14px, env(safe-area-inset-right)); width: 128px; height: 128px; filter: drop-shadow(0 4px 12px rgba(0,0,0,.45)); }
+.gauge .g-center b { font-size: 36px; }
+.gauge .g-ticks text { display: none; }
+.gauge .g-gear { font-size: 14px; margin-top: 2px; padding: 0 6px; }
+.gauge .g-unit { font-size: 10px; }
 .gauge svg { width: 100%; height: 100%; }
 .g-face { fill: rgba(12, 13, 17, 0.72); stroke: rgba(255,255,255,.1); stroke-width: 1.5; }
 .g-track { fill: none; stroke: rgba(255,255,255,.1); stroke-width: 10; stroke-linecap: round; }
@@ -176,9 +181,6 @@ kbd { font-family: var(--num); font-size: 11px; border: 1px solid var(--line); b
 .gauge.redline .g-arc { animation: limiter .12s steps(2) infinite; }
 @keyframes limiter { 50% { opacity: .55; } }
 /* cockpit view: the dash has real gauges, so the HUD one moves out of the way */
-#hud.cockpit .gauge { left: auto; right: max(16px, env(safe-area-inset-right)); transform: none; width: 140px; height: 140px; }
-#hud.cockpit .g-center b { font-size: 40px; }
-#hud.cockpit .g-ticks text { display: none; }
 .tool { display: grid; place-items: center; width: 42px; height: 42px; padding: 0; }
 .tool svg { width: 22px; height: 22px; }
 .tool .cross { display: none; }
@@ -243,14 +245,15 @@ kbd { font-family: var(--num); font-size: 11px; border: 1px solid var(--line); b
   .garage-panel { padding: 14px 16px; gap: 10px; }
   .car-title h3 { font-size: 22px; }
   .stat { grid-template-columns: 84px 1fr 48px; }
-  .gauge { width: 132px; height: 132px; bottom: auto; top: calc(66px + env(safe-area-inset-top)); }
-  .g-center b { font-size: 38px; }
-  .g-ticks text { display: none; }
-  .g-gear { font-size: 15px; margin-top: 2px; }
+  /* phones: small, bottom centre, just above the steering slider and pedals */
+  .gauge { width: 92px; height: 92px; right: auto; left: 50%; transform: translateX(-50%); bottom: calc(98px + env(safe-area-inset-bottom)); }
+  .gauge .g-center b { font-size: 26px; }
+  .gauge .g-unit { font-size: 8px; letter-spacing: .1em; }
+  .gauge .g-gear { font-size: 11px; padding: 0 4px; }
   .swatch { width: 24px; height: 24px; }
   .swatches { gap: 6px; }
   .picker { width: 26px; height: 26px; }
   .hud-box.score b#hudScore { font-size: 24px; }
-  .combo { top: calc(205px + env(safe-area-inset-top)); }
+  .combo { top: calc(84px + env(safe-area-inset-top)); }
 }
 @media (prefers-reduced-motion: reduce) { .popup.show { animation-duration: .01s; opacity: 1; } .bar i { transition: none; } }

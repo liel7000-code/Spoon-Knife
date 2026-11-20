@@ -1,5 +1,6 @@
-// WebAudio sound: layered engine (RPM based), tyre squeal, barrier scrape, wind,
-// near-miss whoosh, crash, and a light generative music loop. Nothing is loaded
+// WebAudio sound: layered sports engine (RPM based) with a turbo (spool whistle,
+// blow-off valve, compressor flutter, exhaust pops on lift), tyre squeal, barrier
+// scrape, wind, near-miss whoosh, crash, and a light generative music loop. Nothing is loaded
 // from files; everything is synthesised.
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v === '1'; } catch (e) { return d; } },
@@ -31,7 +32,7 @@ export class EngineAudio {
 
     // engine: firing-order saw + sub square + 2nd harmonic + intake noise, through a soft drive
     const drive = ctx.createWaveShaper(), curve = new Float32Array(512);
-    for (let i = 0; i < 512; i++) { const x = i / 256 - 1; curve[i] = Math.tanh(x * 2.2); }
+    for (let i = 0; i < 512; i++) { const x = i / 256 - 1; curve[i] = Math.tanh(x * 3.2); }
     drive.curve = curve;
     this.engLP = ctx.createBiquadFilter(); this.engLP.type = 'lowpass'; this.engLP.Q.value = 2.5;
     this.engGain = ctx.createGain(); this.engGain.gain.value = 0;
@@ -55,7 +56,51 @@ export class EngineAudio {
     this.windGain = ctx.createGain(); this.windGain.gain.value = 0; this.windBP = wbp;
     wn.connect(wbp).connect(this.windGain).connect(this.sfx);
 
+    // turbo: compressor whine (two detuned tones through a resonant band) that rises with boost
+    this.turboGain = ctx.createGain(); this.turboGain.gain.value = 0;
+    const tbp = ctx.createBiquadFilter(); tbp.type = 'bandpass'; tbp.Q.value = 6; this.turboBP = tbp;
+    this.t1 = ctx.createOscillator(); this.t1.type = 'sine';
+    this.t2 = ctx.createOscillator(); this.t2.type = 'triangle';
+    const t2g = ctx.createGain(); t2g.gain.value = 0.4;
+    this.t1.connect(tbp); this.t2.connect(t2g).connect(tbp);
+    tbp.connect(this.turboGain).connect(this.sfx);
+    this.t1.start(); this.t2.start();
+    // intake rush that comes with boost
+    const rush = loopNoise(), rhp = ctx.createBiquadFilter(); rhp.type = 'highpass'; rhp.frequency.value = 2500;
+    this.rushGain = ctx.createGain(); this.rushGain.gain.value = 0;
+    rush.connect(rhp).connect(this.rushGain).connect(this.sfx);
+    this.boost = 0; this.lastT = ctx.currentTime; this.prevThrottle = 0;
+
     this.startMusic();
+  }
+
+  // blow-off valve: a sharp "pssshh" plus compressor flutter ("stu-tu-tu") as the throttle closes
+  blowOff(amount) {
+    const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = this.noise;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(3200, t); bp.frequency.exponentialRampToValueAtTime(900, t + 0.45);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5 * amount, t + 0.015); g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    src.connect(bp).connect(g).connect(this.sfx); src.start(t, Math.random()); src.stop(t + 0.55);
+    // flutter: low noise chopped at ~22 Hz, slowing down
+    const fl = ctx.createBufferSource(); fl.buffer = this.noise;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700;
+    const chop = ctx.createGain(); chop.gain.value = 0;
+    const lfo = ctx.createOscillator(); lfo.type = 'square'; lfo.frequency.setValueAtTime(24, t); lfo.frequency.linearRampToValueAtTime(12, t + 0.35);
+    const depth = ctx.createGain(); depth.gain.value = 0.5; lfo.connect(depth).connect(chop.gain);
+    const fg = ctx.createGain(); fg.gain.setValueAtTime(0.55 * amount, t + 0.03); fg.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    fl.connect(lp).connect(chop).connect(fg).connect(this.sfx);
+    fl.start(t + 0.03, Math.random()); fl.stop(t + 0.42); lfo.start(t + 0.03); lfo.stop(t + 0.42);
+  }
+
+  // exhaust pop/crackle on the overrun
+  pop() {
+    const ctx = this.ctx, t = ctx.currentTime + Math.random() * 0.04;
+    const src = ctx.createBufferSource(); src.buffer = this.noise;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 350 + Math.random() * 700; bp.Q.value = 1.2;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35 + Math.random() * 0.3, t + 0.004); g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    src.connect(bp).connect(g).connect(this.sfx); src.start(t, Math.random()); src.stop(t + 0.09);
   }
 
   // speedFrac 0..1, rpm, throttle 0..1, slip 0..1, scrape 0/1
@@ -66,7 +111,7 @@ export class EngineAudio {
     this.o1.frequency.setTargetAtTime(f, t, 0.02);
     this.o2.frequency.setTargetAtTime(f * 0.5, t, 0.02);
     this.o3.frequency.setTargetAtTime(f * 2.01, t, 0.02);
-    this.engLP.frequency.setTargetAtTime(300 + throttle * 1500 + rpm * 0.18, t, 0.04);
+    this.engLP.frequency.setTargetAtTime(380 + throttle * 1900 + rpm * 0.22, t, 0.04);
     this.engGain.gain.setTargetAtTime(on * (0.12 + throttle * 0.12), t, 0.06);
     this.intakeBP.frequency.setTargetAtTime(400 + rpm * 0.25, t, 0.05);
     this.intakeGain.gain.setTargetAtTime(on * throttle * 0.06 * (rpm / 8000), t, 0.08);
@@ -75,6 +120,22 @@ export class EngineAudio {
     this.scrapeGain.gain.setTargetAtTime(on * scrape * 0.18, t, 0.03);
     this.windGain.gain.setTargetAtTime(on * speedFrac * speedFrac * 0.2, t, 0.2);
     this.windBP.frequency.setTargetAtTime(350 + speedFrac * 900, t, 0.3);
+
+    // turbo boost: builds with throttle above ~2500 rpm (with lag), collapses when you lift
+    const dt = Math.min(0.1, t - this.lastT); this.lastT = t;
+    const rpmK = Math.min(1, Math.max(0, (rpm - 2500) / 4500));
+    const target = on * (throttle > 0.6 ? rpmK : 0);
+    this.boost += (target - this.boost) * (target > this.boost ? 1 - Math.exp(-dt * 1.6) : 1 - Math.exp(-dt * 9));
+    if (on && this.prevThrottle > 0.6 && throttle <= 0.6) { this.liftT = t; if (this.boost > 0.35) this.blowOff(Math.min(1, this.boost + 0.2)); }
+    // crackle only in the second or so after lifting off, not while cruising
+    if (on && throttle <= 0.6 && rpm > 3800 && t - (this.liftT ?? -9) < 1.3 && Math.random() < dt * 10) this.pop();
+    this.prevThrottle = throttle;
+    const whine = 1800 + this.boost * 3600 + rpm * 0.12;
+    this.t1.frequency.setTargetAtTime(whine, t, 0.05);
+    this.t2.frequency.setTargetAtTime(whine * 1.51, t, 0.05);
+    this.turboBP.frequency.setTargetAtTime(whine, t, 0.05);
+    this.turboGain.gain.setTargetAtTime(this.boost * this.boost * 0.09, t, 0.05);
+    this.rushGain.gain.setTargetAtTime(this.boost * 0.05, t, 0.08);
   }
 
   crash() {
