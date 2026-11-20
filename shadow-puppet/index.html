@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Shadow Puppet</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: rgba(16, 19, 27, 0.94);
+    --fg: #eef1f7;
+    --muted: #9aa3b5;
+    --accent: #2fd6ff;
+    --star: #ffd23f;
+    --danger: #ff6b85;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  #app {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 10px 16px;
+  }
+  .title { font-weight: 700; letter-spacing: .02em; font-size: 17px; }
+  .score { font-size: 22px; font-weight: 800; color: var(--star); font-variant-numeric: tabular-nums; }
+  .fps { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; }
+
+  /* Game area: canvas fills it; touch-action none so taps/drags never scroll or zoom */
+  #stage { flex: 1; position: relative; min-height: 0; touch-action: none; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  #controls {
+    background: var(--panel);
+    border-top: 1px solid rgba(255,255,255,.08);
+    padding: 10px 16px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    touch-action: manipulation;
+  }
+  .slider-row { display: flex; align-items: center; gap: 12px; }
+  .slider-row label { font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .slider-row output { min-width: 34px; text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
+  input[type=range] { flex: 1; height: 44px; accent-color: var(--accent); }
+  .buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  button {
+    min-height: 52px; border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: #1c2130; color: var(--fg);
+    font: inherit; font-size: 15px; font-weight: 600;
+  }
+  button:active { transform: scale(.97); }
+  button.on { background: var(--accent); color: #04121a; border-color: transparent; }
+
+  /* Start / error screen */
+  #screen {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; background: rgba(8, 10, 14, 0.96);
+  }
+  #screen.hidden { display: none; }
+  .card { max-width: 420px; text-align: center; display: flex; flex-direction: column; gap: 16px; }
+  .card h1 { font-size: 30px; }
+  .card p { color: var(--muted); line-height: 1.45; }
+  .card .err { color: var(--danger); font-weight: 600; }
+  .card button { background: var(--accent); color: #04121a; border: none; font-size: 17px; min-height: 56px; }
+
+  /* The <video> must stay "rendered" for iOS to keep decoding frames, so hide it visually instead of display:none */
+  video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="title">Shadow Puppet</span>
+    <span class="score">★ <span id="score">0</span></span>
+    <span class="fps" id="fps">-- fps</span>
+  </header>
+
+  <div id="stage"><canvas id="view"></canvas></div>
+
+  <div id="controls">
+    <div class="slider-row">
+      <label for="thr">Threshold</label>
+      <input id="thr" type="range" min="-60" max="60" step="1" value="0">
+      <output id="thrOut">--</output>
+    </div>
+    <div class="buttons">
+      <button id="btnFreeze">Freeze</button>
+      <button id="btnVideo" class="on">Video</button>
+      <button id="btnReset">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen">
+  <div class="card">
+    <h1>Shadow Puppet</h1>
+    <p>Point your rear camera at a surface lit by a lamp or window. Dark shadows and objects become platforms. Help the little guy reach the star!</p>
+    <p class="err" id="errMsg" hidden></p>
+    <button id="btnStart">Start camera</button>
+    <p style="font-size:13px">Tip: tap the game to drop the character anywhere. Use Freeze to hold a layout steady.</p>
+  </div>
+</div>
+
+<video id="video" playsinline muted autoplay></video>
+
+<script>
+'use strict';
+
+/* =========================================================================
+   CONFIG – all units are "grid cells" (one cell = one pixel of the small
+   detection image, ~160x120) and seconds.
+   ========================================================================= */
+const CFG = {
+  GRID_LONG: 160,     // long side of the detection grid (short side follows the camera aspect)
+  SMOOTH: 0.45,       // weight of the newest frame in temporal smoothing (≈ 2-3 frame average)
+  BASE_FACTOR: 0.8,   // adaptive threshold = average brightness * BASE_FACTOR + slider offset
+  R: 3,               // character radius
+  SPEED: 28,          // walking speed (cells/s)
+  GRAVITY: 320,       // cells/s²
+  JUMP_V: 100,        // jump take-off speed -> ~15 cells high, ~17 cells long
+  MAX_FALL: 220,      // terminal velocity
+  STEP_UP: 2,         // steps up to this height are walked over without jumping
+  JUMP_H: 13,         // walls up to this height are jumped over
+  SAFE_DROP: 10,      // drops up to this depth are simply walked down
+  GAP_MAX: 15,        // max horizontal gap it will try to jump across
+  STAR_R: 3.5,
+  MAX_DT: 1 / 20,     // clamp physics step so a lag spike can't tunnel through floors
+  WARMUP_FRAMES: 8,   // frames of detection before spawning (lets smoothing settle)
+};
+
+/* =========================================================================
+   DOM & canvases
+   ========================================================================= */
+const $ = (id) => document.getElementById(id);
+const video = $('video');
+const view = $('view');
+const vctx = view.getContext('2d');
+
+// Small canvas used to downscale camera frames for detection
+const proc = document.createElement('canvas');
+const pctx = proc.getContext('2d', { willReadFrequently: true });
+// Small canvas holding the colored "solid" overlay (scaled up when drawn)
+const ovl = document.createElement('canvas');
+const octx = ovl.getContext('2d');
+// Full-resolution copy of the camera image when frozen
+const frozenCanvas = document.createElement('canvas');
+const fctx = frozenCanvas.getContext('2d');
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+const S = {
+  running: false,
+  frozen: false,
+  showVideo: true,
+  srcW: 0, srcH: 0,          // camera resolution
+  gw: 0, gh: 0,              // grid size
+  gray: null,                // Uint8Array  grayscale grid
+  smooth: null,              // Float32Array temporally smoothed "darkness" 0..1
+  solid: null,               // Uint8Array  1 = solid, 0 = air
+  ovlImg: null, ovl32: null, // overlay pixel buffer + 32-bit view
+  colBase: 0, colEdge: 0,    // packed overlay colors
+  meanS: -1,                 // smoothed average brightness
+  threshold: 0,
+  thrOffset: 0,
+  frames: 0,
+  score: 0,
+  char: { x: 0, y: 0, vy: 0, dir: 1, onGround: false, jumped: false, jumpX: 0, squash: 0, alive: false },
+  star: { x: 0, y: 0, rot: 0, stuck: 0, placed: false },
+  particles: [],
+  view: { s: 1, ox: 0, oy: 0 },  // grid -> screen transform
+  dpr: 1,
+  lastT: 0,
+  fpsFrames: 0, fpsT: 0,
+};
+
+/* Pack RGBA into a little-endian 32-bit pixel (all phones are little-endian) */
+const rgba = (r, g, b, a) => ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
+
+function updateOverlayColors() {
+  // More transparent over live video, opaque when video is hidden
+  if (S.showVideo) { S.colBase = rgba(0, 200, 255, 105); S.colEdge = rgba(190, 248, 255, 235); }
+  else             { S.colBase = rgba(30, 150, 210, 255); S.colEdge = rgba(200, 250, 255, 255); }
+}
+
+/* =========================================================================
+   initCamera – request the rear camera and start the video stream
+   ========================================================================= */
+async function initCamera() {
+  if (!window.isSecureContext) {
+    const e = new Error('insecure'); e.name = 'InsecureContext'; throw e;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const e = new Error('unsupported'); e.name = 'Unsupported'; throw e;
+  }
+  const wanted = {
+    audio: false,
+    video: {
+      facingMode: { ideal: 'environment' },
+      width: { ideal: 640 }, height: { ideal: 480 },
+      frameRate: { ideal: 30 },
+    },
+  };
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia(wanted);
+  } catch (e) {
+    // Some devices reject the constraints – retry with "any camera"
+    if (e.name === 'OverconstrainedError' || e.name === 'ConstraintNotSatisfiedError') {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    } else {
+      throw e;
+    }
+  }
+  video.srcObject = stream;
+  video.muted = true;
+  video.setAttribute('playsinline', '');
+  await video.play();
+
+  // Wait until real frame dimensions are known
+  await new Promise((resolve) => {
+    const check = () => (video.videoWidth > 0 ? resolve() : requestAnimationFrame(check));
+    check();
+  });
+  setupGrid(video.videoWidth, video.videoHeight);
+}
+
+/* Build the detection grid to match the camera's aspect ratio */
+function setupGrid(vw, vh) {
+  const L = CFG.GRID_LONG;
+  if (vw >= vh) { S.gw = L; S.gh = Math.round(L * vh / vw); }
+  else          { S.gh = L; S.gw = Math.round(L * vw / vh); }
+  S.srcW = vw; S.srcH = vh;
+  proc.width = ovl.width = S.gw;
+  proc.height = ovl.height = S.gh;
+  const n = S.gw * S.gh;
+  S.gray = new Uint8Array(n);
+  S.smooth = new Float32Array(n);
+  S.solid = new Uint8Array(n);
+  S.ovlImg = octx.createImageData(S.gw, S.gh);
+  S.ovl32 = new Uint32Array(S.ovlImg.data.buffer);
+  S.meanS = -1;
+  S.frames = 0;
+  S.char.alive = false;
+  S.star.placed = false;
+  resizeCanvas();
+}
+
+/* =========================================================================
+   processFrame – downscale, grayscale, adaptive threshold, smoothing, overlay
+   ========================================================================= */
+function processFrame() {
+  const { gw, gh, gray, smooth, solid, ovl32 } = S;
+  const src = S.frozen ? frozenCanvas : video;
+  pctx.drawImage(src, 0, 0, gw, gh);
+  const d = pctx.getImageData(0, 0, gw, gh).data;
+  const n = gw * gh;
+
+  // 1. Grayscale (integer luma approximation) + average brightness
+  let sum = 0;
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const g = (d[j] * 77 + d[j + 1] * 150 + d[j + 2] * 29) >> 8;
+    gray[i] = g;
+    sum += g;
+  }
+  const mean = sum / n;
+  // Smooth the mean too, so camera auto-exposure doesn't make the threshold jump
+  S.meanS = S.meanS < 0 ? mean : S.meanS * 0.8 + mean * 0.2;
+
+  // 2. Adaptive threshold + manual offset from the slider
+  const thr = Math.max(5, Math.min(250, S.meanS * CFG.BASE_FACTOR + S.thrOffset));
+  S.threshold = thr;
+
+  // 3. Temporal smoothing (exponential moving average) -> solid mask
+  const a = CFG.SMOOTH;
+  for (let i = 0; i < n; i++) {
+    const dark = gray[i] < thr ? 1 : 0;
+    smooth[i] += (dark - smooth[i]) * a;
+    solid[i] = smooth[i] > 0.5 ? 1 : 0;
+  }
+
+  // 4. Overlay: solid cells tinted, top surfaces (solid with air above) highlighted
+  const base = S.colBase, edge = S.colEdge;
+  for (let i = 0; i < n; i++) {
+    if (solid[i]) ovl32[i] = (i >= gw && !solid[i - gw]) ? edge : base;
+    else ovl32[i] = 0;
+  }
+  octx.putImageData(S.ovlImg, 0, 0);
+  S.frames++;
+}
+
+/* =========================================================================
+   Collision helpers (grid space)
+   ========================================================================= */
+// Out-of-bounds left/right = wall, above top / below bottom = air
+function isSolid(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  if (xi < 0 || xi >= S.gw) return true;
+  if (yi < 0 || yi >= S.gh) return false;
+  return S.solid[yi * S.gw + xi] === 1;
+}
+
+// Does the character's bounding box centered at (cx, cy) touch anything solid?
+function hits(cx, cy) {
+  const r = CFG.R;
+  const x0 = Math.floor(cx - r + 0.01), x1 = Math.floor(cx + r - 0.01);
+  const y0 = Math.floor(cy - r + 0.01), y1 = Math.floor(cy + r - 0.01);
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++)
+      if (isSolid(x, y)) return true;
+  return false;
+}
+
+// Distance (in cells) from yStart down to the first solid cell in column x, or -1
+function groundBelow(x, yStart, maxDepth) {
+  for (let d = 0; d <= maxDepth; d++) if (isSolid(x, yStart + d)) return d;
+  return -1;
+}
+
+/* =========================================================================
+   Character spawning & star placement
+   ========================================================================= */
+function respawn(atX, atY) {
+  const c = S.char, r = CFG.R;
+  if (atX !== undefined && !hits(atX, atY)) {
+    c.x = atX; c.y = atY;
+  } else {
+    // Drop from the top at a random free column
+    c.y = r + 1;
+    c.x = S.gw / 2;
+    for (let k = 0; k < 40; k++) {
+      const x = r + 2 + Math.random() * (S.gw - 2 * r - 4);
+      if (!hits(x, c.y)) { c.x = x; break; }
+    }
+  }
+  c.vy = 0;
+  c.dir = Math.random() < 0.5 ? -1 : 1;
+  c.onGround = false;
+  c.jumped = false;
+  c.alive = true;
+}
+
+function placeStar() {
+  const st = S.star, c = S.char, r = CFG.R;
+  let fallback = null;
+  for (let k = 0; k < 400; k++) {
+    const x = r + 3 + Math.random() * (S.gw - 2 * r - 6);
+    const y = r + 3 + Math.random() * (S.gh - 2 * r - 6);
+    if (hits(x, y)) continue;
+    if (!fallback) fallback = { x, y };
+    const farEnough = Math.hypot(x - c.x, y - c.y) > 25;
+    const hasGround = groundBelow(x, y + r, 14) >= 0;  // reachable-ish: floor not far below
+    if (farEnough && hasGround) { st.x = x; st.y = y; st.stuck = 0; st.placed = true; return; }
+  }
+  const p = fallback || { x: S.gw / 2, y: S.gh / 3 };
+  st.x = p.x; st.y = p.y; st.stuck = 0; st.placed = true;
+}
+
+/* =========================================================================
+   updateCharacter – gravity, auto-walk, step up, jump walls/gaps, turn
+   ========================================================================= */
+function updateCharacter(dt) {
+  const c = S.char, r = CFG.R;
+  if (!c.alive) return;
+
+  // 1. If the shadows moved onto the character, push it up out of the solid
+  if (hits(c.x, c.y)) {
+    let k = 0;
+    while (hits(c.x, c.y) && k < 10) { c.y -= 1; k++; }
+    if (hits(c.x, c.y)) { respawn(); return; }
+    if (c.vy > 0) c.vy = 0;
+  }
+
+  c.onGround = hits(c.x, c.y + 1);
+
+  // 2. Simple AI – only decides while standing
+  if (c.onGround) {
+    // Landed after a jump almost where we took off? The jump failed -> turn around
+    if (c.jumped) {
+      c.jumped = false;
+      if (Math.abs(c.x - c.jumpX) < 2.5) c.dir *= -1;
+    }
+    const dir = c.dir;
+    const wallAhead = hits(c.x + dir * 1.5, c.y) && hits(c.x + dir * 1.5, c.y - CFG.STEP_UP);
+    if (wallAhead) {
+      // Measure the wall: find the lowest height where the path ahead is free
+      let h = -1;
+      for (let k = CFG.STEP_UP + 1; k <= CFG.JUMP_H; k++) {
+        if (!hits(c.x + dir * 2, c.y - k)) { h = k; break; }
+      }
+      if (h > 0 && !hits(c.x, c.y - h)) jump(c);  // low wall + headroom -> jump
+      else c.dir *= -1;                           // too tall -> turn around
+    } else {
+      // Look for a gap: no floor in front within a safe drop?
+      const fx = c.x + dir * (r + 1);
+      const footY = c.y + r;
+      if (groundBelow(fx, footY, CFG.SAFE_DROP) < 0) {
+        // Is there a landing surface across the gap within jumping range?
+        let landing = false;
+        for (let d = 2; d <= CFG.GAP_MAX && !landing; d++) {
+          const gx = fx + dir * d;
+          if (gx < 0 || gx >= S.gw) break;
+          for (let dy = -8; dy <= CFG.SAFE_DROP; dy++) {
+            if (isSolid(gx, footY + dy) && !isSolid(gx, footY + dy - 1)) { landing = true; break; }
+          }
+        }
+        if (landing) jump(c);
+        // otherwise: walk off the edge and fall (as designed)
+      }
+    }
+  }
+
+  // 3. Horizontal movement in ≤1-cell sub-steps, auto step-up on small ledges
+  const dx = c.dir * CFG.SPEED * dt;
+  const nx = Math.max(1, Math.ceil(Math.abs(dx)));
+  const sx = dx / nx;
+  for (let i = 0; i < nx; i++) {
+    if (!hits(c.x + sx, c.y)) { c.x += sx; continue; }
+    let stepped = false;
+    if (c.onGround) {
+      for (let h = 1; h <= CFG.STEP_UP; h++) {
+        if (!hits(c.x + sx, c.y - h)) { c.y -= h; c.x += sx; stepped = true; break; }
+      }
+    }
+    if (!stepped) {
+      if (c.onGround) c.dir *= -1;  // blocked while walking -> turn
+      break;                        // blocked in the air -> just stop moving forward
+    }
+  }
+
+  // 4. Gravity + vertical movement in sub-steps (no tunneling through thin shadows)
+  c.vy = Math.min(c.vy + CFG.GRAVITY * dt, CFG.MAX_FALL);
+  const dy = c.vy * dt;
+  const ny = Math.max(1, Math.ceil(Math.abs(dy)));
+  const sy = dy / ny;
+  for (let i = 0; i < ny; i++) {
+    if (!hits(c.x, c.y + sy)) { c.y += sy; continue; }
+    if (sy > 0) {                       // landed
+      if (c.vy > 120) c.squash = 1;
+      c.onGround = true;
+    }
+    c.vy = 0;                           // landed or bumped head
+    break;
+  }
+  c.squash *= Math.pow(0.001, dt);      // decay landing squash
+
+  // 5. Fell off the bottom -> respawn at the top
+  if (c.y - r > S.gh + 2) respawn();
+}
+
+function jump(c) {
+  c.vy = -CFG.JUMP_V;
+  c.onGround = false;
+  c.jumped = true;
+  c.jumpX = c.x;
+}
+
+/* Star: spin, relocate if buried by shadows, collect on touch */
+function updateStar(dt) {
+  const st = S.star, c = S.char;
+  if (!st.placed) placeStar();
+  st.rot += dt * 1.5;
+
+  if (isSolid(st.x, st.y)) { st.stuck += dt; if (st.stuck > 1.2) placeStar(); }
+  else st.stuck = 0;
+
+  if (c.alive && Math.hypot(c.x - st.x, c.y - st.y) < CFG.R + CFG.STAR_R) {
+    S.score++;
+    $('score').textContent = S.score;
+    burst(st.x, st.y);
+    placeStar();
+  }
+
+  // particles
+  for (const p of S.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt; p.life -= dt; }
+  S.particles = S.particles.filter((p) => p.life > 0);
+}
+
+function burst(x, y) {
+  for (let i = 0; i < 18; i++) {
+    const a = Math.random() * Math.PI * 2, v = 20 + Math.random() * 40;
+    S.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, life: 0.6 + Math.random() * 0.4 });
+  }
+}
+
+/* =========================================================================
+   render – video (or frozen frame), overlay, star, character, particles
+   ========================================================================= */
+function resizeCanvas() {
+  const stage = $('stage');
+  S.dpr = Math.min(window.devicePixelRatio || 1, 2);   // cap DPR for performance
+  view.width = Math.round(stage.clientWidth * S.dpr);
+  view.height = Math.round(stage.clientHeight * S.dpr);
+  if (S.gw) {
+    // "contain" fit of the grid inside the canvas
+    const s = Math.min(view.width / S.gw, view.height / S.gh);
+    S.view.s = s;
+    S.view.ox = (view.width - S.gw * s) / 2;
+    S.view.oy = (view.height - S.gh * s) / 2;
+  }
+}
+
+function render() {
+  const ctx = vctx, W = view.width, H = view.height;
+  ctx.fillStyle = '#0b0d12';
+  ctx.fillRect(0, 0, W, H);
+  if (!S.gw) return;
+
+  const { s, ox, oy } = S.view;
+  const gwPx = S.gw * s, ghPx = S.gh * s;
+
+  // Background: camera or a dark backdrop
+  if (S.showVideo) {
+    ctx.drawImage(S.frozen ? frozenCanvas : video, ox, oy, gwPx, ghPx);
+  } else {
+    const g = ctx.createLinearGradient(0, oy, 0, oy + ghPx);
+    g.addColorStop(0, '#1a1f2e'); g.addColorStop(1, '#0e1119');
+    ctx.fillStyle = g;
+    ctx.fillRect(ox, oy, gwPx, ghPx);
+  }
+
+  // Solid overlay, upscaled with smoothing for soft, blobby edges
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(ovl, ox, oy, gwPx, ghPx);
+
+  // Star
+  const st = S.star;
+  if (st.placed) {
+    const px = ox + st.x * s, py = oy + st.y * s;
+    const R = CFG.STAR_R * s * (1.25 + Math.sin(st.rot * 3) * 0.08);
+    ctx.save();
+    ctx.shadowColor = 'rgba(255, 210, 63, 0.9)';
+    ctx.shadowBlur = 14 * S.dpr;
+    ctx.fillStyle = '#ffd23f';
+    starPath(ctx, px, py, R, st.rot);
+    ctx.fill();
+    ctx.restore();
+    ctx.lineWidth = 1.5 * S.dpr;
+    ctx.strokeStyle = '#fff6c9';
+    starPath(ctx, px, py, R, st.rot);
+    ctx.stroke();
+  }
+
+  // Particles
+  ctx.fillStyle = '#ffe680';
+  for (const p of S.particles) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 1.5));
+    ctx.beginPath();
+    ctx.arc(ox + p.x * s, oy + p.y * s, 0.6 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Character
+  const c = S.char;
+  if (c.alive) {
+    const pr = CFG.R * s;
+    const px = ox + c.x * s, py = oy + c.y * s;
+    const sq = c.squash;
+    ctx.save();
+    ctx.translate(px, py + pr * sq * 0.2);
+    ctx.scale(1 + 0.3 * sq, 1 - 0.3 * sq);
+    const body = ctx.createRadialGradient(-pr * 0.3, -pr * 0.4, pr * 0.1, 0, 0, pr);
+    body.addColorStop(0, '#ffc2e0');
+    body.addColorStop(1, '#ff4f9a');
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.arc(0, 0, pr, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 2 * S.dpr; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+    // eyes look in walking direction
+    const ex = c.dir * pr * 0.3;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(ex - pr * 0.25, -pr * 0.2, pr * 0.26, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex + pr * 0.25, -pr * 0.2, pr * 0.26, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1a1030';
+    ctx.beginPath(); ctx.arc(ex - pr * 0.25 + c.dir * pr * 0.1, -pr * 0.18, pr * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex + pr * 0.25 + c.dir * pr * 0.1, -pr * 0.18, pr * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // Frozen badge
+  if (S.frozen) {
+    ctx.font = `700 ${13 * S.dpr}px system-ui, sans-serif`;
+    const label = '❄ FROZEN';
+    const tw = ctx.measureText(label).width;
+    const bx = ox + 10 * S.dpr, by = oy + 10 * S.dpr;
+    ctx.fillStyle = 'rgba(47, 214, 255, 0.9)';
+    ctx.fillRect(bx, by, tw + 16 * S.dpr, 24 * S.dpr);
+    ctx.fillStyle = '#04121a';
+    ctx.fillText(label, bx + 8 * S.dpr, by + 17 * S.dpr);
+  }
+}
+
+function starPath(ctx, cx, cy, R, rot) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = rot + (i * Math.PI) / 5 - Math.PI / 2;
+    const rr = i % 2 ? R * 0.45 : R;
+    ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+}
+
+/* =========================================================================
+   Main loop
+   ========================================================================= */
+function loop(t) {
+  requestAnimationFrame(loop);
+  const dt = Math.min((t - S.lastT) / 1000 || 0, CFG.MAX_DT);
+  S.lastT = t;
+
+  if (S.running && (S.frozen || video.readyState >= 2)) {
+    // Camera resolution changed (e.g. device rotated)? Rebuild the grid.
+    if (!S.frozen && video.videoWidth && (video.videoWidth !== S.srcW || video.videoHeight !== S.srcH)) {
+      setupGrid(video.videoWidth, video.videoHeight);
+    }
+    processFrame();
+    if (S.frames >= CFG.WARMUP_FRAMES) {
+      if (!S.char.alive) respawn();
+      updateCharacter(dt);
+      updateStar(dt);
+    }
+  }
+  render();
+
+  // FPS counter, updated twice a second
+  S.fpsFrames++;
+  if (t - S.fpsT > 500) {
+    $('fps').textContent = Math.round((S.fpsFrames * 1000) / (t - S.fpsT)) + ' fps';
+    $('thrOut').textContent = S.running ? Math.round(S.threshold) : '--';
+    S.fpsFrames = 0;
+    S.fpsT = t;
+  }
+}
+
+/* =========================================================================
+   Controls & UI
+   ========================================================================= */
+function toggleFreeze() {
+  if (!S.running) return;
+  S.frozen = !S.frozen;
+  if (S.frozen) {
+    // Snapshot the current camera frame at full resolution
+    frozenCanvas.width = video.videoWidth;
+    frozenCanvas.height = video.videoHeight;
+    fctx.drawImage(video, 0, 0);
+  }
+  const b = $('btnFreeze');
+  b.classList.toggle('on', S.frozen);
+  b.textContent = S.frozen ? 'Unfreeze' : 'Freeze';
+}
+
+function toggleVideo() {
+  S.showVideo = !S.showVideo;
+  $('btnVideo').classList.toggle('on', S.showVideo);
+  updateOverlayColors();
+}
+
+function resetGame() {
+  S.score = 0;
+  $('score').textContent = '0';
+  S.particles = [];
+  if (S.smooth) S.smooth.fill(0);
+  S.meanS = -1;
+  S.frames = 0;            // re-warm detection, then respawn + new star
+  S.char.alive = false;
+  S.star.placed = false;
+}
+
+// Tap the game area to drop the character at that point
+function onStageTap(e) {
+  if (!S.running || !S.gw) return;
+  const rect = view.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) * S.dpr - S.view.ox) / S.view.s;
+  const y = ((e.clientY - rect.top) * S.dpr - S.view.oy) / S.view.s;
+  if (x < 0 || y < 0 || x > S.gw || y > S.gh) return;
+  respawn(x, y);
+}
+
+function cameraErrorMessage(e) {
+  switch (e && e.name) {
+    case 'InsecureContext':
+      return 'Camera access needs a secure page. Open this game over HTTPS (or from localhost), not http:// or file://.';
+    case 'Unsupported':
+      return 'This browser does not support camera access. Try the latest Chrome (Android) or Safari (iOS).';
+    case 'NotAllowedError':
+    case 'SecurityError':
+    case 'PermissionDeniedError':
+      return 'Camera permission was denied. Allow camera access for this site (tap the lock / "aA" icon in the address bar → Camera → Allow), then tap Retry.';
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return 'No camera was found on this device.';
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return 'The camera is busy in another app. Close other camera apps, then tap Retry.';
+    case 'AbortError':
+      return 'Starting the camera was interrupted. Tap Retry.';
+    default:
+      return 'Could not start the camera' + (e && e.message ? ': ' + e.message : '.');
+  }
+}
+
+async function start() {
+  const btn = $('btnStart'), err = $('errMsg');
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+  err.hidden = true;
+  try {
+    await initCamera();
+    S.running = true;
+    $('screen').classList.add('hidden');
+  } catch (e) {
+    console.error(e);
+    err.textContent = cameraErrorMessage(e);
+    err.hidden = false;
+    btn.textContent = 'Retry';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$('btnStart').addEventListener('click', start);
+$('btnFreeze').addEventListener('click', toggleFreeze);
+$('btnVideo').addEventListener('click', toggleVideo);
+$('btnReset').addEventListener('click', resetGame);
+$('thr').addEventListener('input', (e) => { S.thrOffset = +e.target.value; });
+$('stage').addEventListener('pointerdown', onStageTap);
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
+// Block pinch-zoom gestures on iOS
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+
+updateOverlayColors();
+resizeCanvas();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
