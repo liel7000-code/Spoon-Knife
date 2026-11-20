@@ -15,7 +15,7 @@ export const PLAYER_CARS = [
     id: 'supra', name: 'Toyota Supra A80',
     tag: 'הגיבורה: שש בשורה עם טורבו כפול, כנף גבוהה ואף ארוך ונמוך.',
     topSpeed: 320, accel: 0.82, handling: 0.8,
-    color: '#f1efe9', length: 4.52, width: 1.81, styles: true,
+    color: '#a3090f', length: 4.52, width: 1.81, styles: true,
     build(root, body, paint, style) { buildSupra(root, body, paint, style); },
   },
   {

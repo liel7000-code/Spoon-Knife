@@ -248,7 +248,7 @@ export class Game {
       body.position.y = (body.userData.baseY || 0) + (Math.sin(this.buzz * 41) * 0.6 + Math.sin(this.buzz * 23.7) * 0.4) * 0.0025 * speedFrac;
     }
     const braking = playing && this.input.brake;
-    if (ud.tail) ud.tail.emissiveIntensity = braking ? 4.5 : 1.3;
+    if (ud.tail) ud.tail.emissiveIntensity = braking ? 4.5 : 0.55; // smoked look until you brake
     this.rpm = this.engineRpm(speedFrac);
     if (ud.setGauges) ud.setGauges(ph.speed * 3.6, this.rpm);
     this.rig.update(realDt, car, speedFrac);

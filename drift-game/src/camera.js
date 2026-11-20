@@ -35,9 +35,10 @@ export class CameraRig {
     car.updateMatrixWorld();
 
     if (this.mode === 'third' || this.crash) {
-      baseFov = 60;
-      camPos.set(car.position.x * 0.9, 2.75 + speedFrac * 0.35, 6.6 - speedFrac * 0.9);
-      target.set(car.position.x * 0.6, 0.9, -10);
+      baseFov = 48; // tighter lens: the car reads bigger and less stretched
+      // high, close chase view looking down onto the roof and rear glass
+      camPos.set(car.position.x * 0.92 + 0.4, 2.35 + speedFrac * 0.2, 5.7 - speedFrac * 0.4);
+      target.set(car.position.x * 0.8 - 0.1, -0.55, -9);
       const k = this.snap ? 1 : 1 - Math.exp(-dt * 7);
       this.pos.lerp(camPos, k);
       this.look.lerp(target, this.snap ? 1 : 1 - Math.exp(-dt * 9));
@@ -91,7 +92,7 @@ export class CameraRig {
       this.shake *= Math.exp(-dt * 3.2);
     }
 
-    const targetFov = baseFov + (this.crash || this.intro > 0 ? 0 : speedFrac * 24);
+    const targetFov = baseFov + (this.crash || this.intro > 0 ? 0 : speedFrac * (this.mode === 'third' ? 16 : 24));
     this.fov += (targetFov - this.fov) * (1 - Math.exp(-dt * 4));
     if (Math.abs(cam.fov - this.fov) > 0.01) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
   }

@@ -18,7 +18,8 @@ const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 const rand = (a, b) => a + rnd() * (b - a);
 
 // sun ahead and to the left, low over the horizon
-const SUN_ELEV = 4.5, SUN_AZ = 200;
+// late-afternoon sun behind the car (over the camera's shoulder) so the chase view sees the car lit
+const SUN_ELEV = 16, SUN_AZ = 28;
 export const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - SUN_ELEV), THREE.MathUtils.degToRad(SUN_AZ));
 
 /* ---------------------------------------------------------- textures */
@@ -251,10 +252,10 @@ export class World {
     scene.environmentIntensity = 1.0;
     pmrem.dispose();
 
-    scene.fog = new THREE.Fog(new THREE.Color('#c08c6a'), 150, 560);
+    scene.fog = new THREE.Fog(new THREE.Color('#c9b2a0'), 150, 560);
     this.hemi = new THREE.HemisphereLight('#9fb0dc', '#5a4636', 1.5);
     scene.add(this.hemi);
-    const sun = (this.sun = new THREE.DirectionalLight('#ffbf80', 5.5));
+    const sun = (this.sun = new THREE.DirectionalLight('#ffd6a8', 4.6));
     sun.shadow.camera.left = -26; sun.shadow.camera.right = 26; sun.shadow.camera.top = 34; sun.shadow.camera.bottom = -34;
     sun.shadow.camera.near = 1; sun.shadow.camera.far = 220;
     sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;

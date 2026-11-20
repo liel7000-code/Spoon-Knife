@@ -32,10 +32,11 @@ const SM = {
   champagne: new THREE.MeshStandardMaterial({ color: 0xcdb990, metalness: 1, roughness: 0.26 }),
   blackWheel: new THREE.MeshPhysicalMaterial({ color: 0x0d0e10, metalness: 0.6, roughness: 0.35, clearcoat: 0.6 }),
   caliperYellow: new THREE.MeshPhysicalMaterial({ color: 0xf2c80f, roughness: 0.3, clearcoat: 1 }),
-  smoke: new THREE.MeshPhysicalMaterial({ color: 0x1a0d0e, roughness: 0.08, clearcoat: 1, metalness: 0.2 }),
+  smoke: new THREE.MeshPhysicalMaterial({ color: 0x120607, roughness: 0.06, clearcoat: 1, metalness: 0.3 }),
+  smokedLens: new THREE.MeshPhysicalMaterial({ color: 0x2a0508, emissive: 0x5a0306, emissiveIntensity: 0.6, roughness: 0.08, clearcoat: 1 }),
   lampRed: new THREE.MeshStandardMaterial({ color: 0x5a0a0c, emissive: 0xff2016, emissiveIntensity: 0.9, roughness: 0.3 }),
-  lampClear: new THREE.MeshPhysicalMaterial({ color: 0x9fb4d6, emissive: 0x30405a, emissiveIntensity: 0.3, roughness: 0.1, metalness: 0.2, clearcoat: 1 }),
-  lampAmber: new THREE.MeshStandardMaterial({ color: 0x8a4a00, emissive: 0xff8a10, emissiveIntensity: 0.35, roughness: 0.25 }),
+  lampClear: new THREE.MeshPhysicalMaterial({ color: 0x3a3f48, emissive: 0x1a2030, emissiveIntensity: 0.3, roughness: 0.08, metalness: 0.4, clearcoat: 1 }),
+  lampAmber: new THREE.MeshStandardMaterial({ color: 0x3a1a04, emissive: 0xff6a10, emissiveIntensity: 0.12, roughness: 0.15 }),
   chromeRing: new THREE.MeshStandardMaterial({ color: 0xdfe3e8, metalness: 1, roughness: 0.15 }),
   housing: new THREE.MeshStandardMaterial({ color: 0x1b1d21, metalness: 0.9, roughness: 0.25 }),
   mesh: (() => {
@@ -57,6 +58,18 @@ const SM = {
   })(),
   seat: new THREE.MeshStandardMaterial({ color: 0x0d0d0f, roughness: 0.75 }),
 };
+
+// chrome italic script badge (e.g. "Supra") on a transparent plane
+function scriptBadge(text) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 72;
+  const g = c.getContext('2d');
+  g.font = 'italic bold 52px "Brush Script MT", "Segoe Script", Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const grd = g.createLinearGradient(0, 10, 0, 62);
+  grd.addColorStop(0, '#ffffff'); grd.addColorStop(0.5, '#9aa0a8'); grd.addColorStop(1, '#e8ecf0');
+  g.fillStyle = grd; g.fillText(text, 128, 38);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshStandardMaterial({ map: t, transparent: true, metalness: 0.8, roughness: 0.2, depthWrite: false });
+}
 
 function plateTexture(text) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 64;
@@ -279,16 +292,29 @@ export function buildSupra(root, body, paint, style = 'stock') {
     pill.position.set(s * 0.47, 0.71, rz(0.47) - 0.03);
     pill.rotation.y = s * 0.32;
     pill.add(mesh(roundedPlate(0.54, 0.135, 0.067, 0.03), SM.smoke, 0, 0, 0, false));
-    const kinds = [SM.lampAmber, tail, tail, SM.lampClear];
+    // smoked lenses: each lamp is a dark centre inside a glowing ring
+    const kinds = [SM.lampAmber, SM.smokedLens, SM.smokedLens, SM.lampClear];
+    const rings = [SM.lampAmber, tail, tail, tail];
     for (let k = 0; k < 4; k++) {
       const x = s * (0.2 - k * 0.13);
-      pill.add(mesh(new THREE.TorusGeometry(0.048, 0.007, 6, 24), SM.chromeRing, x, 0, 0.027, false));
+      pill.add(mesh(new THREE.TorusGeometry(0.04, 0.011, 8, 28), rings[k], x, 0, 0.028, false));
       pill.add(mesh(new THREE.CircleGeometry(0.046, 24), kinds[k], x, 0, 0.026, false));
+      pill.add(mesh(new THREE.TorusGeometry(0.049, 0.004, 6, 24), SM.chromeRing, x, 0, 0.027, false));
     }
     lights.rear.add(pill);
   }
   // emblem, recessed plate, high-mount stop light, valance, exhaust
   const er = emblem(0.9); er.position.set(0, 0.79, rz(0) + 0.006); body.add(er);
+  const badge = mesh(new THREE.PlaneGeometry(0.2, 0.055), scriptBadge('Supra'), 0.38, 0.815, rz(0.38) + 0.004, false);
+  badge.rotation.y = 0.12; body.add(badge);
+  // rear wiper lying on the fastback glass
+  const wz = 1.36, wy = S.roof(wz) + 0.012, slope = Math.atan2(S.roof(wz - 0.1) - S.roof(wz + 0.1), 0.2);
+  const wiper = new THREE.Group();
+  wiper.position.set(0.02, wy, wz); wiper.rotation.x = -slope;
+  const arm = mesh(new THREE.BoxGeometry(0.5, 0.008, 0.014), MAT.plastic, -0.22, 0.005, 0, false); arm.rotation.y = 0.18; wiper.add(arm);
+  wiper.add(mesh(new THREE.BoxGeometry(0.46, 0.012, 0.01), MAT.satin, -0.24, 0.012, 0.02, false));
+  wiper.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.02, 12), MAT.plastic, 0, 0, 0, false));
+  body.add(wiper);
   body.add(mesh(roundedPlate(0.6, 0.2, 0.03, 0.03), MAT.plastic, 0, 0.48, rz(0) + 0.0, false));
   body.add(mesh(new THREE.PlaneGeometry(0.52, 0.13), plateMat, 0, 0.48, rz(0) + 0.026, false));
   const hm = mesh(roundedPlate(0.32, 0.022, 0.01, 0.012), tail, 0, S.top(1.62) + 0.012, 1.62, false);
