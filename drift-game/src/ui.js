@@ -1,5 +1,6 @@
 // DOM screens: menu, garage, HUD, game over. Hebrew, RTL.
 import { PLAYER_CARS, STAT_RANGE } from './cars.js';
+import { loadBoard } from './scoring.js';
 
 const $ = (id) => document.getElementById(id);
 const SWATCHES = ['#a3090f', '#f1efe9', '#e8b10c', '#1f4fa8', '#d6281f', '#7d8a96', '#16181c', '#1f4fd1', '#1f8a5b', '#ff6a00', '#7a2fd0', '#e8c8a0'];
@@ -17,7 +18,7 @@ const rpmAngle = (rpm) => G.a0 + (Math.min(rpm, G.max) / G.max) * (G.a1 - G.a0);
 export class UI {
   constructor(handlers) {
     this.h = handlers; // { onStart, onGarage, onBack, onCar, onColor, onCamPref, onMute, onCamToggle, onRetry, onMenu }
-    this.screens = { menu: $('menu'), garage: $('garage'), hud: $('hud'), over: $('over') };
+    this.screens = { menu: $('menu'), garage: $('garage'), hud: $('hud'), over: $('over'), board: $('boardScreen') };
     this.touch = $('touch');
 
     $('btnStart').onclick = () => handlers.onStart();
@@ -26,6 +27,9 @@ export class UI {
     $('btnMuteMenu').onclick = () => handlers.onMute();
     $('btnQuality').onclick = () => handlers.onQuality();
     $('btnMusic').onclick = () => handlers.onMusic();
+    $('btnTime').onclick = () => handlers.onTime();
+    $('btnBoard').onclick = () => { this.renderBoard($('menuBoard'), 0); this.show('board'); };
+    $('btnBoardBack').onclick = () => this.show('menu');
     $('garageBack').onclick = () => handlers.onBack();
     $('garageStart').onclick = () => handlers.onStart();
     $('prevCar').onclick = () => handlers.onCar(-1);
@@ -72,7 +76,11 @@ export class UI {
   }
 
   setCamPref(mode) {
-    $('btnCamPref').textContent = `מצלמה: ${mode === 'first' ? 'גוף ראשון' : 'גוף שלישי'}`;
+    $('btnCamPref').textContent = `מצלמה: ${{ third: 'מרדף', bumper: 'פגוש', first: 'תא נהג' }[mode] || 'מרדף'}`;
+  }
+
+  setTime(night) {
+    $('btnTime').textContent = `תאורה: ${night ? 'לילה בעיר' : 'שקיעה'}`;
   }
 
   setMusic(on) {
@@ -110,19 +118,29 @@ export class UI {
     for (const b of $('swatches').querySelectorAll('.swatch')) b.classList.toggle('on', b.dataset.color.toLowerCase() === color.toLowerCase());
   }
 
-  hud({ speed, score, best, combo, comboFrac, rpm = 0, gear = 1 }) {
+  hud({ speed, score, best, mult = 1, hold = 0, fast = false, rpm = 0, gear = 1 }) {
     $('hudSpeed').textContent = Math.round(speed);
     $('rpmArc').setAttribute('d', arc(G.a0, Math.max(G.a0 + 0.5, rpmAngle(rpm))));
     $('hudGear').textContent = gear;
     this.gauge.classList.toggle('redline', rpm > G.red + 500);
     $('hudScore').textContent = fmt(score);
     $('hudBest').textContent = fmt(best);
-    const c = $('combo');
-    c.hidden = combo < 2;
-    if (combo >= 2) {
-      $('comboVal').textContent = `×${combo}`;
-      $('comboBar').style.width = `${Math.max(0, comboFrac) * 100}%`;
-    }
+    const m = $('mult');
+    $('multVal').textContent = `×${mult.toFixed(1)}`;
+    $('multBar').style.width = `${Math.round(hold * 100)}%`;
+    m.classList.toggle('cold', !fast);
+    if (mult > (this.lastMult || 1) + 0.01) { m.classList.add('bump'); clearTimeout(this.bumpT); this.bumpT = setTimeout(() => m.classList.remove('bump'), 160); }
+    this.lastMult = mult;
+  }
+
+  // stacked event feed under the multiplier ("LANE SPLIT +1,200")
+  feed(text, kind) {
+    const f = $('feed');
+    const d = document.createElement('div');
+    d.className = kind; d.textContent = text;
+    f.prepend(d);
+    while (f.children.length > 4) f.lastChild.remove();
+    setTimeout(() => d.remove(), 1700);
   }
 
   popup(text) {
@@ -133,7 +151,25 @@ export class UI {
     p.classList.add('show');
   }
 
-  gameOver({ score, distance, nearMisses, best, record }) {
+  renderBoard(el, highlight) {
+    const board = loadBoard();
+    el.innerHTML = '';
+    if (!board.length) { el.innerHTML = '<li class="board-empty">עוד אין ריצות. צא לכביש.</li>'; return; }
+    const day = (t) => new Date(t).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' });
+    board.forEach((r, i) => {
+      const li = document.createElement('li');
+      if (i + 1 === highlight) li.className = 'me';
+      li.innerHTML = `<div><b dir="ltr">${fmt(r.score)}</b><br><span dir="ltr">${r.car} · ×${r.mult} · ${r.speed} km/h</span></div><span>${day(r.date)}</span>`;
+      el.appendChild(li);
+    });
+  }
+
+  gameOver({ score, distance, nearMisses, best, record, rank = 0, splits = 0, topMult = 1, topSpeed = 0 }) {
+    $('overSplit').textContent = fmt(splits);
+    $('overMult').textContent = `×${topMult.toFixed(1)}`;
+    $('overSpeed').textContent = `${Math.round(topSpeed)} km/h`;
+    $('overRank').textContent = rank ? `מקום ${rank} בטבלת השיאים` : '';
+    this.renderBoard($('overBoard'), rank);
     // results count up with an ease-out
     const t0 = performance.now(), dur = 900;
     const tick = (now) => {

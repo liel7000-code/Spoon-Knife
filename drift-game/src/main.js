@@ -32,6 +32,7 @@ const settings = {
   cam: store.get('driftgame.cam', 'third'),
   quality: store.get('driftgame.quality', Input.isTouch() ? 'medium' : 'high'),
   style: store.get('driftgame.supraStyle', 'stock'),
+  night: store.get('driftgame.night', false),
 };
 if (!QUALITY[settings.quality]) settings.quality = 'high';
 const applyPixelRatio = () => renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QUALITY[settings.quality].pixelRatio));
@@ -69,8 +70,15 @@ const ui = new UI({
     showroom.setColor(c);
     ui.setColor(c);
   },
+  onTime: () => {
+    settings.night = !settings.night;
+    store.set('driftgame.night', settings.night);
+    game.setTime(settings.night);
+    ui.setTime(settings.night);
+  },
   onCamPref: () => {
-    settings.cam = settings.cam === 'third' ? 'first' : 'third';
+    const order = ['third', 'bumper', 'first'];
+    settings.cam = order[(order.indexOf(settings.cam) + 1) % order.length];
     store.set('driftgame.cam', settings.cam);
     ui.setCamPref(settings.cam);
   },
@@ -154,6 +162,8 @@ ui.setMusic(audio.musicOn);
 // browsers only allow sound after a gesture: start it (and the menu music) on the first click or key
 for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => audio.init(), { once: true });
 ui.setQuality(QUALITY[settings.quality].label);
+game.setTime(settings.night);
+ui.setTime(settings.night);
 go('menu');
 
 // fixed-timestep simulation, variable-rate rendering

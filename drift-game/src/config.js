@@ -23,7 +23,15 @@ export const CONFIG = {
     scrapeDrag: 1.6,       // speed lost per second while scraping
     pushback: 0.35,        // steering kick away from the barrier
   },
-  nearMiss: { near: 1.0, edge: 0.45, comboTime: 3 }, // metres between car edges
+  nearMiss: { near: 1.0, edge: 0.45, split: 1.6, comboTime: 3 }, // metres between car edges
+  score: {
+    minSpeed: 120,   // km/h: below this nothing is scored
+    speedRate: 0.4,  // points per second per km/h above (minSpeed - 30), times the multiplier
+    maxMult: 10,
+    decayDelay: 4,   // seconds without a risky move before the multiplier starts to fall
+    decayRate: 0.35, // multiplier lost per second after that
+    slowReset: 3,    // seconds below minSpeed that wipe the multiplier
+  },
   traffic: {
     laneChangeChance: 0.05, // per car per second (grows with difficulty)
     signalTime: 1.5,        // seconds of indicator before moving

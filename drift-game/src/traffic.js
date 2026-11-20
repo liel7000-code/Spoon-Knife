@@ -79,11 +79,11 @@ export class Traffic {
         active: true, crashed: false, lane, free, lc: 0, signal: 0,
         jitter: rand(-0.15, 0.15), wobPhase: rand(0, 6.28), wobFreq: rand(0.25, 0.6),
         z: z - rand(0, 5), spd: this.speed, vx: 0, yaw: 0, spinV: 0,
-        minGap: Infinity, scored: false,
+        minGap: Infinity, scored: false, passT: null, passSide: 0, splitUsed: false,
       });
       it.x = LANE_X[lane] + it.jitter;
       it.mesh.userData.recolor();
-      it.mesh.userData.setLightsOn(Math.random() < 0.35);
+      it.mesh.userData.setLightsOn(this.night || Math.random() < 0.35);
       it.mesh.rotation.set(0, 0, 0);
       it.mesh.position.set(it.x, 0, it.z);
       it.mesh.visible = true;

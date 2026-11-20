@@ -20,6 +20,9 @@ const rand = (a, b) => a + rnd() * (b - a);
 // sun ahead and to the left, low over the horizon
 // late-afternoon sun behind the car (over the camera's shoulder) so the chase view sees the car lit
 const SUN_ELEV = 16, SUN_AZ = 28;
+// night: the sky shader's sun sits below the horizon, moonlight comes from high up
+const NIGHT_SKY_SUN = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(96), THREE.MathUtils.degToRad(200));
+const MOON_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(50), THREE.MathUtils.degToRad(160));
 export const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - SUN_ELEV), THREE.MathUtils.degToRad(SUN_AZ));
 
 /* ---------------------------------------------------------- textures */
@@ -172,6 +175,14 @@ function cloudTexture() {
   return t;
 }
 
+function poolTexture() {
+  const [c, g] = canvas(128, 128);
+  const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grd.addColorStop(0, 'rgba(255,255,255,0.9)'); grd.addColorStop(0.45, 'rgba(255,255,255,0.35)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+
 function grassTexture() {
   const [c, g] = canvas(512, 512);
   g.fillStyle = '#5a6a36'; g.fillRect(0, 0, 512, 512);
@@ -261,6 +272,13 @@ export class World {
     sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
     sun.shadow.radius = 3;
     scene.add(sun, sun.target);
+    this.lightDir = SUN_DIR.clone();
+    this.pools = [];
+    this.lampMats = [];
+    this.windowMats = [];
+    const moon = (this.moon = new THREE.Mesh(new THREE.CircleGeometry(22, 32), new THREE.MeshBasicMaterial({ color: '#f4f1e6', fog: false })));
+    moon.visible = false;
+    scene.add(moon);
 
     this.buildBackdrop();
     this.buildRoad();
@@ -389,7 +407,14 @@ export class World {
     const poleMat = new THREE.MeshStandardMaterial({ color: '#6f757d', metalness: 0.7, roughness: 0.4 });
     inst(new THREE.CylinderGeometry(0.09, 0.14, 10, 10), poleMat, poles);
     inst(new THREE.BoxGeometry(2.8, 0.1, 0.12), poleMat, arms);
-    inst(new THREE.BoxGeometry(0.75, 0.14, 0.32), new THREE.MeshStandardMaterial({ color: '#2b2d30', emissive: '#ffd59a', emissiveIntensity: 2.6 }), heads, { cast: false });
+    const lampMat = new THREE.MeshStandardMaterial({ color: '#2b2d30', emissive: '#ffd59a', emissiveIntensity: 2.6 });
+    this.lampMats.push(lampMat);
+    inst(new THREE.BoxGeometry(0.75, 0.14, 0.32), lampMat, heads, { cast: false });
+    // warm pools of light under each lamp (night only): additive decals, no real lights
+    const pools = inst(new THREE.PlaneGeometry(13, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: poolTexture(), color: '#ffbf70', transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
+      heads.map(([x, , z]) => [x * 0.55, 0.03, z]), { cast: false });
+    pools.receiveShadow = false; pools.renderOrder = 1; pools.visible = false;
+    this.pools.push(pools);
     // trees in clusters behind the verge
     const trunks = [], cones = [], rounds = [], cColors = [], rColors = [];
     const greens = ['#3e5a2c', '#4b6a33', '#36502a', '#5d7536', '#6f6a35'].map((c) => new THREE.Color(c));
@@ -412,7 +437,9 @@ export class World {
       blds.push([sx * rand(85, 170), h / 2, -rand(0, STRIP), 0, w, h, d]);
       bColors.push(bcol[(rnd() * bcol.length) | 0]);
     }
-    inst(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.85, emissive: '#ffffff', emissiveMap: windowTexture(), emissiveIntensity: 0.55 }), blds, { cast: false, colors: bColors });
+    const winMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.85, emissive: '#ffffff', emissiveMap: windowTexture(), emissiveIntensity: 0.55 });
+    this.windowMats.push(winMat);
+    inst(new THREE.BoxGeometry(1, 1, 1), winMat, blds, { cast: false, colors: bColors });
 
     // concrete overpass crossing the highway
     const concrete = new THREE.MeshStandardMaterial({ color: '#a8a39b', roughness: 0.9, metalness: 0 });
@@ -450,6 +477,29 @@ export class World {
     return grp;
   }
 
+  // golden-hour day or a night city expressway
+  setTime(night) {
+    this.night = night;
+    const s = this.scene;
+    this.sky.material.uniforms.sunPosition.value.copy(night ? NIGHT_SKY_SUN : SUN_DIR);
+    this.sky.material.uniforms.rayleigh.value = night ? 0.6 : 3.6;
+    this.lightDir.copy(night ? MOON_DIR : SUN_DIR);
+    this.sun.color.set(night ? '#9fb2ff' : '#ffd6a8');
+    this.sun.intensity = night ? 0.55 : 4.6;
+    this.hemi.color.set(night ? '#2c3a5c' : '#9fb0dc');
+    this.hemi.groundColor.set(night ? '#0d0d12' : '#5a4636');
+    this.hemi.intensity = night ? 0.7 : 1.5;
+    s.environmentIntensity = night ? 0.22 : 1.0;
+    s.fog.color.set(night ? '#0a0f1c' : '#c9b2a0');
+    s.fog.near = night ? 70 : 150; s.fog.far = night ? 430 : 560;
+    for (const m of this.lampMats) m.emissiveIntensity = night ? 6 : 2.6;
+    for (const m of this.windowMats) m.emissiveIntensity = night ? 2.2 : 0.55;
+    for (const p of this.pools) p.visible = night;
+    for (const m of this.backdrop.children) if (m !== this.clouds) m.material.color.set(night ? '#1c2030' : '#ffffff');
+    if (this.clouds) this.clouds.visible = !night && this.quality.clouds;
+    this.moon.visible = night;
+  }
+
   setQuality(q) {
     this.quality = q;
     const r = this.renderer;
@@ -463,7 +513,7 @@ export class World {
       this.sun.shadow.mapSize.set(q.shadowSize, q.shadowSize);
       if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
     }
-    if (this.clouds) this.clouds.visible = q.clouds;
+    if (this.clouds) this.clouds.visible = q.clouds && !this.night;
     for (const strip of this.strips) {
       for (const m of strip.children) if (m.isInstancedMesh) m.count = Math.max(1, Math.round(m.userData.full * (m.userData.full > 40 ? q.scenery : 1)));
     }
@@ -488,6 +538,7 @@ export class World {
     this.cloudTex.offset.x += dt * 0.0009; // clouds drift slowly
     const px = player ? player.position.x : 0;
     this.sun.target.position.set(px * 0.5, 0, -14);
-    this.sun.position.copy(this.sun.target.position).addScaledVector(SUN_DIR, 120);
+    this.sun.position.copy(this.sun.target.position).addScaledVector(this.lightDir, 120);
+    if (this.night) this.moon.position.copy(camera.position).addScaledVector(MOON_DIR, 900), this.moon.lookAt(camera.position);
   }
 }

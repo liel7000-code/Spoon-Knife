@@ -24,7 +24,9 @@
       <div class="menu-btns">
         <button id="btnStart" class="btn primary">התחל לנסוע</button>
         <button id="btnGarage" class="btn">בחירת רכב</button>
-        <button id="btnCamPref" class="btn ghost">מצלמה: גוף שלישי</button>
+        <button id="btnBoard" class="btn ghost">טבלת שיאים</button>
+        <button id="btnTime" class="btn ghost">תאורה: שקיעה</button>
+        <button id="btnCamPref" class="btn ghost">מצלמה: מרדף</button>
         <button id="btnMuteMenu" class="btn ghost">צליל: פועל</button>
         <button id="btnMusic" class="btn ghost">מוזיקה: פועלת</button>
         <button id="btnQuality" class="btn ghost">איכות גרפיקה: גבוהה</button>
@@ -87,11 +89,12 @@
         <button id="btnMute" class="tool" aria-label="השתק" title="צליל"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="cross" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       </div>
     </div>
-    <div id="combo" class="combo" hidden>
-      <span>קומבו</span><b id="comboVal" dir="ltr">×1</b>
-      <div class="combo-bar"><i id="comboBar"></i></div>
+    <div id="mult" class="mult">
+      <b id="multVal" dir="ltr">×1.0</b>
+      <div class="mult-bar"><i id="multBar"></i></div>
+      <span id="multHint" class="mult-hint">מעל 120 קמ״ש כדי לצבור</span>
     </div>
-    <div id="popup" class="popup"></div>
+    <div id="feed" class="feed" aria-live="polite"></div>
     <div class="gauge" dir="ltr">
       <svg viewBox="0 0 220 220" aria-hidden="true">
         <defs>
@@ -125,17 +128,30 @@
     </div>
   </div>
 
+  <!-- Leaderboard -->
+  <section id="boardScreen" class="screen" hidden>
+    <div class="menu-card">
+      <h2 class="board-title">טבלת שיאים</h2>
+      <ol id="menuBoard" class="board"></ol>
+      <button id="btnBoardBack" class="btn">חזרה</button>
+    </div>
+  </section>
+
   <!-- Game over -->
   <section id="over" class="screen" hidden>
     <div class="menu-card over-card">
       <h2>התרסקת!</h2>
       <div id="newRecord" class="record" hidden>שיא חדש</div>
+      <div class="over-score"><span class="lbl">ניקוד</span><b id="overScore" dir="ltr">0</b><span id="overRank" class="rank"></span></div>
       <div class="over-stats">
-        <div><span class="lbl">ניקוד</span><b id="overScore" dir="ltr">0</b></div>
+        <div><span class="lbl">פיצולי נתיב</span><b id="overSplit" dir="ltr">0</b></div>
+        <div><span class="lbl">מעברים צמודים</span><b id="overNear" dir="ltr">0</b></div>
+        <div><span class="lbl">מכפיל מרבי</span><b id="overMult" dir="ltr">×1.0</b></div>
+        <div><span class="lbl">מהירות מרבית</span><b id="overSpeed" dir="ltr">0</b></div>
         <div><span class="lbl">מרחק</span><b id="overDist">0</b></div>
-        <div><span class="lbl">כמעט־פגיעות</span><b id="overNear" dir="ltr">0</b></div>
         <div><span class="lbl">שיא</span><b id="overBest" dir="ltr">0</b></div>
       </div>
+      <ol id="overBoard" class="board"></ol>
       <div class="menu-btns">
         <button id="btnRetry" class="btn primary">שחק שוב</button>
         <button id="btnMenu" class="btn">תפריט</button>

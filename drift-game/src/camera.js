@@ -23,7 +23,8 @@ export class CameraRig {
   }
 
   setMode(mode) { this.mode = mode; this.snap = true; }
-  toggle() { this.setMode(this.mode === 'third' ? 'first' : 'third'); return this.mode; }
+  // chase -> bumper -> cockpit
+  toggle() { const order = ['third', 'bumper', 'first']; this.setMode(order[(order.indexOf(this.mode) + 1) % order.length]); return this.mode; }
   startIntro() { this.intro = this.introLen; this.crash = false; }
   startCrash(side) { this.crash = true; this.crashT = 0; this.crashSide = side || 1; }
 
@@ -43,6 +44,12 @@ export class CameraRig {
       this.pos.lerp(camPos, k);
       this.look.lerp(target, this.snap ? 1 : 1 - Math.exp(-dt * 9));
       camPos.copy(this.pos); target.copy(this.look);
+    } else if (this.mode === 'bumper') {
+      // low camera on the front bumper: the most intense sense of speed
+      baseFov = 66;
+      const len = (car.userData.def && car.userData.def.length) || 4.5;
+      camPos.set(0, 0.62, -len / 2 - 0.05).applyMatrix4(frame.matrixWorld);
+      target.set(0, 0.5, -len / 2 - 30).applyMatrix4(frame.matrixWorld);
     } else {
       baseFov = 62;
       const eye = car.userData.eye;
@@ -75,7 +82,7 @@ export class CameraRig {
     }
 
     cam.position.copy(camPos);
-    if (this.mode === 'first' && !this.crash && this.intro <= 0) cam.up.set(0, 1, 0).applyQuaternion(frame.getWorldQuaternion(q1));
+    if (this.mode !== 'third' && !this.crash && this.intro <= 0) cam.up.set(0, 1, 0).applyQuaternion(frame.getWorldQuaternion(q1));
     else cam.up.set(0, 1, 0);
     cam.lookAt(target);
     this.snap = false;

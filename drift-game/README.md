@@ -22,17 +22,22 @@ Open the URL Vite prints (http://localhost:5173). `npm run build` produces a sta
 
 ## How it plays
 
-- Free steering across all four lanes. Steering input drives a simple vehicle model: wheel angle (reduced at speed for an
-  understeer feel) → yaw rate (capped by tyre grip) → heading, while the direction of travel lags the heading a little, so
-  the car slides slightly at high speed. Let go of the steering and the car straightens up.
-- Brushing the guard rail scrapes (sparks, speed loss, a steering kick away from the rail). Hitting it fast at a steep
-  angle is a crash.
-- Traffic drives in lanes with a slight natural weave and sometimes changes lane slowly, indicator first.
-- Rows of traffic always leave a free lane. It moves at most one lane per row, row spacing scales with closing speed,
-  and AI lane changes never enter a row's free lane, so there is always a way through.
-- Collisions use oriented bounding boxes, so a car that is turned or sliding collides at its real corners.
-- Near miss = passing within 1.0 m (edge to edge) of a car: +100 × combo; within 0.45 m: +300 × combo.
-- Score = metres driven + near-miss bonuses. Best score is saved in localStorage.
+- Free steering across four lanes of traffic. Cruising speed rises over time; W pushes to the car's top speed.
+- **Scoring (traffic weaving):** points flow while you are above 120 km/h, scaled by your speed and a multiplier
+  (up to ×10). The multiplier grows with risky moves and starts to bleed away after 4 s of playing it safe.
+  Dropping under 120 km/h for 3 s wipes it.
+
+  | Move | Points | Multiplier |
+  | --- | --- | --- |
+  | Overtake above 150 km/h | 20 × mult | +0.03 |
+  | Near miss (edge to edge < 1.0 m) | 150 × mult | +0.25 |
+  | Close pass (< 0.45 m) | 400 × mult | +0.6 |
+  | Lane split (between two cars, both < 1.6 m, within 0.4 s) | 1200 × mult | +1.2 |
+
+- Any collision ends the run. Runs go into a local top-10 leaderboard (menu → "טבלת שיאים").
+- Rows of traffic always leave a free lane; AI lane changes never enter it, so there is always a way through.
+- Brushing the guard rail scrapes; hitting it hard at an angle is a crash.
+- Lighting: golden-hour sunset or a night city expressway (menu → "תאורה"). Cameras: chase, bumper, cockpit (C).
 
 ## Graphics
 

@@ -9,6 +9,7 @@ import { World, BARRIER_X, SUN_DIR } from './world.js';
 import { Effects } from './effects.js';
 import { Post } from './post.js';
 import { CONFIG } from './config.js';
+import { Scoring, EVENTS, submitRun } from './scoring.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -39,6 +40,7 @@ export class Game {
     this.phys = null;
     this.pBox = { x: 0, z: 0, hw: 1, hl: 2, yaw: 0 };
     this.tBox = { x: 0, z: 0, hw: 1, hl: 2, yaw: 0 };
+    this.scoring = new Scoring((kind, pts) => this.onScore(kind, pts));
   }
 
   /* ------------------------------------------------------- lifecycle */
@@ -53,7 +55,8 @@ export class Game {
     const spot = (this.headlight = new THREE.SpotLight('#fff0d0', 90, 80, 0.38, 0.55, 1.4));
     spot.position.set(0, 0.62, -def.length / 2 + 0.2);
     spot.target.position.set(0, 0, -30);
-    spot.visible = this.quality.headlights;
+    spot.visible = this.quality.headlights || this.night;
+    if (this.night) { spot.intensity = 320; spot.distance = 110; }
     body.add(spot, spot.target);
     // the spotlight alone lights the road; visible beam cones looked like grey wedges
     this.phys = new CarPhysics(def);
@@ -61,6 +64,7 @@ export class Game {
     this.crashSpin = 0; this.crashVx = 0;
     this.time = 0; this.distance = 0; this.bonus = 0; this.nearMisses = 0;
     this.combo = 0; this.comboT = 0; this.difficulty = 0;
+    this.scoring.reset();
     this.crashReal = 0; this.overShown = false; this.scrape = 0;
     this.timeScale = 1;
     this.traffic.reset();
@@ -73,6 +77,15 @@ export class Game {
 
   stop() { this.state = 'idle'; }
 
+  setTime(night) {
+    this.night = night;
+    this.world.setTime(night);
+    this.traffic.night = night;
+    for (const it of this.traffic.items) if (it.active) it.mesh.userData.setLightsOn(night || Math.random() < 0.35);
+    this.renderer.toneMappingExposure = night ? 1.05 : 0.68;
+    if (this.headlight) { this.headlight.intensity = night ? 320 : 90; this.headlight.distance = night ? 110 : 80; }
+  }
+
   setQuality(q) {
     this.quality = q;
     this.world.setQuality(q);
@@ -80,7 +93,7 @@ export class Game {
     if (this.headlight) this.headlight.visible = q.headlights;
   }
 
-  get score() { return Math.floor(this.distance) + this.bonus; }
+  get score() { return Math.floor(this.scoring.total); }
 
   toggleCamera() { return this.rig.toggle(); }
 
@@ -101,7 +114,7 @@ export class Game {
       ph.step(dt, { steerTarget: st.target, analog: st.analog, gas: this.input.gas, brake: this.input.brake, baseSpeed });
       this.barrier(dt);
       this.distance += ph.forward * dt;
-      if (this.comboT > 0) { this.comboT -= dt; if (this.comboT <= 0) this.combo = 0; }
+      this.scoring.tick(dt, ph.speed * 3.6);
       this.difficulty = clamp((ph.speed * 3.6 - 110) / 170, 0, 1);
     } else if (this.state === 'crash') {
       ph.speed *= Math.exp(-1.3 * dt);
@@ -163,26 +176,38 @@ export class Game {
       if (Math.abs(it.z) > it.hl + pb.hl + 3 || Math.abs(it.x - ph.x) > it.hw + pb.hl + 2) {
         if (!it.scored && it.z - it.hl > pb.hl) {
           it.scored = true;
-          if (it.minGap < N.near) this.nearMiss(it.minGap);
+          this.passed(it);
         }
         continue;
       }
       tb.x = it.x; tb.z = it.z; tb.hw = it.hw; tb.hl = it.hl; tb.yaw = it.yaw;
       const d = obbDistance(pb, tb);
       if (d <= 0) { this.crash(it, 0); return; }
-      if (d < it.minGap) it.minGap = d;
+      if (d < it.minGap) { it.minGap = d; it.passSide = Math.sign(it.x - ph.x); }
     }
   }
 
-  nearMiss(gap) {
-    const N = CONFIG.nearMiss;
-    this.combo = this.comboT > 0 ? this.combo + 1 : 1;
-    this.comboT = N.comboTime;
-    const edge = gap < N.edge;
-    const pts = (edge ? 300 : 100) * this.combo;
-    this.bonus += pts;
-    this.nearMisses++;
-    this.ui.popup(`${edge ? 'על הקצה!' : 'כמעט!'} ⁦+${pts}⁩`);
+  // a car has just been passed: overtake, near miss / close pass, or a lane split
+  // (threading between two cars, one on each side, within a fraction of a second)
+  passed(it) {
+    const N = CONFIG.nearMiss, kmh = this.phys.speed * 3.6;
+    it.passT = this.time;
+    if (kmh >= CONFIG.score.minSpeed + 30) this.scoring.event('overtake');
+    if (it.minGap < N.split) {
+      for (const o of this.traffic.items) {
+        if (o === it || !o.active || o.splitUsed || o.passT == null || this.time - o.passT > 0.4) continue;
+        if (o.minGap < N.split && o.passSide === -it.passSide) { o.splitUsed = it.splitUsed = true; this.scoring.event('split'); return; }
+      }
+    }
+    if (it.minGap < N.edge) this.scoring.event('close');
+    else if (it.minGap < N.near) this.scoring.event('near');
+  }
+
+  onScore(kind, pts) {
+    if (kind === 'slow') { this.ui.feed('מהירות נמוכה · המכפיל אופס', 'bad'); return; }
+    if (EVENTS[kind].quiet) return;
+    this.nearMisses += kind === 'overtake' ? 0 : 1;
+    this.ui.feed(`${EVENTS[kind].label} \u2066+${pts.toLocaleString('he-IL')}\u2069`, kind);
     this.audio.nearMiss();
   }
 
@@ -211,6 +236,9 @@ export class Game {
     this.finalScore = this.score;
     this.isRecord = this.finalScore > this.best;
     if (this.isRecord) { this.best = this.finalScore; store.set('driftgame.best', this.best); }
+    const sc = this.scoring;
+    this.runStats = { splits: sc.counts.split, close: sc.counts.close, near: sc.counts.near, overtakes: sc.counts.overtake, topMult: sc.topMult, topSpeed: sc.topSpeed };
+    this.rank = this.finalScore > 0 ? submitRun({ score: this.finalScore, car: this.def.name, mult: +sc.topMult.toFixed(1), speed: Math.round(sc.topSpeed), date: Date.now() }) : 0;
   }
 
   /* --------------------------------------------- per-frame visuals */
@@ -223,7 +251,7 @@ export class Game {
       this.timeScale = this.crashReal < 0.85 ? 0.2 : Math.min(1, 0.2 + (this.crashReal - 0.85) * 1.1);
       if (this.crashReal > 1.8 && !this.overShown) {
         this.overShown = true;
-        this.onGameOver({ score: this.finalScore, distance: this.distance, nearMisses: this.nearMisses, best: this.best, record: this.isRecord });
+        this.onGameOver({ score: this.finalScore, distance: this.distance, nearMisses: this.nearMisses, best: this.best, record: this.isRecord, rank: this.rank, ...this.runStats });
       }
     }
     car.position.set(ph.x, 0, 0);
@@ -248,7 +276,7 @@ export class Game {
       body.position.y = (body.userData.baseY || 0) + (Math.sin(this.buzz * 41) * 0.6 + Math.sin(this.buzz * 23.7) * 0.4) * 0.0025 * speedFrac;
     }
     const braking = playing && this.input.brake;
-    if (ud.tail) ud.tail.emissiveIntensity = braking ? 4.5 : 0.55; // smoked look until you brake
+    if (ud.tail) ud.tail.emissiveIntensity = braking ? 4.5 : this.night ? 1.6 : 0.55; // smoked look by day until you brake
     this.rpm = this.engineRpm(speedFrac);
     if (ud.setGauges) ud.setGauges(ph.speed * 3.6, this.rpm);
     this.rig.update(realDt, car, speedFrac);
@@ -260,8 +288,9 @@ export class Game {
       speed: ph.speed * 3.6,
       score: playing ? this.score : this.finalScore,
       best: Math.max(this.best, playing ? this.score : 0),
-      combo: this.combo,
-      comboFrac: this.comboT / CONFIG.nearMiss.comboTime,
+      mult: this.scoring.mult,
+      hold: this.scoring.hold,
+      fast: playing && ph.speed * 3.6 >= CONFIG.score.minSpeed,
       rpm: this.rpm,
       gear: Math.min(6, Math.floor(speedFrac * 6) + 1),
     });
@@ -295,7 +324,7 @@ export class Game {
     // sun rays when the sun is on screen; crash grade while slowed down
     let sun = null, sunAmt = 0;
     this.v3.copy(cam.position).addScaledVector(SUN_DIR, 1000).project(cam);
-    if (this.v3.z < 1) {
+    if (this.v3.z < 1 && !this.night) {
       sun = this.sunUv || (this.sunUv = new THREE.Vector2());
       sun.set(this.v3.x * 0.5 + 0.5, this.v3.y * 0.5 + 0.5);
       sunAmt = clamp(1.4 - Math.max(Math.abs(this.v3.x), Math.abs(this.v3.y)), 0, 1);

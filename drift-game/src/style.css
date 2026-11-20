@@ -69,7 +69,9 @@ b, .num { font-variant-numeric: tabular-nums; }
 .sub { margin: 0; color: var(--dim); line-height: 1.5; }
 .menu-car { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 10px 0; }
 .menu-car strong { font-size: 18px; }
-.menu-btns { display: grid; gap: 10px; }
+.menu-btns { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+.menu-btns > .btn:not(.ghost) { grid-column: 1 / -1; }
+.menu-btns > .btn.ghost { font-size: 14px; padding: 9px 10px; }
 .menu-best { color: var(--dim); }
 .menu-best b { color: var(--accent-2); font-size: 18px; }
 .keys { display: grid; gap: 4px; font-size: 12px; color: var(--dim); }
@@ -147,6 +149,21 @@ kbd { font-family: var(--num); font-size: 11px; border: 1px solid var(--line); b
 .combo-bar { width: 110px; height: 4px; background: rgba(255,255,255,.15); border-radius: 2px; overflow: hidden; }
 .combo-bar i { display: block; height: 100%; background: var(--accent-2); width: 100%; }
 
+.mult { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 4px; }
+.mult b { font: 700 40px/1 var(--num); color: var(--accent-2); text-shadow: 0 2px 0 rgba(0,0,0,.45); transition: transform .15s var(--ease), color .2s; }
+.mult.bump b { transform: scale(1.18); }
+.mult.cold b { color: var(--dim); }
+.mult-bar { width: 120px; height: 4px; background: rgba(255,255,255,.15); border-radius: 2px; overflow: hidden; }
+.mult-bar i { display: block; height: 100%; width: 100%; background: var(--accent-2); }
+.mult-hint { font-size: 12px; color: var(--dim); opacity: 0; transition: opacity .3s; }
+.mult.cold .mult-hint { opacity: 1; }
+.feed { position: absolute; top: calc(92px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 4px; pointer-events: none; }
+.feed div { font: 700 22px var(--font); color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.5); white-space: nowrap; animation: feedIn 1.7s var(--ease) both; }
+.feed .split { color: #6ff0ff; font-size: 28px; }
+.feed .close { color: var(--accent-2); }
+.feed .near { color: var(--good); }
+.feed .bad { color: #ff6b5a; font-size: 16px; }
+@keyframes feedIn { 0% { opacity: 0; transform: translateY(10px) scale(.9); } 12% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
 .popup {
   position: absolute; top: 30%; left: 50%; transform: translate(-50%, 0);
   font-size: 30px; font-weight: 900; color: var(--good); text-shadow: 0 3px 0 rgba(0,0,0,.5);
@@ -228,10 +245,22 @@ kbd { font-family: var(--num); font-size: 11px; border: 1px solid var(--line); b
 .steer-group.tilting .steer-pad { opacity: .35; }
 
 /* ---------- game over ---------- */
-.over-card { text-align: center; }
+.over-card { text-align: center; max-height: calc(100dvh - 32px); overflow-y: auto; }
+.over-card .board { max-height: 130px; }
 .over-card h2 { margin: 0; font-size: 40px; font-weight: 900; color: var(--accent); }
 .record { justify-self: center; background: var(--accent-2); color: #1d1402; font-weight: 800; border-radius: 999px; padding: 4px 14px; }
-.over-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.over-score { display: grid; justify-items: center; gap: 2px; }
+.over-score b { font: 700 54px/1 var(--num); }
+.rank { font-size: 14px; color: var(--accent-2); font-weight: 700; }
+.board { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 210px; overflow: auto; text-align: start; counter-reset: r; }
+.board li { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: baseline; background: rgba(255,255,255,.04); border-radius: 8px; padding: 6px 10px; font-size: 14px; counter-increment: r; }
+.board li::before { content: counter(r); color: var(--dim); font: 700 15px var(--num); }
+.board li b { font: 700 18px var(--num); }
+.board li span { color: var(--dim); font-size: 12px; }
+.board li.me { background: rgba(255, 194, 61, .16); outline: 1px solid rgba(255, 194, 61, .45); }
+.board-title { margin: 0; font-size: 30px; }
+.board-empty { color: var(--dim); text-align: center; padding: 12px; }
+.over-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .over-stats div { background: rgba(255,255,255,.05); border-radius: 10px; padding: 10px; display: grid; gap: 2px; }
 .over-stats b { font-size: 24px; }
 
