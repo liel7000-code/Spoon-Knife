@@ -5,7 +5,7 @@ import * as THREE from 'three';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
-class Particles {
+export class Particles {
   constructor(scene, { max, color, additive, grow, drag, gravity, soft }) {
     this.max = max; this.grow = grow; this.drag = drag; this.gravity = gravity;
     this.pos = new Float32Array(max * 3).fill(-999);
@@ -23,7 +23,7 @@ class Particles {
     this.mat = new THREE.ShaderMaterial({
       uniforms: { uColor: { value: new THREE.Color(color) }, uScale: { value: 400 } },
       vertexShader: `attribute float aSize; attribute float aAlpha; varying float vA; uniform float uScale;
-        void main(){ vA = aAlpha; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = aSize * uScale / max(0.1, -mv.z); gl_Position = projectionMatrix * mv; }`,
+        void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vA = aAlpha * smoothstep(0.8, 4.5, -mv.z); gl_PointSize = min(aSize * uScale / max(0.1, -mv.z), 420.0); gl_Position = projectionMatrix * mv; }`,
       fragmentShader: `uniform vec3 uColor; varying float vA;
         void main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c); float a = ${soft ? 'smoothstep(0.5, 0.0, d) * smoothstep(0.5, 0.25, d) * 1.6' : 'smoothstep(0.5, 0.15, d)'};
           if (a * vA < 0.003) discard; gl_FragColor = vec4(uColor, a * vA); }`,
@@ -66,7 +66,7 @@ class Particles {
 
 // Exhaust flames: additive point sprites with a heat ramp (white-yellow -> orange
 // -> red -> gone). Fixed pool, ring-buffer recycling, no allocations per frame.
-class Flames {
+export class Flames {
   constructor(scene, max = 240) {
     this.max = max; this.head = 0;
     this.pos = new Float32Array(max * 3).fill(-999);

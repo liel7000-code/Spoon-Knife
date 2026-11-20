@@ -10,13 +10,14 @@ This file lists every piece of the Drift Game that was not written for this proj
 | Brand marks and badges (the six fictional logos, "Ryusei" script, "KR-90" plate) | Drawn in code (`brandMark()` in `src/carkit.js`, canvas textures in `src/kaito.js`). Fictional makes, no real trademarks. |
 | Traffic vehicles (hatchback, sedan, SUV, van, truck) | Generated in code (`src/trafficModels.js`). Generic, unbranded. |
 | Road, asphalt, signs, scenery, sky, night city | Generated in code (`src/world.js`). Canvas textures and procedural noise. Sign place names are fictional. |
-| Effects (smoke, sparks, skid marks, flames) | Generated in code (`src/effects.js`). |
+| Effects (smoke, sparks, skid marks, flames) | Generated in code (`src/effects.js`, `src/drift/driftFx.js`). |
+| Drift tracks (Harbor Night, Mountain Pass, Neon Circuit): layouts, road, kerbs, walls, terrain, containers, cranes, trees, buildings, signs, start gantry, clip markers | Generated in code (`src/drift/`). Layouts, names and places are fictional; no real circuits, locations, sponsors or brands. Banners show only the fictional track names and generic words ("START · FINISH", "DRIFT"). |
 | Engine, turbo, exhaust pops, tyre squeal, wind, crash sounds | Synthesized live with the Web Audio API (`src/audio.js`). No audio files. |
 | Music | Generated live with the Web Audio API (`src/audio.js`). No audio files. |
 | Post-processing shader (sun rays, blur, vignette, speed lines, haze) | Written for this project (`src/post.js`). |
 | UI, HUD, icons | HTML/CSS/SVG written for this project (`index.html`, `src/style.css`, `src/ui.js`). |
 
-The project contains **no** downloaded 3D models, image textures, HDRIs, sound files or music files.
+The project contains **no** downloaded 3D models, image textures, HDRIs, sound files or music files. All textures are drawn at runtime on canvases (so there are no texture files to compress to KTX2).
 
 ## Third-party files
 

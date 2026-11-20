@@ -8,7 +8,11 @@ export class Input {
     this.brake = false;
     this.onCamera = () => {};
     this.keysHeld = new Set();
-    this.touchHeld = { gas: false, brake: false, left: false, right: false };
+    this.touchHeld = { gas: false, brake: false, left: false, right: false, hand: false };
+    this.hand = false;
+    this.kickPending = false;   // drift: clutch kick (Shift, or a quick double tap on the gas)
+    this.resetPending = false;  // drift: put the car back on the track (R)
+    this.lastGasUp = -1;
     this.slider = 0;          // -1..1 from the on-screen slider
     this.sliderActive = false;
     this.tilt = 0;            // -1..1 from the gyroscope
@@ -22,6 +26,8 @@ export class Input {
       this.keysHeld.add(k);
       this.sync();
       if (!e.repeat && k === 'c') this.onCamera();
+      if (!e.repeat && k === 'shift') this.kickPending = true;
+      if (!e.repeat && k === 'r') this.resetPending = true;
     });
     window.addEventListener('keyup', (e) => { this.keysHeld.delete(e.key.toLowerCase()); this.sync(); });
     window.addEventListener('blur', () => { this.keysHeld.clear(); this.sync(); });
@@ -82,8 +88,13 @@ export class Input {
 
   sync() {
     const k = this.keysHeld;
-    this.gas = k.has('w') || k.has('arrowup') || this.touchHeld.gas;
+    const gas = k.has('w') || k.has('arrowup') || this.touchHeld.gas;
+    const now = performance.now() / 1000;
+    if (gas && !this.gas && now - this.lastGasUp < 0.22) this.kickPending = true; // double tap = clutch kick
+    if (!gas && this.gas) this.lastGasUp = now;
+    this.gas = gas;
     this.brake = k.has('s') || k.has('arrowdown') || this.touchHeld.brake;
+    this.hand = k.has(' ') || this.touchHeld.hand;
   }
 
   // { target: -1..1, analog: bool }

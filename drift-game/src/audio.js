@@ -154,6 +154,19 @@ export class EngineAudio {
     boom.connect(bg).connect(this.sfx); boom.start(t); boom.stop(t + 0.7);
   }
 
+  // wall impact in drift mode: a short thud plus a metallic scrape, scaled by the hit
+  hit(amount = 0.5) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const thump = ctx.createOscillator(); thump.frequency.setValueAtTime(120, t); thump.frequency.exponentialRampToValueAtTime(45, t + 0.25);
+    const tg = ctx.createGain(); tg.gain.setValueAtTime(0.25 + amount * 0.6, t); tg.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    thump.connect(tg).connect(this.sfx); thump.start(t); thump.stop(t + 0.32);
+    const src = ctx.createBufferSource(); src.buffer = this.noise;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400 + Math.random() * 900; bp.Q.value = 2;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.2 + amount * 0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18 + amount * 0.3);
+    src.connect(bp).connect(g).connect(this.sfx); src.start(t, Math.random()); src.stop(t + 0.5);
+  }
+
   nearMiss() {
     if (!this.ctx) return;
     const ctx = this.ctx, t = ctx.currentTime;

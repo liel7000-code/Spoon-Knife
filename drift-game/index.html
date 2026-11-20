@@ -14,13 +14,14 @@
   <section id="menu" class="screen">
     <div class="menu-card">
       <h1 class="logo" dir="ltr">DRIFT<span>GAME</span></h1>
-      <p class="sub">מרוץ אינסופי בכביש המהיר. חתכו בין המכוניות, אל תיגעו באף אחת.</p>
+      <p class="sub">בחרו מצב: מרוץ אינסופי בכביש המהיר, או דריפט על מסלולים סגורים.</p>
       <div class="menu-car">
         <span class="lbl">הרכב שלך</span>
         <strong id="menuCar" dir="ltr">Kaito Ryusei</strong>
       </div>
       <div class="menu-btns">
-        <button id="btnStart" class="btn primary">התחל לנסוע</button>
+        <button id="btnStart" class="mode-btn"><b dir="ltr">HIGHWAY</b><span>כביש מהיר · חתכו בין המכוניות</span></button>
+        <button id="btnDrift" class="mode-btn drift"><b dir="ltr">DRIFT</b><span>3 מסלולים · ניקוד על זווית ומהירות</span></button>
         <button id="btnGarage" class="btn">בחירת רכב</button>
         <button id="btnBoard" class="btn ghost">טבלת שיאים</button>
         <button id="btnTime" class="btn ghost">תאורה: שקיעה</button>
@@ -34,6 +35,7 @@
         <span><kbd>A</kbd>/<kbd>D</kbd> או חצים: החלפת נתיב</span>
         <span><kbd>W</kbd>/<kbd>S</kbd>: גז ובלם</span>
         <span><kbd>C</kbd>: מצלמה</span>
+        <span>דריפט: <kbd>רווח</kbd> בלם יד · <kbd>Shift</kbd> בעיטת מצמד · <kbd>R</kbd> איפוס · <kbd>Esc</kbd> השהיה</span>
       </div>
     </div>
   </section>
@@ -119,10 +121,128 @@
       <button class="arrow-btn" data-act="left" aria-label="פנייה שמאלה">◀</button>
     </div>
     <button id="btnTilt" class="tilt" aria-pressed="false">הטיה</button>
+    <div class="tgroup hbg">
+      <button class="pedal hb" data-act="hand" aria-label="בלם יד">HAND<br>BRAKE</button>
+    </div>
     <div class="tgroup corner right">
       <button class="pedal" data-act="gas" aria-label="גז">▲</button>
       <button class="arrow-btn" data-act="right" aria-label="פנייה ימינה">▶</button>
     </div>
+  </div>
+
+  <!-- Drift: track select -->
+  <section id="trackScreen" class="screen" hidden>
+    <div class="menu-card wide">
+      <header class="pick-top">
+        <button id="trackBack" class="btn ghost small">חזרה</button>
+        <h2>בחירת מסלול</h2>
+        <span id="trackCar" class="pick-car" dir="ltr"></span>
+      </header>
+      <div id="trackList" class="track-list"></div>
+    </div>
+  </section>
+
+  <!-- Drift: session select -->
+  <section id="sessionScreen" class="screen" hidden>
+    <div class="menu-card">
+      <header class="pick-top">
+        <button id="sessionBack" class="btn ghost small">חזרה</button>
+        <h2 id="sessionTitle" dir="ltr">Session</h2>
+        <span></span>
+      </header>
+      <div id="sessionList" class="session-list"></div>
+      <div class="assist">
+        <span class="lbl">עזרי דריפט</span>
+        <div class="styles" id="assistRow" role="group" aria-label="עזרי דריפט">
+          <button class="seg" data-assist="drift">עזרה מלאה</button>
+          <button class="seg" data-assist="counter">היגוי נגדי</button>
+          <button class="seg" data-assist="off">כבוי</button>
+        </div>
+        <p id="assistHint" class="hint"></p>
+      </div>
+      <button id="sessionStart" class="btn primary">לנסוע</button>
+    </div>
+  </section>
+
+  <!-- Drift HUD -->
+  <section id="dhud" hidden>
+    <div class="d-top" dir="ltr">
+      <div class="hud-box d-score">
+        <span class="lbl">SCORE</span>
+        <b id="dScore">0</b>
+        <span class="best">BEST <b id="dBest">0</b></span>
+      </div>
+      <div class="d-right">
+        <div class="hud-box d-time">
+          <span class="lbl" id="dTimeLbl">TIME</span>
+          <b id="dTime">0:00</b>
+          <span class="best" id="dLap"></span>
+        </div>
+        <div class="hud-tools">
+          <button id="dCam" class="tool" aria-label="החלף מצלמה" title="מצלמה (C)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+          <button id="dPause" class="tool" aria-label="השהיה" title="השהיה (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+        </div>
+      </div>
+    </div>
+    <div id="dChainBox" class="d-chain" dir="ltr">
+      <div class="d-chain-row"><b id="dChain">0</b><span id="dMult" class="d-mult">×1.0</span></div>
+      <div class="d-angle"><i id="dAngleBar"></i></div>
+      <span id="dAngle" class="d-angle-val">0°</span>
+    </div>
+    <svg id="dMap" class="d-map" viewBox="0 0 110 110" aria-hidden="true"><path id="dMapPath" d=""/><circle id="dMapGhost" r="3" cx="-10" cy="-10"/><circle id="dMapCar" r="3.8" cx="-10" cy="-10"/></svg>
+    <div id="dFeed" class="feed d-feed" aria-live="polite"></div>
+    <div id="dPop" class="d-pop" dir="ltr" aria-live="polite"></div>
+    <div id="dCount" class="d-count" dir="ltr" hidden></div>
+    <div class="d-speed" dir="ltr"><b id="dSpeed">0</b><span class="g-unit">KM/H</span><span class="g-gear" id="dGear">1</span></div>
+  </section>
+
+  <!-- Drift: pause -->
+  <section id="dpause" class="screen" hidden>
+    <div class="menu-card">
+      <h2 class="board-title">השהיה</h2>
+      <div class="assist">
+        <span class="lbl">עזרי דריפט</span>
+        <div class="styles" id="assistRow2" role="group" aria-label="עזרי דריפט">
+          <button class="seg" data-assist="drift">עזרה מלאה</button>
+          <button class="seg" data-assist="counter">היגוי נגדי</button>
+          <button class="seg" data-assist="off">כבוי</button>
+        </div>
+      </div>
+      <div class="menu-btns">
+        <button id="dResume" class="btn primary">המשך</button>
+        <button id="dRestart" class="btn">התחל מחדש</button>
+        <button id="dEnd" class="btn">סיים ותוצאות</button>
+        <button id="dQuit" class="btn ghost">יציאה לתפריט</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Drift: results -->
+  <section id="dover" class="screen" hidden>
+    <div class="menu-card over-card">
+      <div class="d-res-top">
+        <div>
+          <h2 id="resTitle" dir="ltr">Harbor Night</h2>
+          <span id="resSub" class="lbl"></span>
+        </div>
+        <div id="resGrade" class="grade" dir="ltr">S</div>
+      </div>
+      <div id="resRecord" class="record" hidden>שיא חדש</div>
+      <div class="over-score"><span class="lbl" id="resScoreLbl">ניקוד</span><b id="resScore" dir="ltr">0</b><span id="resBest" class="rank" dir="ltr"></span></div>
+      <div class="over-stats" id="resStats"></div>
+      <div class="menu-btns">
+        <button id="dRetry" class="btn primary">נסה שוב</button>
+        <button id="dReplay" class="btn">שידור חוזר</button>
+        <button id="dTracks" class="btn">מסלול אחר</button>
+        <button id="dMenu" class="btn ghost">תפריט</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Drift: replay -->
+  <div id="replayBar" class="replay-bar" dir="ltr" hidden>
+    <span class="rec">● REPLAY</span><span id="replayTime">0:00</span>
+    <button id="replayExit" class="btn small">סגור</button>
   </div>
 
   <!-- Leaderboard -->
