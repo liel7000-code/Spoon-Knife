@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { LANE_W } from './traffic.js';
-import { mergeStatic } from './parts.js';
+import { mergeStatic, drawWithFont } from './parts.js';
 
 export const ROAD_W = LANE_W * 4 + 2.4;          // 4 lanes + 1.2 m shoulders
 export const BARRIER_X = ROAD_W / 2 + 0.4;       // inner face of the guard rail
@@ -209,21 +209,24 @@ function gravelTexture() {
 
 function signTexture(lines, bg = '#0f6b3c', w = 512, h = 256) {
   const [c, g] = canvas(w, h);
-  g.fillStyle = bg; g.fillRect(0, 0, w, h);
-  g.strokeStyle = '#f2f2ee'; g.lineWidth = 8; g.strokeRect(10, 10, w - 20, h - 20);
-  g.fillStyle = '#f2f2ee'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  lines.forEach(([text, size], i) => { g.font = `bold ${size}px Arial, sans-serif`; g.fillText(text, w / 2, h * ((i + 1) / (lines.length + 1))); });
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-  return t;
+  return drawWithFont('700 40px Heebo', () => {
+    g.fillStyle = bg; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#f2f2ee'; g.lineWidth = 8; g.strokeRect(10, 10, w - 20, h - 20);
+    g.fillStyle = '#f2f2ee'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    lines.forEach(([text, size], i) => { g.font = `700 ${size}px Heebo, sans-serif`; g.fillText(text, w / 2, h * ((i + 1) / (lines.length + 1))); });
+  }, t);
 }
 
 function speedSign(v) {
   const [c, g] = canvas(256, 256);
-  g.fillStyle = '#ffffff'; g.beginPath(); g.arc(128, 128, 124, 0, 7); g.fill();
-  g.fillStyle = '#d0201a'; g.beginPath(); g.arc(128, 128, 124, 0, 7); g.arc(128, 128, 96, 0, 7, true); g.fill();
-  g.fillStyle = '#111'; g.font = 'bold 92px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(v), 128, 134);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+  return drawWithFont('700 92px Rajdhani', () => {
+    g.clearRect(0, 0, 256, 256);
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(128, 128, 124, 0, 7); g.fill();
+    g.fillStyle = '#d0201a'; g.beginPath(); g.arc(128, 128, 124, 0, 7); g.arc(128, 128, 96, 0, 7, true); g.fill();
+    g.fillStyle = '#111'; g.font = '700 92px Rajdhani, Heebo, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(v), 128, 134);
+  }, t);
 }
 
 function windowTexture() {
@@ -457,8 +460,8 @@ export class World {
     for (const sx of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.4, 7.4, 0.4), steel); p.position.set(sx * (X + 0.6), 3.7, gz); p.castShadow = true; grp.add(p); }
     const beam = new THREE.Mesh(new THREE.BoxGeometry(2 * X + 1.6, 0.5, 0.5), steel); beam.position.set(0, 7.1, gz); beam.castShadow = true; grp.add(beam);
     const signs = k === 0
-      ? [[['תל אביב', 54], ['24 ק״מ', 44]], [['חיפה', 54], ['87 ק״מ', 44]], [['יציאה 12', 50], ['ראשון לציון', 40]]]
-      : [[['ירושלים', 54], ['62 ק״מ', 44]], [['נתב״ג', 54], ['18 ק״מ', 44]], [['יציאה 14', 50], ['רחובות', 40]]];
+      ? [[['עיר הכוכבים', 54], ['24 ק״מ', 44]], [['מפרץ הרוח', 54], ['87 ק״מ', 44]], [['יציאה 12', 50], ['כפר הדרכים', 40]]]
+      : [[['עמק הברק', 54], ['62 ק״מ', 44]], [['נמל השקיעה', 54], ['18 ק״מ', 44]], [['יציאה 14', 50], ['קריית ניאון', 40]]];
     signs.forEach((lines, i) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 2.1), new THREE.MeshStandardMaterial({ map: signTexture(lines, i === 2 ? '#1a4fa0' : '#0f6b3c'), roughness: 0.5, metalness: 0.1 }));
       m.position.set((i - 1) * 4.6, 6.0, gz + 0.27);
@@ -472,7 +475,7 @@ export class World {
       m.position.set(x, 2.6 + h / 2 - 0.2, z + 0.06); m.castShadow = true; grp.add(m);
     };
     side(speedSign(k === 0 ? 110 : 120), 1.0, 1.0, X + 1.6, -STRIP * 0.2, true);
-    side(signTexture([['מחלף ' + (k === 0 ? 'גלילות' : 'השבעה'), 46], ['2 ק״מ', 40]], '#1a4fa0'), 2.6, 1.3, X + 1.8, -STRIP * 0.85);
+    side(signTexture([['מחלף ' + (k === 0 ? 'הנץ' : 'הסערה'), 46], ['2 ק״מ', 40]], '#1a4fa0'), 2.6, 1.3, X + 1.8, -STRIP * 0.85);
     side(speedSign(k === 0 ? 110 : 120), 1.0, 1.0, -(X + 1.6), -STRIP * 0.4, true);
     mergeStatic(grp); // gantry, posts and sign backs -> one mesh per material
     this.scene.add(grp);

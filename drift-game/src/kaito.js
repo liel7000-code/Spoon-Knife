@@ -1,14 +1,15 @@
-// Toyota Supra A80 (1993-2002), modelled from reference photos.
-// Dimensions: 4.52 m long, 1.81 m wide, 1.27 m tall, 2.55 m wheelbase.
-// Two styles: 'stock' (white hoop wing, champagne 5-spoke dished wheels) and
+// Kaito Ryusei: our own fictional 90s-style Japanese GT coupe (original design).
+// About 4.5 m long, 1.81 m wide, 1.27 m tall. Wedge nose, blade headlights,
+// full-width segmented light bar, Kamm tail with a ducktail spoiler.
+// Two styles: 'stock' (ducktail + low pedestal blade, 7-spoke dished wheels) and
 // 'tuned' (carbon GT wing on swan necks, carbon hood, black 6-spoke wheels,
 // yellow calipers, lowered).
 //
 // Named parts: body, glass, wing, lights.front/rear, wheels (on the root).
 import * as THREE from 'three';
 import { MAT } from './materials.js';
-import { curve, planShape, loft, range, mesh, addWheels, lerp, sweep, airfoil, roundedPlate } from './parts.js';
-import { rbox, cabinSection, roofSection, archLiners, mirrors, addCockpit } from './carkit.js';
+import { curve, planShape, loft, range, mesh, addWheels, lerp, sweep, airfoil, roundedPlate, drawWithFont } from './parts.js';
+import { rbox, cabinSection, roofSection, archLiners, mirrors, addCockpit, brandMark } from './carkit.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -61,15 +62,18 @@ const SM = {
   seat: new THREE.MeshStandardMaterial({ color: 0x0d0d0f, roughness: 0.75 }),
 };
 
-// chrome italic script badge (e.g. "Supra") on a transparent plane
+// chrome italic script badge with our fictional model name, on a transparent plane
 function scriptBadge(text) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 72;
   const g = c.getContext('2d');
-  g.font = 'italic bold 52px "Brush Script MT", "Segoe Script", Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  const grd = g.createLinearGradient(0, 10, 0, 62);
-  grd.addColorStop(0, '#ffffff'); grd.addColorStop(0.5, '#9aa0a8'); grd.addColorStop(1, '#e8ecf0');
-  g.fillStyle = grd; g.fillText(text, 128, 38);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  drawWithFont('italic 700 50px Rajdhani', () => {
+    g.clearRect(0, 0, 256, 72);
+    g.font = 'italic 700 50px Rajdhani, Heebo, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const grd = g.createLinearGradient(0, 10, 0, 62);
+    grd.addColorStop(0, '#ffffff'); grd.addColorStop(0.5, '#9aa0a8'); grd.addColorStop(1, '#e8ecf0');
+    g.fillStyle = grd; g.fillText(text, 128, 38);
+  }, t);
   return new THREE.MeshStandardMaterial({ map: t, transparent: true, metalness: 0.8, roughness: 0.2, depthWrite: false });
 }
 
@@ -77,30 +81,22 @@ function plateTexture(text) {
   const c = document.createElement('canvas'); c.width = 512; c.height = 128; // 2x for a crisp plate
   const g = c.getContext('2d');
   g.scale(2, 2);
-  g.fillStyle = '#f4f4f2'; g.fillRect(0, 0, 256, 64);
-  g.strokeStyle = '#1a1a1a'; g.lineWidth = 3; g.strokeRect(3, 3, 250, 58);
-  g.fillStyle = '#111'; g.font = 'bold 44px "Arial Narrow", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(text, 128, 35);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  drawWithFont('700 46px Rajdhani', () => {
+    g.fillStyle = '#f4f4f2'; g.fillRect(0, 0, 256, 64);
+    g.strokeStyle = '#1a1a1a'; g.lineWidth = 3; g.strokeRect(3, 3, 250, 58);
+    g.fillStyle = '#111'; g.font = '700 46px Rajdhani, Heebo, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, 128, 35);
+  }, t);
   return new THREE.MeshStandardMaterial({ map: t, color: 0xc8c8c8, roughness: 0.5, metalness: 0.1 }); // not glaring white
 }
 
-// Toyota's three-ellipse emblem, facing +z
-function emblem(scale = 1) {
-  const g = new THREE.Group();
-  // thin elliptical rings: tube thickness is given in metres, then the ring is stretched to rx/ry
-  const ring = (rx, ry, t) => { const m = new THREE.Mesh(new THREE.TorusGeometry(1, t / rx, 6, 40), SM.chromeRing); m.scale.set(rx, ry, 0.006 / (t / rx)); return m; };
-  g.add(ring(0.06, 0.04, 0.006), ring(0.036, 0.015, 0.005), ring(0.017, 0.032, 0.005));
-  g.children[1].position.y = 0.018;
-  g.scale.setScalar(scale);
-  return g;
-}
 
 /* ----------------------------------------------------------- body shape */
-// Profile curves measured from the side photo (z: front -2.26 .. rear +2.26)
+// Profile curves (z: front -2.26 .. rear +2.26)
 const S = {
-  zF: -2.26, zR: 2.26, halfW: 0.885, pF: 3.8, pR: 6.5,
-  top: curve([[-2.26, 0.42], [-2.2, 0.52], [-2.08, 0.6], [-1.85, 0.645], [-1.36, 0.7], [-0.76, 0.79], [-0.5, 0.82], [1.6, 0.875], [1.8, 0.88], [2.0, 0.865], [2.14, 0.84], [2.22, 0.8], [2.26, 0.74]]),
+  zF: -2.26, zR: 2.26, halfW: 0.885, pF: 5.2, pR: 9,
+  top: curve([[-2.26, 0.42], [-2.2, 0.52], [-2.08, 0.6], [-1.85, 0.645], [-1.36, 0.7], [-0.76, 0.79], [-0.5, 0.82], [1.6, 0.88], [1.9, 0.9], [2.12, 0.9], [2.22, 0.87], [2.26, 0.8]]),
   crown: curve([[-2.26, 0], [-2.0, -0.012], [-1.36, -0.028], [-0.8, -0.02], [-0.55, 0], [1.4, 0], [1.7, -0.022], [2.1, -0.015], [2.26, 0]]),
   belt: curve([[-2.26, 0.5], [-2.15, 0.6], [-1.8, 0.675], [-1.36, 0.725], [-0.76, 0.785], [0.0, 0.86], [0.6, 0.9], [1.0, 0.93], [1.4, 0.92], [2.0, 0.9], [2.26, 0.82]]),
   floor: curve([[-2.26, 0.2], [-2.1, 0.13], [-1.9, 0.12], [2.0, 0.14], [2.15, 0.2], [2.26, 0.28]]),
@@ -168,7 +164,7 @@ function facingFront(part, yaw, pitch) {
 }
 
 /* ----------------------------------------------------------------- build */
-export function buildSupra(root, body, paint, style = 'stock') {
+export function buildKaito(root, body, paint, style = 'stock') {
   const tuned = style === 'tuned';
   const lights = { front: new THREE.Group(), rear: new THREE.Group() };
   lights.front.name = 'lights.front'; lights.rear.name = 'lights.rear';
@@ -216,20 +212,17 @@ export function buildSupra(root, body, paint, style = 'stock') {
 
   /* ------------------------------------------------------------- front */
   const fz = (x) => endZ(x, false);
-  // headlights: rounded-oval housings, 3 projectors, clear lens, swept back
+  // slim blade headlights: one long LED strip over a single small projector
   for (const s of [-1, 1]) {
     const hl = new THREE.Group();
-    hl.add(mesh(roundedPlate(0.42, 0.19, 0.085, 0.05), SM.housing, 0, 0, 0, false));
-    const r = [0.07, 0.048, 0.044], xs = [0.12, -0.02, -0.13];
-    for (let k = 0; k < 3; k++) {
-      const x = s * xs[k];
-      hl.add(mesh(new THREE.TorusGeometry(r[k], 0.008, 6, 24), SM.chromeRing, x, 0, 0.034, false));
-      hl.add(mesh(new THREE.SphereGeometry(r[k] * 0.72, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2), MAT.head, x, 0, 0.03, false));
-    }
-    const lens = mesh(roundedPlate(0.43, 0.2, 0.09, 0.012, 0.005), MAT.lens, 0, 0, 0.05, false);
+    hl.add(mesh(roundedPlate(0.36, 0.07, 0.03, 0.03), SM.housing, 0, 0, 0, false));
+    hl.add(mesh(new THREE.BoxGeometry(0.31, 0.012, 0.01), MAT.drl, 0, 0.014, 0.024, false));
+    hl.add(mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.012, 20).rotateX(Math.PI / 2), MAT.head, s * -0.1, -0.012, 0.022, false));
+    const lens = mesh(roundedPlate(0.37, 0.075, 0.032, 0.01, 0.004), MAT.lens, 0, 0, 0.03, false);
     lens.renderOrder = 3; hl.add(lens);
-    const hlw = facingFront(hl, s * 0.2, 0.6);
-    hlw.position.set(s * 0.53, 0.585, fz(0.53) + 0.045);
+    hl.rotation.z = s * -0.12;
+    const hlw = facingFront(hl, s * 0.3, 0.55);
+    hlw.position.set(s * 0.5, 0.57, fz(0.5) + 0.03);
     lights.front.add(hlw);
     // amber indicator at the bumper corner, mesh vent below it
     const ind = new THREE.Group();
@@ -249,11 +242,11 @@ export function buildSupra(root, body, paint, style = 'stock') {
   body.add(mesh(new THREE.PlaneGeometry(0.98, 0.1), SM.intercooler, 0, 0.27, intakeZ + 0.005, false));
   body.add(mesh(new THREE.PlaneGeometry(1.0, 0.12), SM.mesh, 0, 0.27, intakeZ + 0.022, false));
   // plate + emblem
-  const plateMat = plateTexture('MK4');
+  const plateMat = plateTexture('KR-90');
   const pf = mesh(new THREE.PlaneGeometry(0.52, 0.13).rotateY(Math.PI), plateMat, 0, 0.38, fz(0) - 0.012, false);
   body.add(pf);
   body.add(mesh(new THREE.BoxGeometry(0.56, 0.015, 0.03), MAT.plastic, 0, 0.465, fz(0) + 0.0, false));
-  const ef = facingFront(emblem(0.75), 0, 0.85); ef.position.set(0, surfaceY(-2.17, 0) + 0.006, -2.17); body.add(ef);
+  const ef = facingFront(brandMark('kaito', 0.8), 0, 0.85); ef.position.set(0, surfaceY(-2.17, 0) + 0.006, -2.17); body.add(ef);
   // carbon front splitter lip
   const lip = mesh(roundedPlate(1.62, 0.18, 0.08, 0.018, 0.005).rotateX(Math.PI / 2), SM.carbon, 0, 0.115, -2.09, true);
   lip.name = 'body.splitter'; body.add(lip);
@@ -288,31 +281,18 @@ export function buildSupra(root, body, paint, style = 'stock') {
 
   /* --------------------------------------------------------------- rear */
   const rz = (x) => endZ(x, true);
-  // two pill-shaped smoked housings with 4 round lamps: amber, red, red, clear (outer -> inner)
+  // full-width light bar: a dark band with three red light segments per side and amber ends
   const tail = MAT.tail; // swapped for a per-car clone in buildPlayerCar, glows harder when braking
+  body.add(mesh(roundedPlate(1.24, 0.085, 0.03, 0.03), SM.smoke, 0, 0.77, rz(0) - 0.012, false));
   for (const s of [-1, 1]) {
-    const pill = new THREE.Group();
-    pill.position.set(s * 0.47, 0.745, rz(0.47) - 0.012);
-    pill.rotation.y = s * 0.16;
-    pill.add(mesh(roundedPlate(0.54, 0.135, 0.067, 0.03), SM.smoke, 0, 0, 0, false));
-    // smoked lenses: each lamp is a dark centre inside a glowing ring
-    const kinds = [SM.lampAmber, SM.smokedLens, SM.smokedLens, SM.lampClear];
-    const domes = [SM.lampAmber, tail, tail, SM.lampClear];
-    for (let k = 0; k < 4; k++) {
-      const x = s * (0.2 - k * 0.13);
-      pill.add(mesh(new THREE.CircleGeometry(0.046, 28), kinds[k], x, 0, 0.026, false));
-      const dome = mesh(new THREE.SphereGeometry(0.044, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2), domes[k], x, 0, 0.026, false);
-      dome.scale.z = 0.35; pill.add(dome);
-      const lens = mesh(new THREE.SphereGeometry(0.0445, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2), SM.smokeLens, x, 0, 0.027, false);
-      lens.scale.z = 0.4; lens.renderOrder = 3; pill.add(lens);
-      pill.add(mesh(new THREE.TorusGeometry(0.049, 0.004, 6, 24), SM.chromeRing, x, 0, 0.027, false));
-    }
-    lights.rear.add(pill);
+    for (let k = 0; k < 3; k++) body.add(mesh(new THREE.BoxGeometry(0.14, 0.02, 0.01), tail, s * (0.13 + k * 0.165), 0.775, rz(0) + 0.006, false));
+    const end = mesh(roundedPlate(0.07, 0.06, 0.02, 0.02), SM.lampAmber, s * 0.66, 0.77, rz(0.66) - 0.01, false);
+    end.rotation.y = s * 0.5; lights.rear.add(end);
   }
   // emblem, recessed plate, high-mount stop light, valance, exhaust
-  const er = emblem(0.9); er.position.set(0, 0.745, rz(0) + 0.006); body.add(er);
-  const badge = mesh(new THREE.PlaneGeometry(0.2, 0.055), scriptBadge('Supra'), 0.42, 0.815, rz(0.42) + 0.004, false);
-  badge.rotation.y = 0.12; body.add(badge);
+  const er = brandMark('kaito', 0.9); er.position.set(0, 0.68, rz(0) + 0.006); body.add(er);
+  const badge = mesh(new THREE.PlaneGeometry(0.2, 0.055), scriptBadge('Ryusei'), 0.45, 0.68, rz(0.45) + 0.004, false);
+  badge.rotation.y = 0.05; body.add(badge);
   // rear wiper lying on the fastback glass
   const wz = 1.5, wy = S.roof(wz) + 0.012, slope = Math.atan2(S.roof(wz - 0.1) - S.roof(wz + 0.1), 0.2);
   const wiper = new THREE.Group();
@@ -341,13 +321,13 @@ export function buildSupra(root, body, paint, style = 'stock') {
   const wing = new THREE.Group();
   wing.name = 'wing';
   if (!tuned) {
-    // stock hoop wing: one swept airfoil running deck -> up -> across -> down
-    const deckY = S.top(1.9) - 0.02;
-    const path = [V(-0.74, deckY, 1.86), V(-0.77, deckY + 0.13, 1.89), V(-0.76, deckY + 0.24, 1.93), V(-0.62, deckY + 0.29, 1.95), V(0, deckY + 0.3, 1.95),
-      V(0.62, deckY + 0.29, 1.95), V(0.76, deckY + 0.24, 1.93), V(0.77, deckY + 0.13, 1.89), V(0.74, deckY, 1.86)];
-    const g = sweep(path, V(0, 0, 1), (t) => { const mid = Math.min(1, Math.min(t, 1 - t) * 5); return airfoil(lerp(0.11, 0.3, Math.pow(mid, 1.5)), lerp(0.035, 0.055, mid)); }, 90);
-    const w = mesh(g, paint); w.name = 'wing.blade';
-    wing.add(w);
+    // stock: an integrated ducktail lip on the Kamm tail plus a low blade on two short pedestals
+    const duck = mesh(roundedPlate(1.3, 0.035, 0.12, 0.015).rotateX(-0.25), paint, 0, S.top(2.18) + 0.02, 2.18);
+    duck.name = 'wing.ducktail'; wing.add(duck);
+    const by = S.top(1.95) + 0.08;
+    const blade = mesh(rbox(1.24, 0.03, 0.2, 0.012), paint, 0, by, 1.97);
+    blade.rotation.x = 0.06; blade.name = 'wing.blade'; wing.add(blade);
+    for (const s of [-1, 1]) wing.add(mesh(rbox(0.035, 0.09, 0.12, 0.012), paint, s * 0.4, by - 0.045, 1.98));
   } else {
     // GT wing: carbon blade + endplates on white swan-neck uprights
     const span = 1.5, y = S.top(1.98) + 0.33, z = 2.0;
@@ -355,7 +335,7 @@ export function buildSupra(root, body, paint, style = 'stock') {
     blade.rotation.x = -0.08; blade.name = 'wing.blade';
     wing.add(blade);
     for (const s of [-1, 1]) {
-      const ep = mesh(roundedPlate(0.36, 0.15, 0.05, 0.01).rotateY(Math.PI / 2), SM.carbon, s * (span / 2 + 0.006), y - 0.015, z + 0.02);
+      const ep = mesh(new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(-0.2, -0.07), new THREE.Vector2(0.2, -0.04), new THREE.Vector2(0.16, 0.07), new THREE.Vector2(-0.16, 0.06)]), { depth: 0.01, bevelEnabled: false }).rotateY(Math.PI / 2), SM.carbon, s * (span / 2 + 0.006), y - 0.015, z + 0.02);
       wing.add(ep);
       const x = s * 0.4, deck = S.top(1.86) - 0.02;
       const neck = sweep([V(x, deck, 1.84), V(x, deck + 0.14, 1.87), V(x, y + 0.07, 1.94), V(x, y + 0.09, 2.02), V(x, y + 0.03, 2.06)], V(1, 0, 0),
@@ -369,7 +349,7 @@ export function buildSupra(root, body, paint, style = 'stock') {
   /* ------------------------------------------------------- wheels + cockpit */
   const wheelOpts = tuned
     ? { spokes: 6, style: 'wide', rimMat: SM.blackWheel, caliper: SM.caliperYellow }
-    : { spokes: 5, style: 'dish', rimMat: SM.champagne, caliper: MAT.caliperRed };
+    : { spokes: 7, style: 'dish', rimMat: SM.champagne, caliper: MAT.caliperRed };
   addWheels(root, { front: -1.33, rear: 1.22, track: 0.765, r: 0.335, rimR: 0.235, width: 0.255, sidewall: true, ...wheelOpts });
   root.userData.wheels.forEach((w, i) => { w.name = `wheel.${['FL', 'FR', 'RL', 'RR'][i]}`; });
   addCockpit(root, body, { eye: { x: -0.37, y: 1.08, z: 0.62 }, dashZ: -0.3, dashY: 0.9, maxKmh: 320, roof: S.roof });
@@ -382,4 +362,4 @@ export function buildSupra(root, body, paint, style = 'stock') {
   root.userData.parts = { body, glass, wing, lights, wheels: root.userData.wheels };
 }
 
-export const SUPRA_STYLES = { stock: 'Stock White', tuned: 'Tuned' };
+export const HERO_STYLES = { stock: 'Stock', tuned: 'Tuned' };

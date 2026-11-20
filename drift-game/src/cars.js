@@ -1,27 +1,27 @@
-// Player cars. The Supra A80 hero model lives in supra.js; the RX-7 FD and the
-// GT-R R34 are built here from the shared lofted-body kit (carkit.js).
+// Player cars. All six are original fictional designs built in code.
+// The Kaito Ryusei hero model lives in kaito.js; the Hoshi Kaze and the
+// Shogun R4 are built here from the shared lofted-body kit (carkit.js).
 // Each car: root Group { body Group (roll/pitch), 4 wheels, blob shadow }.
 // Faces -Z, sits on y = 0.
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MAT, carPaint } from './materials.js';
 import { curve, mesh, addWheels, blobShadow, mergeStatic } from './parts.js';
-import { rbox, lofted, mirrors, ringLamp, wing, addCockpit } from './carkit.js';
-import { buildSupra } from './supra.js';
-import { buildM5, buildC63, buildRWB } from './cars3.js';
+import { rbox, lofted, mirrors, wing, addCockpit, brandMark } from './carkit.js';
+import { buildKaito } from './kaito.js';
+import { buildValkor, buildAdler, buildStrassen } from './moreCars.js';
 
 /* ------------------------------------------------------------- the cars */
 export const PLAYER_CARS = [
   {
-    id: 'supra', name: 'Toyota Supra A80',
-    tag: 'הגיבורה: שש בשורה עם טורבו כפול, כנף גבוהה ואף ארוך ונמוך.',
+    id: 'kaito', name: 'Kaito Ryusei',
+    tag: 'הגיבורה: קופה GT יפנית בסגנון שנות ה-90, שש בשורה עם טורבו כפול ואף טריז נמוך.',
     topSpeed: 320, accel: 0.82, handling: 0.8,
     color: '#c4141c', length: 4.52, width: 1.81, styles: true,
-    build(root, body, paint, style) { buildSupra(root, body, paint, style); },
+    build(root, body, paint, style) { buildKaito(root, body, paint, style); },
   },
   {
-    id: 'rx7', name: 'Mazda RX-7 FD',
-    tag: 'מנוע רוטרי, פנסים קופצים, גג בועה כפולה ומשקל נוצה.',
+    id: 'hoshi', name: 'Hoshi Kaze',
+    tag: 'קופה ספורט קלה עם מנוע בסגנון רוטרי, גג בועה כפולה ומשקל נוצה.',
     topSpeed: 275, accel: 0.72, handling: 0.92,
     color: '#e8b10c', length: 4.3, width: 1.76,
     swatches: ['#e8b10c', '#b3121a'],
@@ -43,28 +43,39 @@ export const PLAYER_CARS = [
       lofted(root, body, S, paint);
       body.add(mesh(rbox(0.9, 0.14, 0.12, 0.06), MAT.plastic, 0, 0.3, -2.1, false));
       for (const s of [-1, 1]) {
-        // pop-up headlights, raised
-        const pod = mesh(rbox(0.36, 0.15, 0.27, 0.03), paint, s * 0.58, 0.68, -1.55);
-        pod.rotation.x = -0.12; body.add(pod);
-        body.add(mesh(rbox(0.3, 0.1, 0.02, 0.02), MAT.head, s * 0.58, 0.69, -1.69, false));
+        // fixed slim headlights set into the nose, angled with the fender line
+        const hl = new THREE.Group();
+        hl.position.set(s * 0.48, 0.5, -1.97); hl.rotation.set(-0.5, s * 0.45, s * 0.1);
+        hl.add(mesh(rbox(0.26, 0.06, 0.05, 0.02), MAT.satin, 0, 0, 0, false));
+        hl.add(mesh(rbox(0.21, 0.02, 0.02, 0.008), MAT.drl, 0, 0.012, -0.024, false));
+        hl.add(mesh(new THREE.SphereGeometry(0.02, 10, 8), MAT.head, s * -0.06, -0.008, -0.022, false));
+        const lens = mesh(rbox(0.27, 0.065, 0.055, 0.022), MAT.lens, 0, 0, -0.003, false); lens.renderOrder = 3; hl.add(lens);
+        body.add(hl);
         body.add(mesh(rbox(0.16, 0.05, 0.05, 0.02), MAT.amber, s * 0.6, 0.36, -2.06, false));
       }
+      const hm = brandMark('hoshi', 0.8); hm.rotation.y = Math.PI; hm.position.set(0, 0.45, -2.155); body.add(hm);
       mirrors(body, paint, 0.9, 0.9, -0.36);
-      // full-width smoked tail panel with round lamps
-      body.add(mesh(rbox(1.5, 0.13, 0.04, 0.03), MAT.tailDark, 0, 0.72, 2.12, false));
-      for (const s of [-1, 1]) { ringLamp(body, 0.075, s * 0.6, 0.72, 2.145); ringLamp(body, 0.06, s * 0.4, 0.72, 2.145); }
+      // trapezoid tail lamps at the corners, a body-colour panel between them
+      for (const s of [-1, 1]) {
+        const P = [[0.3, -0.045], [0.56, -0.055], [0.58, 0.045], [0.34, 0.055]].map(([x, y]) => new THREE.Vector2(s * x, y));
+        const g = new THREE.ExtrudeGeometry(new THREE.Shape(s > 0 ? P : P.reverse()), { depth: 0.02, bevelEnabled: false });
+        const lamp = mesh(g, MAT.tail, 0, 0.72, 2.145, false);
+        lamp.rotation.y = s * 0.07; body.add(lamp);
+      }
+      const hr = brandMark('hoshi', 0.8); hr.position.set(0, 0.72, 2.15); body.add(hr);
       body.add(mesh(new THREE.BoxGeometry(0.5, 0.12, 0.02), MAT.plate, 0, 0.45, 2.16, false));
       for (const x of [0.42, 0.56]) body.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.14, 14).rotateX(Math.PI / 2), MAT.exhaust, x, 0.24, 2.12));
       root.userData.exhaust = new THREE.Vector3(0.5, 0.24, 2.2);
       root.userData.exhausts = [new THREE.Vector3(0.42, 0.24, 2.2), new THREE.Vector3(0.56, 0.24, 2.2)];
-      wing(body, paint, { span: 1.45, chord: 0.24, y: 1.0, z: 1.95, upX: 0.6, upH: 0.11, deck: 0.89 });
+      // low lip spoiler on the deck edge instead of a raised wing
+      body.add(mesh(rbox(1.4, 0.035, 0.16, 0.015), paint, 0, 0.915, 2.04));
       addWheels(root, { front: -1.24, rear: 1.185, track: 0.745, r: 0.315, rimR: 0.215, width: 0.235, spokes: 5, style: 'single', rimMat: MAT.bronze, caliper: MAT.caliperRed });
       addCockpit(root, body, { eye: { x: -0.36, y: 1.04, z: 0.62 }, dashZ: -0.22, dashY: 0.84, maxKmh: 280, roof: S.roof });
     },
   },
   {
-    id: 'gtr', name: 'Nissan GT-R R34',
-    tag: 'הנעה כפולה, ארבעה פנסים עגולים, כנף ענקית ותאוצה אכזרית.',
+    id: 'shogun', name: 'Shogun R4',
+    tag: 'מכונת-על יפנית כבדה, הנעה כפולה, כנף ענקית ותאוצה אכזרית.',
     topSpeed: 305, accel: 0.9, handling: 0.74,
     color: '#1f4fa8', length: 4.6, width: 1.785,
     swatches: ['#1f4fa8', '#9aa3ab'],
@@ -86,126 +97,80 @@ export const PLAYER_CARS = [
       lofted(root, body, S, paint);
       body.add(mesh(rbox(1.26, 0.22, 0.12, 0.04), MAT.plastic, 0, 0.38, -2.29, false));
       body.add(mesh(rbox(0.62, 0.08, 0.06, 0.02), MAT.plastic, 0, 0.6, -2.29, false));
-      body.add(mesh(new THREE.BoxGeometry(0.1, 0.03, 0.01), MAT.chrome, 0, 0.6, -2.325, false));
+      const sm = brandMark('shogun', 0.9); sm.rotation.y = Math.PI; sm.position.set(0, 0.6, -2.325); body.add(sm);
       body.add(mesh(new THREE.BoxGeometry(1.7, 0.02, 0.2), MAT.carbon, 0, 0.17, -2.26, false));
       for (const s of [-1, 1]) {
+        // two stacked rectangular light bars per side
         const hl = new THREE.Group();
-        hl.position.set(s * 0.56, 0.66, -2.2); hl.rotation.set(0, s * 0.28, s * -0.05);
-        hl.add(mesh(rbox(0.42, 0.1, 0.06, 0.02), MAT.satin, 0, 0, 0, false));
-        const lens = mesh(rbox(0.43, 0.11, 0.065, 0.025), MAT.lens, 0, 0, -0.002, false); lens.renderOrder = 3; hl.add(lens);
-        hl.add(mesh(new THREE.SphereGeometry(0.035, 12, 8), MAT.head, -s * 0.1, 0, -0.03, false));
-        hl.add(mesh(new THREE.SphereGeometry(0.032, 12, 8), MAT.head, s * 0.06, 0, -0.03, false));
+        hl.position.set(s * 0.52, 0.66, -2.21); hl.rotation.set(0, s * 0.28, s * -0.05);
+        hl.add(mesh(rbox(0.32, 0.13, 0.06, 0.012), MAT.satin, 0, 0, 0, false));
+        hl.add(mesh(rbox(0.27, 0.03, 0.02, 0.006), MAT.drl, 0, 0.035, -0.03, false));
+        hl.add(mesh(rbox(0.27, 0.035, 0.02, 0.006), MAT.head, 0, -0.025, -0.03, false));
+        const lens = mesh(rbox(0.33, 0.14, 0.065, 0.014), MAT.lens, 0, 0, -0.002, false); lens.renderOrder = 3; hl.add(lens);
         body.add(hl);
         body.add(mesh(rbox(0.1, 0.05, 0.04, 0.015), MAT.amber, s * 0.74, 0.4, -2.26, false));
-        ringLamp(body, 0.09, s * 0.42, 0.8, 2.305);
-        ringLamp(body, 0.09, s * 0.67, 0.8, 2.29);
+        // slashed tail bars: three angled red strips per side
+        for (let k = 0; k < 3; k++) {
+          const bar = mesh(rbox(0.07, 0.15, 0.02, 0.008), MAT.tail, s * (0.36 + k * 0.13), 0.8, 2.3 - k * 0.006, false);
+          bar.rotation.z = s * 0.45; body.add(bar);
+        }
       }
       mirrors(body, paint, 0.93, 0.99, -0.5);
       body.add(mesh(new THREE.BoxGeometry(0.52, 0.12, 0.02), MAT.plate, 0, 0.52, 2.315, false));
       body.add(mesh(rbox(1.5, 0.14, 0.2, 0.04), MAT.carbon, 0, 0.28, 2.22, false));
+      const sr = brandMark('shogun', 0.9); sr.position.set(0, 0.67, 2.315); body.add(sr);
       const ex = mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 18).rotateX(Math.PI / 2), MAT.exhaust, 0.6, 0.28, 2.28);
       body.add(ex);
       root.userData.exhaust = new THREE.Vector3(0.6, 0.28, 2.38);
       root.userData.exhausts = [new THREE.Vector3(0.6, 0.28, 2.37)];
       wing(body, paint, { span: 1.7, chord: 0.36, y: 1.26, z: 2.06, upX: 0.58, upH: 0.28, deck: 0.98, mat: MAT.carbon });
-      for (const s of [-1, 1]) body.add(mesh(rbox(0.02, 0.16, 0.42, 0.01), MAT.carbon, s * 0.86, 1.24, 2.06, false));
+      for (const s of [-1, 1]) { const ep = mesh(rbox(0.02, 0.22, 0.3, 0.01), MAT.carbon, s * 0.86, 1.22, 2.1, false); ep.rotation.x = 0.35; body.add(ep); }
       addWheels(root, { front: -1.36, rear: 1.305, track: 0.755, r: 0.34, rimR: 0.235, width: 0.255, spokes: 6, style: 'double', rimMat: MAT.gunmetal, caliper: MAT.caliperGold });
       addCockpit(root, body, { eye: { x: -0.37, y: 1.17, z: 0.58 }, dashZ: -0.36, dashY: 0.96, maxKmh: 320, roof: S.roof });
     },
   },
 ];
-// three more: M5 F90 style, C63 W205 style, 911 RWB widebody (no logos or badges)
+// three more original designs: a German-style super-sedan, a muscular V8 sedan and a widebody rear-engine coupe
 PLAYER_CARS.push(
   {
-    id: 'm5', name: 'BMW M5 F90',
+    id: 'valkor', name: 'Valkor S5',
     tag: 'סדאן ארבע דלתות כבדה ויציבה, תאוצה מטורפת ומהירות מרבית גבוהה.',
     topSpeed: 310, accel: 0.95, handling: 0.6,
     color: '#1d5cc0', colors: ['#1d5cc0', '#121316', '#eef0f2', '#6e747b'],
     paint: { metalness: 0.7, roughness: 0.24 },
     length: 4.97, width: 1.9,
-    build(root, body, paint) { buildM5(root, body, paint); },
+    build(root, body, paint) { buildValkor(root, body, paint); },
   },
   {
-    id: 'c63', name: 'Mercedes-AMG C63',
+    id: 'adler', name: 'Adler V8 Sport',
     tag: 'גוף רחב מקדימה, האגזוז הרועם ביותר והלהבות הארוכות ביותר בשחרור גז.',
     topSpeed: 290, accel: 0.88, handling: 0.66,
     color: '#5f6368', colors: ['#5f6368', '#121316', '#eef0f2', '#b3121a'],
     paint: { matte: true },
     length: 4.75, width: 1.88,
-    build(root, body, paint) { buildC63(root, body, paint); },
+    build(root, body, paint) { buildAdler(root, body, paint); },
   },
   {
-    id: 'rwb', name: 'Porsche 911 RWB',
-    tag: 'קלאסיקה רחבת גוף, נמוכה ורחבה. הקלה ביותר, ההיגוי החד ביותר.',
+    id: 'strassen', name: 'Strassen 9 Widebody',
+    tag: 'קופה קלאסית עם מנוע אחורי וגוף רחב, נמוכה ורחבה. הקלה ביותר, ההיגוי החד ביותר.',
     topSpeed: 268, accel: 0.8, handling: 1.0,
     color: '#f2f1ec', colors: ['#f2f1ec', '#121316', '#f2c80f', '#2e6b3a'],
     length: 4.24, width: 1.95,
-    build(root, body, paint) { buildRWB(root, body, paint); },
+    build(root, body, paint) { buildStrassen(root, body, paint); },
   },
 );
 
 export const STAT_RANGE = { topSpeed: [220, 330], accel: [0.4, 1], handling: [0.4, 1] };
-
-/* ------------------------------------------------------- optional GLB */
-let supraGLB = null;
-export async function loadSupraGLB() {
-  // single-file builds have no models folder; skip the probe so nothing 404s
-  if (location.protocol === 'file:' || window.__driftNoModels) return null;
-  try {
-    const res = await fetch('models/supra.glb', { method: 'HEAD' });
-    const type = res.headers.get('content-type') || '';
-    if (!res.ok || type.includes('html')) return null; // dev servers answer missing files with index.html
-    const gltf = await new GLTFLoader().loadAsync('models/supra.glb');
-    supraGLB = gltf.scene;
-    return supraGLB;
-  } catch (e) {
-    return null;
-  }
-}
-
-function buildFromGLB(root, body, def) {
-  const model = supraGLB.clone(true);
-  let box = new THREE.Box3().setFromObject(model);
-  const size = box.getSize(new THREE.Vector3());
-  if (size.x > size.z) model.rotation.y = Math.PI / 2;  // long axis along z
-  model.rotation.y += Math.PI;                            // glTF faces +z, our cars face -z
-  model.updateMatrixWorld(true);
-  box = new THREE.Box3().setFromObject(model);
-  const s = def.length / Math.max(box.max.z - box.min.z, 1e-3);
-  model.scale.multiplyScalar(s);
-  model.updateMatrixWorld(true);
-  box = new THREE.Box3().setFromObject(model);
-  const c = box.getCenter(new THREE.Vector3());
-  model.position.sub(new THREE.Vector3(c.x, box.min.y, c.z));
-  model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  body.add(model);
-  // wheel detection by node name
-  const wheels = [], steer = [];
-  model.traverse((o) => {
-    if (!/wheel|tyre|tire|rim/i.test(o.name)) return;
-    let p = o.parent; while (p) { if (wheels.includes(p)) return; p = p.parent; }
-    wheels.push(o);
-    if (/front|(^|[_\s.-])f[_\s.-]?(l|r)\b|(l|r)[_\s.-]?f\b|fl|fr/i.test(o.name)) steer.push(o);
-  });
-  root.userData.wheels = wheels;
-  root.userData.steerWheels = steer;
-  root.userData.wheelR = 0.33;
-  for (const w of steer) w.userData.baseY = w.rotation.y;
-  const h = box.max.y - box.min.y;
-  root.userData.eye = new THREE.Vector3(-0.37, h * 0.82, 0.3);
-  root.userData.exhaust = new THREE.Vector3(0.5, 0.26, def.length / 2 + 0.1);
-}
 
 /* --------------------------------------------------------------- build */
 export function buildPlayerCar(def, color, style = 'stock') {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
-  // light colours get a pearl coat (the Supra's default is pearl white)
+  // light colours get a pearl coat
   const c = new THREE.Color(color), hsl = {}; c.getHSL(hsl);
   const paint = carPaint(color, def.paint ? def.paint : hsl.l > 0.75 ? { pearl: true, metalness: 0.25, roughness: 0.22 } : {});
-  if (def.id === 'supra' && supraGLB) buildFromGLB(root, body, def);
-  else def.build(root, body, paint, style);
+  def.build(root, body, paint, style);
   root.add(blobShadow(def.width, def.length));
   root.userData.body = body;
   root.userData.paint = paint;

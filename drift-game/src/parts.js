@@ -229,7 +229,7 @@ function sidewallTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 512;
   const g = c.getContext('2d');
   g.translate(256, 256);
-  g.fillStyle = 'rgba(150,150,150,0.55)'; g.font = 'bold 30px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(150,150,150,0.55)'; g.font = '700 30px Rajdhani, Heebo, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   const words = ['PERFORMANCE', '255/40 ZR18', 'RADIAL', 'TUBELESS'];
   for (let w = 0; w < 4; w++) {
     const text = words[w], a0 = (w / 4) * Math.PI * 2;
@@ -344,3 +344,13 @@ export function mergeStatic(group) {
 }
 
 export { mergeGeometries };
+
+// Canvas text uses the bundled web fonts, which load lazily: draw now with the fallback,
+// then redraw once the font is ready and re-upload the texture.
+export function drawWithFont(font, draw, tex) {
+  draw();
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.load) {
+    document.fonts.load(font).then(() => { draw(); tex.needsUpdate = true; }).catch(() => {});
+  }
+  return tex;
+}

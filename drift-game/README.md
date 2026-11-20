@@ -1,7 +1,7 @@
 # Drift Game
 
-An endless 3D highway traffic-dodging racer built with Vite and Three.js. Every car is built
-from Three.js primitives; there are no external assets. The UI is in Hebrew (RTL).
+An endless 3D highway traffic-dodging racer built with Vite and Three.js. All cars are original fictional
+designs built from Three.js primitives; there are no external models, images or sound files. The UI is in Hebrew (RTL).
 
 ## Run
 
@@ -67,27 +67,30 @@ Every gameplay number lives in `src/config.js`:
 | `traffic.laneChangeChance` | How often AI cars change lane |
 | `QUALITY` | What Low / Medium / High switch on and off |
 
-## Custom Supra model (optional)
-
-Put a glTF binary at `public/models/supra.glb`. It replaces the procedural Supra automatically: the model is scaled to
-4.52 m, centred, turned to face forward, and nodes named like `wheel`, `tire` or `rim` spin (names with `front`, `FL`
-or `FR` also steer). Without the file the procedural A80 is used.
-
 ## Cars
+
+All six cars are original, fictional designs. None of them is a copy of a real car, and none carries a real logo,
+badge or plate text: each make has its own simple brand mark built from basic shapes.
 
 | Car | Top speed | Acceleration | Handling | Character |
 | --- | --- | --- | --- | --- |
-| Toyota Supra A80 | 320 km/h | 8/10 | 8/10 | Balanced hero car; Stock or Tuned style |
-| Mazda RX-7 FD | 275 km/h | 7/10 | 9/10 | Light and agile |
-| Nissan GT-R R34 | 305 km/h | 9/10 | 7/10 | Grippy, strong launch |
-| BMW M5 F90 | 310 km/h | 10/10 | 6/10 | Heavy and stable, slower to turn in |
-| Mercedes-AMG C63 | 290 km/h | 9/10 | 7/10 | Loudest exhaust, biggest and longest backfire flames |
-| Porsche 911 RWB | 268 km/h | 8/10 | 10/10 | Lightest, sharpest steering, widebody |
+| Kaito Ryusei | 320 km/h | 8/10 | 8/10 | 90s-style Japanese GT coupe, balanced hero car; Stock or Tuned style |
+| Hoshi Kaze | 275 km/h | 7/10 | 9/10 | Light rotary-style sports coupe, agile |
+| Shogun R4 | 305 km/h | 9/10 | 7/10 | Heavy Japanese AWD supercar, grippy, strong launch |
+| Valkor S5 | 310 km/h | 10/10 | 6/10 | German-style super-sedan, heavy and stable |
+| Adler V8 Sport | 290 km/h | 9/10 | 7/10 | Muscular V8 sedan, loudest exhaust, biggest backfire flames |
+| Strassen 9 Widebody | 268 km/h | 8/10 | 10/10 | Classic rear-engine widebody coupe, lightest, sharpest steering |
 
-All cars are lofted from cross-sections (rounded panels, real wheel arches, tinted glass cabins) with PBR paint
-(matte on the C63), multi-spoke alloys with brake discs and calipers, working head/tail/brake lights and a cockpit
-with live gauges. No brand logos or badges are modelled. Per-car feel (steering speed, grip, cornering limit, yaw
-response, flame size/duration, exhaust loudness) lives in `CAR_TUNING` in `src/config.js`.
+All cars are lofted from cross-sections (rounded panels, wheel arches, tinted glass cabins) with PBR paint
+(matte on the Adler), multi-spoke alloys with brake discs and calipers, working head/tail/brake lights and a cockpit
+with live gauges. Per-car feel (steering speed, grip, cornering limit, yaw response, flame size/duration, exhaust
+loudness) lives in `CAR_TUNING` in `src/config.js`.
+
+## Assets and licences
+
+Every 3D model, texture, sound and the music are generated in code at runtime; the project ships no model, image or
+audio files. The only third-party pieces are the SIL OFL fonts (self-hosted, bundled by Vite), three.js and Vite.
+See [`ASSETS_LICENSES.md`](ASSETS_LICENSES.md) and the licence texts in [`licenses/`](licenses/).
 
 ## Code layout
 
@@ -97,10 +100,10 @@ response, flame size/duration, exhaust loudness) lives in `CAR_TUNING` in `src/c
 | `src/game.js` | Game state, barrier scrapes, OBB collisions, near misses, crash, car animation, effects hooks |
 | `src/physics.js` | Player vehicle model and 2D oriented-bounding-box tests |
 | `src/config.js` | All tunable numbers and quality presets |
-| `src/cars.js` | Car list, RX-7 FD, GT-R R34, optional GLB loader |
-| `src/supra.js` | Supra A80 (Stock / Tuned) |
-| `src/cars3.js` | M5 F90, C63 W205, 911 RWB widebody |
-| `src/carkit.js` | Shared lofted-body pieces, cockpit, mirrors, lamps |
+| `src/cars.js` | Car list, Hoshi Kaze, Shogun R4 |
+| `src/kaito.js` | Kaito Ryusei hero car (Stock / Tuned) |
+| `src/moreCars.js` | Valkor S5, Adler V8 Sport, Strassen 9 Widebody |
+| `src/carkit.js` | Shared lofted-body pieces, cockpit, mirrors, lamps, fictional brand marks |
 | `src/parts.js` | Loft builder, wheels, blob shadows, static mesh merging |
 | `src/materials.js` | Shared PBR materials |
 | `src/trafficModels.js` | Hatchback, sedan, SUV, van, truck with trailer |
@@ -109,4 +112,4 @@ response, flame size/duration, exhaust loudness) lives in `CAR_TUNING` in `src/c
 | `src/effects.js` | Tyre smoke, sparks, skid marks |
 | `src/post.js` | Bloom and the final speed/blur/vignette/haze pass |
 | `src/camera.js` | Chase and cockpit cameras, speed FOV, shake |
-| `src/ui.js`, `src/input.js`, `src/showroom.js`, `src/audio.js` | Screens, input, showroom, engine sound |
+| `src/ui.js`, `src/input.js`, `src/showroom.js`, `src/audio.js` | Screens, input, showroom, synthesized engine sound and music |

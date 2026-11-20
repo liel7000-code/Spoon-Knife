@@ -1,7 +1,19 @@
 // Entry point: renderer, fixed-timestep loop, screen flow.
+// self-hosted SIL OFL fonts (Fontsource packages, licence texts in licenses/)
+import '@fontsource/rajdhani/latin-500.css';
+import '@fontsource/rajdhani/latin-600.css';
+import '@fontsource/rajdhani/latin-700.css';
+import '@fontsource/heebo/latin-400.css';
+import '@fontsource/heebo/latin-500.css';
+import '@fontsource/heebo/latin-700.css';
+import '@fontsource/heebo/latin-800.css';
+import '@fontsource/heebo/hebrew-400.css';
+import '@fontsource/heebo/hebrew-500.css';
+import '@fontsource/heebo/hebrew-700.css';
+import '@fontsource/heebo/hebrew-800.css';
 import './style.css';
 import * as THREE from 'three';
-import { PLAYER_CARS, loadSupraGLB } from './cars.js';
+import { PLAYER_CARS } from './cars.js';
 import { Game } from './game.js';
 import { Showroom } from './showroom.js';
 import { UI } from './ui.js';
@@ -31,7 +43,7 @@ const settings = {
   colors: store.get('driftgame.colors', {}),
   cam: store.get('driftgame.cam', 'third'),
   quality: store.get('driftgame.quality', Input.isTouch() ? 'medium' : 'high'),
-  style: store.get('driftgame.supraStyle', 'stock'),
+  style: store.get('driftgame.heroStyle', 'stock'),
   night: store.get('driftgame.night', false),
 };
 if (!QUALITY[settings.quality]) settings.quality = 'high';
@@ -89,7 +101,7 @@ const ui = new UI({
   onMusic: () => { audio.init(); audio.setMusic(!audio.musicOn); ui.setMusic(audio.musicOn); },
   onStyle: (st) => {
     settings.style = st;
-    store.set('driftgame.supraStyle', st);
+    store.set('driftgame.heroStyle', st);
     showCar();
     ui.setGarage(settings.car, colorOf(settings.car), settings.style);
   },
@@ -209,5 +221,3 @@ document.addEventListener('visibilitychange', () => { last = performance.now(); 
 window.__drift = { game, settings, showroom, pixelRatio: () => pixelRatio };
 window.__cars = PLAYER_CARS;
 
-// optional hero model: public/models/supra.glb replaces the procedural Supra when present
-loadSupraGLB().then((m) => { if (m && PLAYER_CARS[settings.car].id === 'supra') showCar(); });

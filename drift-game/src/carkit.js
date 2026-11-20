@@ -72,14 +72,14 @@ export function gaugeTexture(max, step, red, label) {
   const a0 = Math.PI * 0.75, a1 = Math.PI * 2.25;
   const ang = (v) => a0 + (v / max) * (a1 - a0);
   if (red) { g.strokeStyle = '#d0201a'; g.lineWidth = 10; g.beginPath(); g.arc(128, 128, 104, ang(red), a1); g.stroke(); }
-  g.fillStyle = '#f2f2ee'; g.strokeStyle = '#f2f2ee'; g.font = 'bold 22px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#f2f2ee'; g.strokeStyle = '#f2f2ee'; g.font = '700 22px Rajdhani, Heebo, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   for (let v = 0; v <= max + 1e-6; v += step / 2) {
     const a = ang(v), major = Math.abs(v / step - Math.round(v / step)) < 1e-6;
     g.lineWidth = major ? 4 : 2;
     g.beginPath(); g.moveTo(128 + Math.cos(a) * 112, 128 + Math.sin(a) * 112); g.lineTo(128 + Math.cos(a) * (major ? 94 : 102), 128 + Math.sin(a) * (major ? 94 : 102)); g.stroke();
     if (major) g.fillText(String(Math.round(v / (max > 100 ? 1 : 1))), 128 + Math.cos(a) * 74, 128 + Math.sin(a) * 74);
   }
-  g.font = '15px Arial'; g.fillStyle = '#9aa1ad'; g.fillText(label, 128, 178);
+  g.font = '500 15px Rajdhani, Heebo, sans-serif'; g.fillStyle = '#9aa1ad'; g.fillText(label, 128, 178);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
@@ -210,4 +210,32 @@ export function wing(body, paint, { span, chord, y, z, upX, upH, deck, mat }) {
     body.add(up);
   }
   return blade;
+}
+
+/* --------------------------------------------------- fictional brand marks */
+// Small chrome logos for our own fictional makes, built from simple shapes.
+// Each faces +z and is about 0.12 m wide.
+const MARK_MAT = new THREE.MeshStandardMaterial({ color: 0xe3e6ea, metalness: 1, roughness: 0.15 });
+const outline = (pts, w) => {
+  // closed polyline -> thin extruded band
+  const outer = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)));
+  const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+  const hole = new THREE.Path(pts.map(([x, y]) => new THREE.Vector2(cx + (x - cx) * (1 - w), cy + (y - cy) * (1 - w))).reverse());
+  outer.holes.push(hole);
+  return new THREE.ExtrudeGeometry(outer, { depth: 0.005, bevelEnabled: false, curveSegments: 16 });
+};
+const solid = (pts) => new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y))), { depth: 0.006, bevelEnabled: false });
+const circlePts = (r, n = 32) => Array.from({ length: n }, (_, i) => [Math.cos((i / n) * Math.PI * 2) * r, Math.sin((i / n) * Math.PI * 2) * r]);
+
+export function brandMark(kind, scale = 1) {
+  const g = new THREE.Group();
+  const add = (geo) => g.add(new THREE.Mesh(geo, MARK_MAT));
+  if (kind === 'kaito') { add(outline(circlePts(0.055), 0.18)); add(solid([[-0.03, -0.025], [0.035, 0], [-0.03, 0.025], [-0.012, 0]])); }
+  else if (kind === 'hoshi') add(solid([[0, 0.06], [0.014, 0.014], [0.06, 0], [0.014, -0.014], [0, -0.06], [-0.014, -0.014], [-0.06, 0], [-0.014, 0.014]]));
+  else if (kind === 'shogun') add(outline(Array.from({ length: 6 }, (_, i) => [Math.cos(i * Math.PI / 3) * 0.055, Math.sin(i * Math.PI / 3) * 0.045]), 0.22));
+  else if (kind === 'valkor') { add(solid([[-0.06, 0.03], [-0.045, 0.03], [0, -0.025], [0.045, 0.03], [0.06, 0.03], [0, -0.04]])); }
+  else if (kind === 'adler') { add(outline([[0, 0.05], [0.055, -0.04], [-0.055, -0.04]], 0.25)); add(solid([[-0.025, -0.008], [0.025, -0.008], [0.025, 0.002], [-0.025, 0.002]])); }
+  else { add(outline([[-0.045, 0.045], [0.045, 0.045], [0.045, -0.01], [0, -0.05], [-0.045, -0.01]], 0.2)); add(solid([[-0.03, 0.006], [0.03, 0.006], [0.03, 0.014], [-0.03, 0.014]])); }
+  g.scale.setScalar(scale);
+  return g;
 }

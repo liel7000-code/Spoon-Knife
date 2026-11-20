@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 export function carPaint(color, { metalness = 0.55, roughness = 0.3, pearl = false, matte = false } = {}) {
-  // matte: satin finish with no gloss clearcoat (e.g. the C63's matte grey)
+  // matte: satin finish with no gloss clearcoat (e.g. the Adler's matte grey)
   if (matte) return new THREE.MeshPhysicalMaterial({ color, metalness: 0.45, roughness: 0.58, clearcoat: 0.15, clearcoatRoughness: 0.7 });
   return new THREE.MeshPhysicalMaterial({
     color, metalness, roughness,

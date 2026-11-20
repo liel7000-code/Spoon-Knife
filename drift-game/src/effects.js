@@ -155,7 +155,7 @@ export class Effects {
   // one backfire puff out of an exhaust tip; (dx, dz) is the car's backward direction
   flame(x, y, z, dx, dz, carVx, strength = 1, amount = 1) {
     const sp = 7 + Math.random() * 5;
-    const n = Math.round(4 * amount); // bigger flamethrowers (C63) emit more per pop, still from the fixed pool
+    const n = Math.round(4 * amount); // bigger flamethrowers (the Adler) emit more per pop, still from the fixed pool
     for (let k = 0; k < n; k++) {
       this.flames.emit(x, y, z, dx * sp + rand(-1.2, 1.2) + carVx, rand(-0.4, 0.9), dz * sp + rand(-1.2, 1.2),
         rand(0.16, 0.3) * strength, rand(0.08, 0.2), Math.random() < 0.15 ? 0.6 : 0);
