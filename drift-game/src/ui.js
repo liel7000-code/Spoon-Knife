@@ -3,7 +3,7 @@ import { PLAYER_CARS, STAT_RANGE } from './cars.js';
 import { loadBoard } from './scoring.js';
 
 const $ = (id) => document.getElementById(id);
-const SWATCHES = ['#a3090f', '#f1efe9', '#e8b10c', '#1f4fa8', '#d6281f', '#7d8a96', '#16181c', '#1f4fd1', '#1f8a5b', '#ff6a00', '#7a2fd0', '#e8c8a0'];
+const SWATCHES = ['#c4141c', '#f1efe9', '#e8b10c', '#1f4fa8', '#d6281f', '#7d8a96', '#16181c', '#1f4fd1', '#1f8a5b', '#ff6a00', '#7a2fd0', '#e8c8a0'];
 const fmt = (n) => Math.round(n).toLocaleString('he-IL');
 
 // tachometer geometry: 270 degree sweep, 0..9000 rpm
