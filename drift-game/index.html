@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1116">
+  <title>Drift Game</title>
+  <meta name="description" content="Drift Game: an original highway drift and traffic-weaving game with fictional cars. All 3D models, textures and sounds are generated in code.">
+</head>
+<body>
+  <canvas id="scene" aria-label="Drift Game"></canvas>
+
+  <!-- Main menu -->
+  <section id="menu" class="screen">
+    <div class="menu-card">
+      <h1 class="logo" dir="ltr">DRIFT<span>GAME</span></h1>
+      <p class="sub">בחרו מצב: מרוץ אינסופי בכביש המהיר, או דריפט על מסלולים סגורים.</p>
+      <div class="menu-car">
+        <span class="lbl">הרכב שלך</span>
+        <strong id="menuCar" dir="ltr">Kaito Ryusei</strong>
+      </div>
+      <div class="menu-btns">
+        <button id="btnStart" class="mode-btn"><b dir="ltr">HIGHWAY</b><span>כביש מהיר · חתכו בין המכוניות</span></button>
+        <button id="btnDrift" class="mode-btn drift"><b dir="ltr">DRIFT</b><span>3 מסלולים · ניקוד על זווית ומהירות</span></button>
+        <button id="btnGarage" class="btn">בחירת רכב</button>
+        <button id="btnBoard" class="btn ghost">טבלת שיאים</button>
+        <button id="btnTime" class="btn ghost">תאורה: שקיעה</button>
+        <button id="btnCamPref" class="btn ghost">מצלמה: מרדף</button>
+        <button id="btnMuteMenu" class="btn ghost">צליל: פועל</button>
+        <button id="btnMusic" class="btn ghost">מוזיקה: פועלת</button>
+        <button id="btnQuality" class="btn ghost">איכות גרפיקה: גבוהה</button>
+        <button id="btnCockpit" class="btn ghost">הגדרות תא נהג</button>
+      </div>
+      <div class="menu-best">שיא: <b id="menuBest" dir="ltr">0</b></div>
+      <div class="keys">
+        <span><kbd>A</kbd>/<kbd>D</kbd> או חצים: החלפת נתיב</span>
+        <span><kbd>W</kbd>/<kbd>S</kbd>: גז ובלם</span>
+        <span><kbd>C</kbd>: מצלמה</span>
+        <span>דריפט: <kbd>רווח</kbd> בלם יד · <kbd>Shift</kbd> בעיטת מצמד · <kbd>R</kbd> איפוס · <kbd>Esc</kbd> השהיה</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Garage / showroom -->
+  <section id="garage" class="screen" hidden>
+    <header class="garage-top">
+      <button id="garageBack" class="btn ghost small">חזרה</button>
+      <h2>בחירת רכב</h2>
+      <span class="count" id="carCount">1 מתוך 3</span>
+    </header>
+    <div class="garage-nav" dir="ltr">
+      <button id="prevCar" class="arrow" aria-label="רכב קודם">‹</button>
+      <button id="nextCar" class="arrow" aria-label="רכב הבא">›</button>
+    </div>
+    <div class="garage-panel">
+      <div class="car-title">
+        <h3 id="carName" dir="ltr">Kaito Ryusei</h3>
+        <p id="carTag"></p>
+      </div>
+      <div class="stats">
+        <div class="stat"><span>מהירות מרבית</span><div class="bar"><i id="barTop"></i></div><b id="valTop" dir="ltr">0</b></div>
+        <div class="stat"><span>תאוצה</span><div class="bar"><i id="barAcc"></i></div><b id="valAcc" dir="ltr">0</b></div>
+        <div class="stat"><span>היגוי</span><div class="bar"><i id="barHan"></i></div><b id="valHan" dir="ltr">0</b></div>
+      </div>
+      <div class="styles" id="styleRow" role="group" aria-label="סגנון">
+        <button class="seg" data-style="stock">סטוק לבן</button>
+        <button class="seg" data-style="tuned">מכוון · כנף קרבון, חישוקים שחורים</button>
+      </div>
+      <div class="colors">
+        <span class="lbl">צבע</span>
+        <div id="swatches" class="swatches"></div>
+        <label class="picker" title="צבע מותאם">
+          <input type="color" id="colorPick" value="#d6281f" aria-label="צבע מותאם">
+        </label>
+      </div>
+      <button id="garageStart" class="btn primary">התחל</button>
+    </div>
+  </section>
+
+  <!-- HUD -->
+  <section id="hud" hidden>
+    <div class="hud-top">
+      <div class="hud-box score">
+        <span class="lbl">ניקוד</span>
+        <b id="hudScore" dir="ltr">0</b>
+        <span class="best">שיא <b id="hudBest" dir="ltr">0</b></span>
+      </div>
+      <div class="hud-tools">
+        <button id="btnCam" class="tool" aria-label="החלף מצלמה" title="מצלמה (C)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+        <button id="btnMute" class="tool" aria-label="השתק" title="צליל"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="cross" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+    <div id="mult" class="mult">
+      <b id="multVal" dir="ltr">×1.0</b>
+      <div class="mult-bar"><i id="multBar"></i></div>
+      <span id="multHint" class="mult-hint">מעל 120 קמ״ש כדי לצבור</span>
+    </div>
+    <div id="feed" class="feed" aria-live="polite"></div>
+    <div class="gauge" dir="ltr">
+      <svg viewBox="0 0 220 220" aria-hidden="true">
+        <defs>
+          <linearGradient id="rpmGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ffc23d"/><stop offset="0.75" stop-color="#ff7a1f"/><stop offset="1" stop-color="#ff2f1f"/></linearGradient>
+        </defs>
+        <circle cx="110" cy="110" r="100" class="g-face"/>
+        <path id="rpmTrack" class="g-track" d=""/>
+        <path id="rpmRed" class="g-red" d=""/>
+        <path id="rpmArc" class="g-arc" d=""/>
+        <g id="rpmTicks" class="g-ticks"></g>
+      </svg>
+      <div class="g-center">
+        <b id="hudSpeed">0</b>
+        <span class="g-unit">KM/H</span>
+        <span class="g-gear" id="hudGear">1</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Touch controls (physical left/right, so LTR) -->
+  <div id="touch" dir="ltr" hidden>
+    <div class="tgroup corner left">
+      <button class="pedal" data-act="brake" aria-label="בלם">▼</button>
+      <button class="arrow-btn" data-act="left" aria-label="פנייה שמאלה">◀</button>
+    </div>
+    <button id="btnTilt" class="tilt" aria-pressed="false">הטיה</button>
+    <div class="tgroup paddles">
+      <button id="padDown" class="paddle" aria-label="הילוך למטה">−</button>
+      <button id="padUp" class="paddle" aria-label="הילוך למעלה">+</button>
+    </div>
+    <div class="tgroup hbg">
+      <button class="pedal hb" data-act="hand" aria-label="בלם יד">HAND<br>BRAKE</button>
+    </div>
+    <div class="tgroup corner right">
+      <button class="pedal" data-act="gas" aria-label="גז">▲</button>
+      <button class="arrow-btn" data-act="right" aria-label="פנייה ימינה">▶</button>
+    </div>
+  </div>
+
+  <!-- Drift: track select -->
+  <section id="trackScreen" class="screen" hidden>
+    <div class="menu-card wide">
+      <header class="pick-top">
+        <button id="trackBack" class="btn ghost small">חזרה</button>
+        <h2>בחירת מסלול</h2>
+        <span id="trackCar" class="pick-car" dir="ltr"></span>
+      </header>
+      <div id="trackList" class="track-list"></div>
+    </div>
+  </section>
+
+  <!-- Drift: session select -->
+  <section id="sessionScreen" class="screen" hidden>
+    <div class="menu-card">
+      <header class="pick-top">
+        <button id="sessionBack" class="btn ghost small">חזרה</button>
+        <h2 id="sessionTitle" dir="ltr">Session</h2>
+        <span></span>
+      </header>
+      <div id="sessionList" class="session-list"></div>
+      <div class="assist">
+        <span class="lbl">עזרי דריפט</span>
+        <div class="styles" id="assistRow" role="group" aria-label="רמת עזרים">
+          <button class="seg" data-assist="beginner">מתחילים</button>
+          <button class="seg" data-assist="pro">מקצוען</button>
+          <button class="seg" data-assist="sim">סימולציה</button>
+        </div>
+        <p id="assistHint" class="hint"></p>
+        <div class="toggles">
+          <button class="tog" data-tog="tc">בקרת משיכה</button>
+          <button class="tog" data-tog="abs">ABS</button>
+          <button class="tog" data-tog="manual">הילוכים ידניים</button>
+        </div>
+      </div>
+      <div class="menu-btns">
+        <button id="sessionTune" class="btn">כוונון רכב</button>
+        <button id="sessionStart" class="btn primary">לנסוע</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Drift HUD -->
+  <section id="dhud" hidden>
+    <div class="d-top" dir="ltr">
+      <div class="hud-box d-score">
+        <span class="lbl">SCORE</span>
+        <b id="dScore">0</b>
+        <span class="best">BEST <b id="dBest">0</b></span>
+      </div>
+      <div class="d-right">
+        <div class="hud-box d-time">
+          <span class="lbl" id="dTimeLbl">TIME</span>
+          <b id="dTime">0:00</b>
+          <span class="best" id="dLap"></span>
+        </div>
+        <div class="hud-tools">
+          <button id="dCam" class="tool" aria-label="החלף מצלמה" title="מצלמה (C)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+          <button id="dPause" class="tool" aria-label="השהיה" title="השהיה (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+        </div>
+      </div>
+    </div>
+    <div id="dChainBox" class="d-chain" dir="ltr">
+      <div class="d-chain-row"><b id="dChain">0</b><span id="dMult" class="d-mult">×1.0</span></div>
+      <div class="d-angle"><i id="dAngleBar"></i></div>
+      <span id="dAngle" class="d-angle-val">0°</span>
+    </div>
+    <svg id="dMap" class="d-map" viewBox="0 0 110 110" aria-hidden="true"><path id="dMapPath" d=""/><circle id="dMapGhost" r="3" cx="-10" cy="-10"/><circle id="dMapCar" r="3.8" cx="-10" cy="-10"/></svg>
+    <div id="dFeed" class="feed d-feed" aria-live="polite"></div>
+    <div id="dPop" class="d-pop" dir="ltr" aria-live="polite"></div>
+    <div id="dCount" class="d-count" dir="ltr" hidden></div>
+    <div class="d-speed" dir="ltr"><b id="dSpeed">0</b><span class="g-unit">KM/H</span><span class="g-gear" id="dGear">1</span><i class="d-rpm"><i id="dRpm"></i></i></div>
+    <pre id="dbg" class="dbg" dir="ltr" hidden></pre>
+  </section>
+
+  <!-- Cockpit camera settings -->
+  <section id="cockpitScreen" class="screen" hidden>
+    <div class="menu-card">
+      <header class="pick-top">
+        <button id="cockpitBack" class="btn ghost small">חזרה</button>
+        <h2>תא נהג</h2>
+        <span></span>
+      </header>
+      <div id="cockpitList" class="tune-list"></div>
+      <div class="toggles"><button class="tog" id="cockpitApex">מבט לכיוון הפנייה</button></div>
+      <p class="hint">במצלמת תא הנהג: החזיקו <kbd>V</kbd> כדי להסתכל למטה אל הדוושות.</p>
+      <button id="cockpitDone" class="btn primary">שמור</button>
+    </div>
+  </section>
+
+  <!-- Drift: tuning -->
+  <section id="tuneScreen" class="screen" hidden>
+    <div class="menu-card">
+      <header class="pick-top">
+        <button id="tuneBack" class="btn ghost small">חזרה</button>
+        <h2>כוונון רכב</h2>
+        <span id="tuneCar" class="pick-car" dir="ltr"></span>
+      </header>
+      <div id="tuneList" class="tune-list"></div>
+      <div class="menu-btns">
+        <button id="tuneReset" class="btn ghost">ברירת מחדל</button>
+        <button id="tuneDone" class="btn primary">שמור</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Drift: pause -->
+  <section id="dpause" class="screen" hidden>
+    <div class="menu-card">
+      <h2 class="board-title">השהיה</h2>
+      <div class="assist">
+        <span class="lbl">עזרי דריפט</span>
+        <div class="styles" id="assistRow2" role="group" aria-label="רמת עזרים">
+          <button class="seg" data-assist="beginner">מתחילים</button>
+          <button class="seg" data-assist="pro">מקצוען</button>
+          <button class="seg" data-assist="sim">סימולציה</button>
+        </div>
+        <div class="toggles">
+          <button class="tog" data-tog="tc">בקרת משיכה</button>
+          <button class="tog" data-tog="abs">ABS</button>
+          <button class="tog" data-tog="manual">הילוכים ידניים</button>
+        </div>
+      </div>
+      <div class="menu-btns">
+        <button id="dResume" class="btn primary">המשך</button>
+        <button id="dRestart" class="btn">התחל מחדש</button>
+        <button id="dEnd" class="btn">סיים ותוצאות</button>
+        <button id="dCockpit" class="btn ghost">הגדרות תא נהג</button>
+        <button id="dDebug" class="btn ghost">דיבאג פיזיקה (F3)</button>
+        <button id="dQuit" class="btn ghost">יציאה לתפריט</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Drift: results -->
+  <section id="dover" class="screen" hidden>
+    <div class="menu-card over-card">
+      <div class="d-res-top">
+        <div>
+          <h2 id="resTitle" dir="ltr">Harbor Night</h2>
+          <span id="resSub" class="lbl"></span>
+        </div>
+        <div id="resGrade" class="grade" dir="ltr">S</div>
+      </div>
+      <div id="resRecord" class="record" hidden>שיא חדש</div>
+      <div class="over-score"><span class="lbl" id="resScoreLbl">ניקוד</span><b id="resScore" dir="ltr">0</b><span id="resBest" class="rank" dir="ltr"></span></div>
+      <div class="over-stats" id="resStats"></div>
+      <div class="menu-btns">
+        <button id="dRetry" class="btn primary">נסה שוב</button>
+        <button id="dReplay" class="btn">שידור חוזר</button>
+        <button id="dTracks" class="btn">מסלול אחר</button>
+        <button id="dMenu" class="btn ghost">תפריט</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Drift: replay -->
+  <div id="replayBar" class="replay-bar" dir="ltr" hidden>
+    <span class="rec">● REPLAY</span><span id="replayTime">0:00</span>
+    <button id="replayExit" class="btn small">סגור</button>
+  </div>
+
+  <!-- Leaderboard -->
+  <section id="boardScreen" class="screen" hidden>
+    <div class="menu-card">
+      <h2 class="board-title">טבלת שיאים</h2>
+      <ol id="menuBoard" class="board"></ol>
+      <button id="btnBoardBack" class="btn">חזרה</button>
+    </div>
+  </section>
+
+  <!-- Game over -->
+  <section id="over" class="screen" hidden>
+    <div class="menu-card over-card">
+      <h2>התרסקת!</h2>
+      <div id="newRecord" class="record" hidden>שיא חדש</div>
+      <div class="over-score"><span class="lbl">ניקוד</span><b id="overScore" dir="ltr">0</b><span id="overRank" class="rank"></span></div>
+      <div class="over-stats">
+        <div><span class="lbl">פיצולי נתיב</span><b id="overSplit" dir="ltr">0</b></div>
+        <div><span class="lbl">מעברים צמודים</span><b id="overNear" dir="ltr">0</b></div>
+        <div><span class="lbl">מכפיל מרבי</span><b id="overMult" dir="ltr">×1.0</b></div>
+        <div><span class="lbl">מהירות מרבית</span><b id="overSpeed" dir="ltr">0</b></div>
+        <div><span class="lbl">מרחק</span><b id="overDist">0</b></div>
+        <div><span class="lbl">שיא</span><b id="overBest" dir="ltr">0</b></div>
+      </div>
+      <ol id="overBoard" class="board"></ol>
+      <div class="menu-btns">
+        <button id="btnRetry" class="btn primary">שחק שוב</button>
+        <button id="btnMenu" class="btn">תפריט</button>
+      </div>
+    </div>
+  </section>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
