@@ -3,119 +3,387 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0b0d12">
+<meta name="theme-color" content="#0c0a24">
+<meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Shadow Puppet</title>
 <style>
+  /* =====================================================================
+     PALETTE – deep indigo, warm amber, soft magenta.
+     --accent / --accent2 are re-themed from JS on every level-up.
+     ===================================================================== */
   :root {
-    --bg: #0b0d12;
-    --panel: rgba(16, 19, 27, 0.94);
-    --fg: #eef1f7;
-    --muted: #9aa3b5;
-    --accent: #2fd6ff;
-    --star: #ffd23f;
-    --danger: #ff6b85;
+    --indigo-950: #07061a;
+    --indigo-900: #0c0a24;
+    --indigo-800: #16123a;
+    --indigo-700: #241c58;
+    --indigo-500: #4b3e9e;
+    --amber: #ffb85c;
+    --amber-hot: #ff8a3d;
+    --magenta: #ff5cc8;
+    --cream: #fff3e0;
+    --text: #f7f2ff;
+    --muted: #b9afd8;
+    --danger: #ff6b6b;
+    --glass: rgba(30, 24, 72, 0.42);
+    --glass-strong: rgba(26, 20, 64, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --glass-hi: rgba(255, 255, 255, 0.08);
+    --accent: var(--amber);
+    --accent2: var(--magenta);
+    --ease: cubic-bezier(.22, 1, .36, 1);
+    --spring: cubic-bezier(.34, 1.56, .64, 1);
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body {
-    height: 100%;
-    background: var(--bg);
-    color: var(--fg);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    overflow: hidden;
-    overscroll-behavior: none;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
+    height: 100%; overflow: hidden; overscroll-behavior: none;
+    background: var(--indigo-900); color: var(--text);
+    font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   }
-  #app {
-    position: fixed; inset: 0;
-    display: flex; flex-direction: column;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 10px 30px rgba(4, 2, 18, .45), inset 0 1px 0 var(--glass-hi);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    backdrop-filter: blur(16px) saturate(150%);
   }
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; padding: 10px 16px;
-  }
-  .title { font-weight: 700; letter-spacing: .02em; font-size: 17px; }
-  .score { font-size: 22px; font-weight: 800; color: var(--star); font-variant-numeric: tabular-nums; }
-  .fps { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; }
+  .ico svg, svg.ico { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-  /* Game area: canvas fills it; touch-action none so taps/drags never scroll or zoom */
-  #stage { flex: 1; position: relative; min-height: 0; touch-action: none; }
-  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* ---------- game canvas ---------- */
+  #view { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; touch-action: none; }
 
-  #controls {
-    background: var(--panel);
-    border-top: 1px solid rgba(255,255,255,.08);
-    padding: 10px 16px 14px;
-    display: flex; flex-direction: column; gap: 10px;
-    touch-action: manipulation;
+  /* ---------- HUD ---------- */
+  #hud {
+    position: fixed; z-index: 5; left: calc(12px + var(--safe-l)); right: calc(12px + var(--safe-r));
+    top: calc(10px + var(--safe-t));
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 8px;
+    pointer-events: none; transition: opacity .5s var(--ease), transform .5s var(--ease);
   }
-  .slider-row { display: flex; align-items: center; gap: 12px; }
-  .slider-row label { font-size: 14px; color: var(--muted); white-space: nowrap; }
-  .slider-row output { min-width: 34px; text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
-  input[type=range] { flex: 1; height: 44px; accent-color: var(--accent); }
-  .buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  button {
-    min-height: 52px; border-radius: 14px;
-    border: 1px solid rgba(255,255,255,.12);
-    background: #1c2130; color: var(--fg);
-    font: inherit; font-size: 15px; font-weight: 600;
+  #hud.hidden { opacity: 0; transform: translateY(-16px); }
+  .pill { border-radius: 18px; padding: 8px 12px; min-width: 92px; position: relative; }
+  .pill.right { justify-self: end; text-align: right; }
+  .pill .big { font-size: 22px; font-weight: 800; letter-spacing: .01em; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 4px; }
+  .pill.right .big { justify-content: flex-end; align-items: center; }
+  .pill .big small { font-size: 13px; color: var(--muted); font-weight: 700; }
+  .pill .sub { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 1px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pill .star-ico { width: 18px; height: 18px; fill: var(--accent); stroke: none; filter: drop-shadow(0 0 6px var(--accent)); }
+  .flame { width: 12px; height: 12px; fill: var(--accent2); stroke: none; vertical-align: -1px; }
+  #hearts { display: flex; gap: 6px; padding: 9px 12px; border-radius: 18px; }
+  #hearts svg { width: 22px; height: 22px; fill: var(--accent2); stroke: rgba(255,255,255,.6); stroke-width: 1.2; filter: drop-shadow(0 0 6px var(--accent2)); transition: transform .35s var(--spring), opacity .35s, fill .35s; }
+  #hearts svg.lost { fill: transparent; stroke: rgba(255,255,255,.3); filter: none; transform: scale(.78); }
+  #hearts svg.pop { animation: heartPop .5s var(--ease); }
+  @keyframes heartPop { 0% { transform: scale(1.5) rotate(-12deg); } 100% { transform: scale(.78); } }
+  .combo {
+    position: absolute; right: 8px; bottom: -22px; font-size: 13px; font-weight: 900; color: #1a0f2e;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); padding: 2px 9px; border-radius: 99px;
+    opacity: 0; transform: scale(.6); transition: opacity .3s, transform .3s var(--spring);
   }
-  button:active { transform: scale(.97); }
-  button.on { background: var(--accent); color: #04121a; border-color: transparent; }
+  .combo.show { opacity: 1; transform: scale(1); }
+  .combo.bump { animation: bump .35s var(--spring); }
+  @keyframes bump { 0% { transform: scale(1.45); } 100% { transform: scale(1); } }
 
-  /* Start / error screen */
-  #screen {
-    position: fixed; inset: 0; z-index: 10;
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px; background: rgba(8, 10, 14, 0.96);
+  /* ---------- live map picture-in-picture ---------- */
+  #pipWrap {
+    position: fixed; z-index: 5; right: calc(12px + var(--safe-r)); top: calc(104px + var(--safe-t));
+    width: min(28vw, 128px); border-radius: 14px; overflow: hidden; padding: 0;
+    transition: opacity .5s var(--ease), transform .5s var(--ease); pointer-events: none;
   }
-  #screen.hidden { display: none; }
-  .card { max-width: 420px; text-align: center; display: flex; flex-direction: column; gap: 16px; }
-  .card h1 { font-size: 30px; }
-  .card p { color: var(--muted); line-height: 1.45; }
-  .card .err { color: var(--danger); font-weight: 600; }
-  .card button { background: var(--accent); color: #04121a; border: none; font-size: 17px; min-height: 56px; }
+  #pipWrap.hidden { opacity: 0; transform: translateX(20px); }
+  #pip { display: block; width: 100%; }
+  #pipLabel { position: absolute; left: 6px; top: 5px; font-size: 9px; font-weight: 800; letter-spacing: .12em; color: var(--cream); text-shadow: 0 1px 3px #000; }
 
-  /* The <video> must stay "rendered" for iOS to keep decoding frames, so hide it visually instead of display:none */
-  video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  /* ---------- bottom control bar ---------- */
+  #bar {
+    position: fixed; z-index: 6;
+    left: calc(10px + var(--safe-l)); right: calc(10px + var(--safe-r)); bottom: calc(10px + var(--safe-b));
+    display: flex; gap: 4px; padding: 6px; border-radius: 24px;
+    transition: transform .6s var(--ease), opacity .6s var(--ease);
+  }
+  #bar.hidden { transform: translateY(140%); opacity: 0; }
+  .btn {
+    flex: 1; min-width: 44px; min-height: 58px; border-radius: 18px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    color: var(--text); transition: background .25s var(--ease), color .25s, transform .2s var(--spring);
+  }
+  .btn:active { transform: scale(.9); }
+  .btn .cap { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--muted); transition: color .25s; }
+  .btn.on { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 85%, white 0%), var(--accent2)); color: #1a0f2e; }
+  .btn.on .cap { color: #2a1640; }
+  @supports not (background: color-mix(in srgb, red, blue)) { .btn.on { background: linear-gradient(160deg, var(--accent), var(--accent2)); } }
+
+  /* sensitivity popover */
+  #sensPop {
+    position: fixed; z-index: 7; left: calc(16px + var(--safe-l)); right: calc(16px + var(--safe-r));
+    bottom: calc(92px + var(--safe-b)); border-radius: 20px; padding: 12px 16px;
+    opacity: 0; transform: translateY(14px) scale(.97); pointer-events: none;
+    transition: opacity .3s var(--ease), transform .3s var(--ease);
+  }
+  #sensPop.open { opacity: 1; transform: none; pointer-events: auto; }
+  #sensPop .row { display: flex; align-items: center; gap: 12px; }
+  #sensPop label { font-size: 13px; font-weight: 700; color: var(--muted); }
+  #sensPop output { font-weight: 800; min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+  #sensPop input { flex: 1; height: 44px; accent-color: var(--accent); }
+  #sensPop .meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ---------- GO button + hint ---------- */
+  #readyBox {
+    position: fixed; z-index: 5; left: 0; right: 0; bottom: calc(96px + var(--safe-b));
+    display: flex; flex-direction: column; align-items: center; gap: 14px; pointer-events: none;
+    transition: opacity .45s var(--ease), transform .45s var(--ease);
+  }
+  #readyBox.hidden { opacity: 0; transform: translateY(24px) scale(.95); }
+  #readyHint { font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 99px; color: var(--cream); }
+  #btnGo {
+    pointer-events: auto; width: 96px; height: 96px; border-radius: 50%;
+    font-size: 28px; font-weight: 900; letter-spacing: .06em; color: #1a0f2e;
+    background: radial-gradient(circle at 35% 30%, #fff6e6 0%, var(--accent) 45%, var(--accent2) 100%);
+    box-shadow: 0 0 0 6px rgba(255,255,255,.08), 0 0 40px var(--accent), 0 12px 30px rgba(0,0,0,.5);
+    animation: goPulse 1.8s var(--ease) infinite;
+  }
+  #btnGo:active { transform: scale(.92); }
+  @keyframes goPulse { 0%,100% { box-shadow: 0 0 0 6px rgba(255,255,255,.08), 0 0 30px var(--accent), 0 12px 30px rgba(0,0,0,.5); } 50% { box-shadow: 0 0 0 14px rgba(255,255,255,.03), 0 0 60px var(--accent2), 0 12px 30px rgba(0,0,0,.5); } }
+
+  /* ---------- banner + toast ---------- */
+  #banner {
+    position: fixed; z-index: 8; left: 50%; top: calc(96px + var(--safe-t));
+    transform: translate(-50%, -30px) scale(.9); opacity: 0; pointer-events: none;
+    padding: 10px 20px; border-radius: 99px; font-weight: 900; letter-spacing: .08em; font-size: 15px; white-space: nowrap;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #1a0f2e;
+    box-shadow: 0 0 40px var(--accent2), 0 10px 30px rgba(0,0,0,.4);
+    transition: transform .6s var(--spring), opacity .4s var(--ease);
+  }
+  #banner small { display: block; font-size: 11px; letter-spacing: .14em; opacity: .75; text-align: center; }
+  #banner.show { transform: translate(-50%, 0) scale(1); opacity: 1; }
+  #toast {
+    position: fixed; z-index: 8; left: 50%; top: calc(150px + var(--safe-t)); max-width: 86vw; text-align: center;
+    transform: translate(-50%, -16px); opacity: 0; pointer-events: none;
+    padding: 10px 16px; border-radius: 16px; font-size: 13px; font-weight: 700;
+    transition: transform .4s var(--ease), opacity .4s var(--ease);
+  }
+  #toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+  /* ---------- title screen ---------- */
+  #title {
+    position: fixed; inset: 0; z-index: 20; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+    padding: calc(24px + var(--safe-t)) 24px calc(24px + var(--safe-b));
+    background:
+      radial-gradient(ellipse 70% 45% at 50% 12%, rgba(255, 184, 92, .38), transparent 70%),
+      radial-gradient(ellipse 90% 60% at 50% 110%, rgba(255, 92, 200, .25), transparent 70%),
+      linear-gradient(180deg, #120e34 0%, #0c0a24 60%, #07061a 100%);
+    transition: opacity .8s var(--ease), transform .8s var(--ease);
+  }
+  #title.hidden { opacity: 0; transform: scale(1.06); pointer-events: none; }
+  .lamp {
+    position: absolute; top: -12vh; left: 50%; width: 60vh; height: 60vh; transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(255, 214, 150, .55), rgba(255, 184, 92, .12) 40%, transparent 70%);
+    animation: flicker 4s infinite; pointer-events: none;
+  }
+  @keyframes flicker { 0%,100% { opacity: 1; } 42% { opacity: .92; } 44% { opacity: .7; } 46% { opacity: .95; } 70% { opacity: .88; } }
+  .logo { text-align: center; line-height: .92; position: relative; z-index: 1; }
+  .logo .line { display: block; font-size: clamp(44px, 14vw, 76px); font-weight: 900; letter-spacing: .04em; }
+  .logo .line span {
+    display: inline-block; color: var(--cream);
+    text-shadow: 3px 4px 0 var(--indigo-500), 6px 9px 0 rgba(4,2,18,.6), 0 0 28px rgba(255, 184, 92, .55);
+    opacity: 0; transform: translateY(-40px) rotate(-8deg);
+    animation: drop .8s var(--spring) forwards, sway 3.6s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 70ms + 200ms), calc(var(--i) * 140ms + 1200ms);
+  }
+  .logo .line.two span { color: var(--amber); text-shadow: 3px 4px 0 #8a2a6e, 6px 9px 0 rgba(4,2,18,.6), 0 0 30px rgba(255, 92, 200, .6); }
+  @keyframes drop { to { opacity: 1; transform: none; } }
+  @keyframes sway { 0%,100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+  .tagline { color: var(--muted); font-size: 15px; text-align: center; max-width: 320px; line-height: 1.45; z-index: 1; opacity: 0; animation: fadeUp .8s var(--ease) 1.1s forwards; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .title-puppet { width: 92px; height: 92px; z-index: 1; animation: bob 1.4s ease-in-out infinite, fadeUp .8s var(--ease) .9s both; filter: drop-shadow(0 12px 10px rgba(0,0,0,.5)); }
+  @keyframes bob { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-10px) rotate(4deg); } }
+  #btnStart {
+    z-index: 1; min-width: 220px; min-height: 60px; border-radius: 99px; font-size: 18px; font-weight: 900; letter-spacing: .06em; color: #1a0f2e;
+    background: linear-gradient(135deg, var(--amber), var(--magenta));
+    box-shadow: 0 0 40px rgba(255, 92, 200, .45), 0 12px 30px rgba(0,0,0,.45);
+    opacity: 0; animation: fadeUp .8s var(--ease) 1.3s forwards, breathe 2.2s ease-in-out 2.1s infinite;
+  }
+  #btnStart:disabled { filter: grayscale(.6); }
+  @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  #errMsg { z-index: 1; max-width: 340px; text-align: center; color: #ffd0d8; font-weight: 700; font-size: 14px; line-height: 1.45; padding: 12px 16px; border-radius: 16px; background: rgba(255, 80, 110, .16); border: 1px solid rgba(255, 120, 140, .35); }
+  .fineprint { z-index: 1; font-size: 12px; color: var(--muted); opacity: 0; animation: fadeUp .8s var(--ease) 1.5s forwards; text-align: center; }
+  .hills { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 34vh; pointer-events: none; }
+
+  /* ---------- onboarding ---------- */
+  #onboard {
+    position: fixed; inset: 0; z-index: 15; display: flex; align-items: flex-end; justify-content: center;
+    padding: 0 20px calc(120px + var(--safe-b)); background: linear-gradient(180deg, transparent 30%, rgba(7,6,26,.75));
+    transition: opacity .6s var(--ease);
+  }
+  #onboard.hidden { opacity: 0; pointer-events: none; }
+  .ob-card { width: min(360px, 100%); border-radius: 26px; padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .ob-stage { width: 140px; height: 110px; position: relative; }
+  .ob-stage svg { width: 100%; height: 100%; overflow: visible; }
+  .ob-step { position: absolute; inset: 0; opacity: 0; transform: translateY(10px); transition: opacity .5s var(--ease), transform .5s var(--ease); }
+  .ob-step.on { opacity: 1; transform: none; }
+  .ob-text { font-size: 18px; font-weight: 800; min-height: 48px; display: flex; align-items: center; justify-content: center; line-height: 1.25; }
+  .ob-dots { display: flex; gap: 8px; }
+  .ob-dots i { width: 8px; height: 8px; border-radius: 9px; background: rgba(255,255,255,.25); transition: width .4s var(--ease), background .4s; }
+  .ob-dots i.on { width: 24px; background: var(--accent); }
+  .ob-skip { font-size: 13px; font-weight: 700; color: var(--muted); min-height: 44px; padding: 0 16px; }
+  .swing { transform-origin: 70px 10px; animation: swing 2.4s ease-in-out infinite; }
+  @keyframes swing { 0%,100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
+  .dropblock { animation: dropBlock 2.4s var(--ease) infinite; }
+  @keyframes dropBlock { 0% { transform: translateY(-40px); opacity: 0; } 30%,80% { transform: none; opacity: 1; } 100% { opacity: 0; } }
+  .grow { transform-origin: 70px 92px; animation: growShadow 2.4s var(--ease) infinite; }
+  @keyframes growShadow { 0% { transform: scaleX(.2); opacity: 0; } 30%,80% { transform: none; opacity: 1; } 100% { opacity: 0; } }
+  .spinflake { transform-origin: 48px 55px; animation: spin 4s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .pulseplay { transform-origin: 104px 55px; animation: breathe 1.2s ease-in-out infinite; }
+
+  /* ---------- game over ---------- */
+  #over {
+    position: fixed; inset: 0; z-index: 18; display: flex; align-items: center; justify-content: center; padding: 24px;
+    background: radial-gradient(ellipse at 50% 40%, rgba(36, 28, 88, .55), rgba(7, 6, 26, .88));
+    transition: opacity .5s var(--ease);
+  }
+  #over.hidden { opacity: 0; pointer-events: none; }
+  #over .card { width: min(340px, 100%); border-radius: 28px; padding: 24px; text-align: center; display: flex; flex-direction: column; gap: 14px; transform: translateY(0); transition: transform .6s var(--spring); }
+  #over.hidden .card { transform: translateY(40px) scale(.95); }
+  #over h2 { font-size: 26px; font-weight: 900; letter-spacing: .02em; }
+  #over .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #over .stat { border-radius: 16px; padding: 10px; background: rgba(255,255,255,.06); }
+  #over .stat b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+  #over .stat span { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  #newBest { font-weight: 900; letter-spacing: .14em; font-size: 13px; color: var(--accent); }
+  #btnAgain { min-height: 56px; border-radius: 99px; font-size: 17px; font-weight: 900; color: #1a0f2e; background: linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow: 0 0 30px var(--accent2); }
+
+  /* iOS needs the <video> rendered to keep decoding frames – hide it visually only */
+  video { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; left: 0; top: 0; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
-<div id="app">
-  <header>
-    <span class="title">Shadow Puppet</span>
-    <span class="score">★ <span id="score">0</span></span>
-    <span class="fps" id="fps">-- fps</span>
-  </header>
 
-  <div id="stage"><canvas id="view"></canvas></div>
+<canvas id="view" aria-label="Game view"></canvas>
 
-  <div id="controls">
-    <div class="slider-row">
-      <label for="thr">Threshold</label>
-      <input id="thr" type="range" min="-60" max="60" step="1" value="0">
-      <output id="thrOut">--</output>
-    </div>
-    <div class="buttons">
-      <button id="btnFreeze">Freeze</button>
-      <button id="btnVideo" class="on">Video</button>
-      <button id="btnReset">Reset</button>
-    </div>
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="pill glass">
+    <div class="big"><span id="dist">0</span><small>m</small></div>
+    <div class="sub">best <span id="bestDist">0</span> m</div>
+  </div>
+  <div id="hearts" class="glass"></div>
+  <div class="pill glass right">
+    <div class="big"><svg class="star-ico" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z"/></svg><span id="score">0</span></div>
+    <div class="sub"><svg class="flame" viewBox="0 0 24 24"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-4-1-6 1-9z"/></svg> <span id="streak">0</span> · best <span id="bestScore">0</span></div>
+    <div id="combo" class="combo">x2</div>
   </div>
 </div>
 
-<div id="screen">
-  <div class="card">
-    <h1>Shadow Puppet</h1>
-    <p>Point your rear camera at a surface lit by a lamp or window. Dark shadows and objects become platforms. Help the little guy reach the star!</p>
-    <p class="err" id="errMsg" hidden></p>
-    <button id="btnStart">Start camera</button>
-    <p style="font-size:13px">Tip: tap the game to drop the character anywhere. Use Freeze to hold a layout steady.</p>
-  </div>
+<div id="pipWrap" class="glass hidden"><canvas id="pip"></canvas><span id="pipLabel">LIVE MAP</span></div>
+
+<div id="readyBox" class="hidden">
+  <div id="readyHint" class="glass">Arrange shadows · Freeze · GO</div>
+  <button id="btnGo" aria-label="Start running">GO</button>
 </div>
+
+<div id="banner"></div>
+<div id="toast" class="glass"></div>
+
+<div id="sensPop" class="glass" aria-hidden="true">
+  <div class="row">
+    <label for="sens">Sensitivity</label>
+    <input id="sens" type="range" min="-60" max="60" step="1" value="0">
+    <output id="sensOut">0</output>
+  </div>
+  <div class="meta" id="sensMeta">More = more road. Threshold --</div>
+</div>
+
+<nav id="bar" class="glass hidden" aria-label="Controls">
+  <button class="btn" id="btnSteer" aria-label="Steering mode"><span class="ico" id="icoSteer"></span><span class="cap" id="capSteer">Drag</span></button>
+  <button class="btn" id="btnFreeze" aria-label="Freeze map"><span class="ico" id="icoFreeze"></span><span class="cap" id="capFreeze">Freeze</span></button>
+  <button class="btn" id="btnSens" aria-label="Sensitivity"><span class="ico" id="icoSens"></span><span class="cap">Sense</span></button>
+  <button class="btn" id="btnView" aria-label="View mode"><span class="ico" id="icoView"></span><span class="cap" id="capView">Camera</span></button>
+  <button class="btn" id="btnReset" aria-label="Reset"><span class="ico" id="icoReset"></span><span class="cap">Reset</span></button>
+  <button class="btn" id="btnMute" aria-label="Mute"><span class="ico" id="icoMute"></span><span class="cap" id="capMute">Sound</span></button>
+</nav>
+
+<!-- Title -->
+<section id="title">
+  <div class="lamp"></div>
+  <h1 class="logo" id="logo" aria-label="Shadow Puppet"></h1>
+  <svg class="title-puppet" viewBox="0 0 100 100" aria-hidden="true">
+    <path d="M30 28 L36 8 L46 24 Z M70 28 L64 8 L54 24 Z" fill="#ff70c4"/>
+    <ellipse cx="50" cy="60" rx="34" ry="34" fill="#7a2a6a"/>
+    <ellipse cx="50" cy="54" rx="34" ry="34" fill="#ff70c4"/>
+    <ellipse cx="38" cy="47" rx="8" ry="10" fill="#fff"/><ellipse cx="62" cy="47" rx="8" ry="10" fill="#fff"/>
+    <circle cx="39" cy="44" r="4" fill="#1a1030"/><circle cx="63" cy="44" r="4" fill="#1a1030"/>
+    <path d="M42 66 Q50 74 58 66" stroke="#1a1030" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <ellipse cx="28" cy="62" rx="5" ry="3" fill="#ffb3dc"/><ellipse cx="72" cy="62" rx="5" ry="3" fill="#ffb3dc"/>
+  </svg>
+  <p class="tagline">Your shadows are the road. Light is the void. Run as far as the lamp lets you.</p>
+  <p id="errMsg" hidden></p>
+  <button id="btnStart">TAP TO PLAY</button>
+  <p class="fineprint">Uses your rear camera · best with a desk lamp</p>
+  <svg class="hills" viewBox="0 0 400 200" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0 120 Q60 70 120 110 T240 95 T400 105 V200 H0Z" fill="#241c58" opacity=".9"/>
+    <path d="M0 140 Q80 100 160 140 T320 130 T400 140 V200 H0Z" fill="#16123a"/>
+    <path d="M0 165 Q100 140 200 168 T400 160 V200 H0Z" fill="#0c0a24"/>
+    <path d="M0 140 Q80 100 160 140 T320 130 T400 140" fill="none" stroke="#ffb85c" stroke-opacity=".5" stroke-width="1.5"/>
+  </svg>
+</section>
+
+<!-- Onboarding -->
+<section id="onboard" class="hidden" aria-live="polite">
+  <div class="ob-card glass">
+    <div class="ob-stage">
+      <div class="ob-step on" data-step="0">
+        <svg viewBox="0 0 140 110"><g class="swing">
+          <path d="M70 10 L70 34" stroke="#b9afd8" stroke-width="3"/>
+          <path d="M52 34 H88 L80 50 H60 Z" fill="#ffb85c"/>
+          <path d="M60 50 L30 104 H110 L80 50 Z" fill="url(#cone)"/>
+        </g>
+        <defs><linearGradient id="cone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd28a" stop-opacity=".8"/><stop offset="1" stop-color="#ffb85c" stop-opacity="0"/></linearGradient></defs></svg>
+      </div>
+      <div class="ob-step" data-step="1">
+        <svg viewBox="0 0 140 110">
+          <ellipse class="grow" cx="70" cy="92" rx="48" ry="9" fill="#4b3e9e"/>
+          <path class="grow" d="M24 92 Q70 70 116 92" fill="none" stroke="#ffb85c" stroke-width="2"/>
+          <rect class="dropblock" x="54" y="46" width="32" height="40" rx="4" fill="#ff5cc8"/>
+        </svg>
+      </div>
+      <div class="ob-step" data-step="2">
+        <svg viewBox="0 0 140 110">
+          <g class="spinflake" stroke="#9fe8ff" stroke-width="4" stroke-linecap="round">
+            <path d="M48 33v44M29 44l38 22M29 66l38-22"/>
+          </g>
+          <g class="pulseplay"><circle cx="104" cy="55" r="22" fill="#ffb85c"/><path d="M98 44 L115 55 L98 66Z" fill="#1a0f2e"/></g>
+        </svg>
+      </div>
+    </div>
+    <div class="ob-text" id="obText">Point at a lamp-lit surface</div>
+    <div class="ob-dots"><i class="on"></i><i></i><i></i></div>
+    <button class="ob-skip" id="obSkip">Skip</button>
+  </div>
+</section>
+
+<!-- Game over -->
+<section id="over" class="hidden">
+  <div class="card glass">
+    <h2 id="overTitle">The lamp flickers…</h2>
+    <div id="newBest" hidden>★ NEW BEST ★</div>
+    <div class="stats">
+      <div class="stat"><b id="oDist">0</b><span>meters</span></div>
+      <div class="stat"><b id="oBestDist">0</b><span>best m</span></div>
+      <div class="stat"><b id="oScore">0</b><span>score</span></div>
+      <div class="stat"><b id="oBestScore">0</b><span>best score</span></div>
+    </div>
+    <button id="btnAgain">RUN AGAIN</button>
+  </div>
+</section>
 
 <video id="video" playsinline muted autoplay></video>
 
@@ -123,630 +391,1616 @@
 'use strict';
 
 /* =========================================================================
-   CONFIG – all units are "grid cells" (one cell = one pixel of the small
-   detection image, ~160x120) and seconds.
+   CFG – every tuning knob in one place.
+   Units: "cells" = pixels of the small detection grid, "rows" = map rows
+   (1 row = 1 cell forward), seconds.
    ========================================================================= */
 const CFG = {
-  GRID_LONG: 160,     // long side of the detection grid (short side follows the camera aspect)
-  SMOOTH: 0.45,       // weight of the newest frame in temporal smoothing (≈ 2-3 frame average)
-  BASE_FACTOR: 0.8,   // adaptive threshold = average brightness * BASE_FACTOR + slider offset
-  R: 3,               // character radius
-  SPEED: 28,          // walking speed (cells/s)
-  GRAVITY: 320,       // cells/s²
-  JUMP_V: 100,        // jump take-off speed -> ~15 cells high, ~17 cells long
-  MAX_FALL: 220,      // terminal velocity
-  STEP_UP: 2,         // steps up to this height are walked over without jumping
-  JUMP_H: 13,         // walls up to this height are jumped over
-  SAFE_DROP: 10,      // drops up to this depth are simply walked down
-  GAP_MAX: 15,        // max horizontal gap it will try to jump across
-  STAR_R: 3.5,
-  MAX_DT: 1 / 20,     // clamp physics step so a lag spike can't tunnel through floors
-  WARMUP_FRAMES: 8,   // frames of detection before spawning (lets smoothing settle)
+  // --- detection (unchanged mechanics) ---
+  GRID_LONG: 128,      // long side of the detection grid (short side follows camera aspect)
+  SMOOTH: 0.45,        // weight of newest frame in temporal smoothing (≈ 2–3 frame average)
+  BASE_FACTOR: 0.8,    // adaptive threshold = mean brightness * BASE_FACTOR + sensitivity
+  WARMUP_FRAMES: 8,    // frames of detection before the road is trusted
+  NEW_ROAD_DECAY: 0.93,// how fast the "new road" glow fades per frame
+
+  // --- endless road generation ---
+  AHEAD: 170,          // rows visible ahead of the character
+  LOCK_AHEAD: 14,      // rows ahead that are frozen ("committed") so the ground never changes underfoot
+  RING: 512,           // committed-row ring buffer size
+  START_ROW: 6,        // where the run starts inside the first camera tile
+  SEAM_BLEND: 14,      // rows cross-faded at each tile seam
+  TILE_SHIFT: 0.18,    // max sideways shift of repeated tiles (fraction of width)
+  NOISE_AMT: 0.35,     // noise warp mixed into repeated tiles (0 = exact repeats)
+  NOISE_SCALE: 0.07,
+  NARROW_EVERY: 260,   // a narrow-bridge section can appear every N rows…
+  NARROW_LEN: 70,      // …lasting this many rows
+  NARROW_CHANCE: 0.55,
+  NARROW_HALF: 6,      // half-width of the corridor
+  BRIDGE_HALF: 2.2,    // half-width of the guaranteed bridge in it
+  ROW_METERS: 0.25,    // distance display: meters per row
+
+  // --- perspective ---
+  PERSP: 0.0065,       // bigger = stronger depth (far rows smaller)
+  CHAR_SCREEN_Y: 0.68, // character's vertical position (fraction of screen)
+  HORIZON_Y: 0.11,     // where the far edge of the road sits
+
+  // --- character / steering ---
+  CHAR_R: 2.0,         // hitbox radius (cells)
+  CHAR_DRAW: 2.1,      // visual size multiplier over the hitbox
+  SPEED_START: 16,     // rows/s
+  SPEED_ACCEL: 0.3,    // rows/s per second
+  SPEED_MAX: 46,
+  STEP_RATE: 0.11,     // footsteps per row travelled
+  STEER_SMOOTH: 14,    // how snappily x follows the steering target
+  DRAG_GAIN: 1.1,      // finger-to-character ratio
+  TILT_GAIN: 1.4,      // cells/s per degree of tilt
+  TILT_DEADZONE: 2,    // degrees
+  HIT_GRACE: 0.08,     // seconds over the void before it counts
+  INVINCIBLE: 1.6,
+  LIVES: 3,
+
+  // --- pickups / obstacles ---
+  SPAWN_MIN: 16, SPAWN_MAX: 34, // rows between spawns
+  OBSTACLE_FROM: 120,  // rows of distance before obstacles appear
+  BOOST_SPEED: 16, BOOST_TIME: 1.2, ORB_BOOST: 0.35,
+  COMBO_WINDOW: 1.6,
+  STARS_PER_LEVEL: 5,
+  STAR_R: 2.0, ORB_R: 1.2,
+
+  // --- juice ---
+  SHAKE_HIT: 16, SHAKE_LAND: 6, SHAKE_DECAY: 7,
+  SLOWMO_SCALE: 0.3, SLOWMO_TIME: 0.22,
+  MAX_PARTICLES: 420, LOW_PARTICLES: 140,
+
+  // --- performance ---
+  MAX_DT: 1 / 20,
+  TEX_SCALE: 2,        // road texture supersampling (1 in performance mode)
+  LOW_FPS: 40, LOW_FPS_TIME: 2,
 };
 
+/* Level themes (cycled every STARS_PER_LEVEL stars) */
+const THEMES = [
+  { name: 'Lamplight', root: 57, chord: [0, 7, 12, 15], accent: '#ffb85c', accent2: '#ff5cc8',
+    bgTop: [14, 11, 38], bgBot: [58, 26, 62], road: [26, 21, 58], rim: [108, 78, 162], edge: [255, 186, 96],
+    halo: [255, 140, 70], danger: [255, 168, 84], glow: [255, 96, 206], haze: [30, 20, 62], body: [255, 112, 196] },
+  { name: 'Magenta Dusk', root: 53, chord: [0, 7, 10, 15], accent: '#ff7ad0', accent2: '#ffc85c',
+    bgTop: [30, 8, 40], bgBot: [96, 28, 70], road: [38, 14, 50], rim: [160, 64, 140], edge: [255, 122, 206],
+    halo: [255, 110, 120], danger: [255, 140, 110], glow: [255, 214, 96], haze: [48, 14, 56], body: [255, 196, 92] },
+  { name: 'Teal Midnight', root: 55, chord: [0, 5, 12, 14], accent: '#7affe2', accent2: '#ffb45c',
+    bgTop: [6, 18, 32], bgBot: [16, 54, 70], road: [10, 30, 44], rim: [40, 124, 140], edge: [120, 255, 226],
+    halo: [255, 170, 90], danger: [255, 182, 100], glow: [170, 140, 255], haze: [8, 28, 44], body: [120, 240, 220] },
+  { name: 'Ember Plum', root: 50, chord: [0, 3, 10, 14], accent: '#ff9a4a', accent2: '#ff5c8a',
+    bgTop: [26, 8, 22], bgBot: [80, 24, 30], road: [34, 12, 30], rim: [130, 50, 90], edge: [255, 150, 70],
+    halo: [255, 90, 60], danger: [255, 120, 70], glow: [255, 230, 120], haze: [40, 12, 30], body: [255, 150, 90] },
+  { name: 'Aurora', root: 60, chord: [0, 4, 7, 11], accent: '#9affb4', accent2: '#7ad6ff',
+    bgTop: [8, 10, 34], bgBot: [30, 50, 80], road: [16, 20, 52], rim: [80, 110, 190], edge: [150, 255, 180],
+    halo: [255, 160, 110], danger: [255, 190, 120], glow: [120, 220, 255], haze: [14, 20, 50], body: [160, 200, 255] },
+];
+const COLOR_KEYS = ['bgTop', 'bgBot', 'road', 'rim', 'edge', 'halo', 'danger', 'glow', 'haze', 'body'];
+
 /* =========================================================================
-   DOM & canvases
+   Small utilities
+   ========================================================================= */
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+function ss(e0, e1, x) { let t = (x - e0) / (e1 - e0); t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); }
+const rgb = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+const mix = (c, k, t) => [lerp(c[0], k[0], t), lerp(c[1], k[1], t), lerp(c[2], k[2], t)];
+const WHITE = [255, 255, 255], BLACK = [0, 0, 0];
+const pack = (r, g, b, a) => ((a << 24) | (b << 16) | (g << 8) | r) >>> 0; // little-endian RGBA
+
+/* integer hash -> [0,1) and smooth value noise */
+function hash2(x, y) {
+  let h = (Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x165667b1)) | 0;
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function noise2(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  let xf = x - xi, yf = y - yi;
+  xf = xf * xf * (3 - 2 * xf); yf = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi), b = hash2(xi + 1, yi), c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1);
+  return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
+}
+/* localStorage wrapped (private mode / blocked storage must not break the game) */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
+};
+function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* ignore */ } }
+
+/* =========================================================================
+   DOM + canvases
    ========================================================================= */
 const $ = (id) => document.getElementById(id);
 const video = $('video');
 const view = $('view');
 const vctx = view.getContext('2d');
-
-// Small canvas used to downscale camera frames for detection
-const proc = document.createElement('canvas');
-const pctx = proc.getContext('2d', { willReadFrequently: true });
-// Small canvas holding the colored "solid" overlay (scaled up when drawn)
-const ovl = document.createElement('canvas');
-const octx = ovl.getContext('2d');
-// Full-resolution copy of the camera image when frozen
-const frozenCanvas = document.createElement('canvas');
-const fctx = frozenCanvas.getContext('2d');
+const pip = $('pip');
+const pipCtx = pip.getContext('2d');
+const mk = (w = 1, h = 1) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const proc = mk(); const pctx = proc.getContext('2d', { willReadFrequently: true }); // detection downscale
+const ovl = mk(); const octx = ovl.getContext('2d');                                // PiP road overlay
+const frozenCanvas = mk(); const fctx = frozenCanvas.getContext('2d');             // frozen camera frame
+const blurCanvas = mk(); const bctx = blurCanvas.getContext('2d');                 // cheap blur (downscale)
+const texCanvas = mk(); const texCtx = texCanvas.getContext('2d');                 // road texture
+const vigCanvas = mk();                                                            // vignette
 
 /* =========================================================================
    STATE
    ========================================================================= */
+const V = { W: 1, H: 1, dpr: 1, cx: 0, cell: 1, yChar: 0, horizonY: 0, rowH: 1, behind: 40 };
+const TT = { ...THEMES[0] };                                   // target theme
+const TC = {}; COLOR_KEYS.forEach((k) => (TC[k] = THEMES[0][k].slice())); // current (eased) colors
+
 const S = {
-  running: false,
-  frozen: false,
-  showVideo: true,
-  srcW: 0, srcH: 0,          // camera resolution
-  gw: 0, gh: 0,              // grid size
-  gray: null,                // Uint8Array  grayscale grid
-  smooth: null,              // Float32Array temporally smoothed "darkness" 0..1
-  solid: null,               // Uint8Array  1 = solid, 0 = air
-  ovlImg: null, ovl32: null, // overlay pixel buffer + 32-bit view
-  colBase: 0, colEdge: 0,    // packed overlay colors
-  meanS: -1,                 // smoothed average brightness
-  threshold: 0,
-  thrOffset: 0,
-  frames: 0,
-  score: 0,
-  char: { x: 0, y: 0, vy: 0, dir: 1, onGround: false, jumped: false, jumpX: 0, squash: 0, alive: false },
-  star: { x: 0, y: 0, rot: 0, stuck: 0, placed: false },
-  particles: [],
-  view: { s: 1, ox: 0, oy: 0 },  // grid -> screen transform
-  dpr: 1,
-  lastT: 0,
-  fpsFrames: 0, fpsT: 0,
+  mode: 'title',            // title | ready | run | over
+  camReady: false, frozen: false, viewMode: 0, muted: store.get('sp_muted', false),
+  steer: 'drag', quality: 'high', T: CFG.TEX_SCALE,
+  // detection
+  gw: 0, gh: 0, srcW: 0, srcH: 0, gray: null, smooth: null, camField: null, tmpBlur: null,
+  glow: null, prevSolid: null, pipImg: null, pip32: null, pipRoad: 0, pipGlow: 0,
+  meanS: -1, threshold: 0, thrOffset: 0, frames: 0, darkFrac: 0,
+  // map
+  ring: null, committed: 0, tmpRow: null, _ra: null,
+  field: null, fglow: null, U: null, VR: 0, TW: 0, TH: 0, texImg: null, tex32: null,
+  xs0: null, xs1: null, xw: null, grain: null, fieldTop: 0,
+  // run
+  d: CFG.START_ROW, startD: CFG.START_ROW, speed: 0, boost: 0, runTime: 0, hitT: 0, dangerT: 0,
+  lives: CFG.LIVES, score: 0, stars: 0, level: 0, combo: 1, lastPickup: -9, streak: 0,
+  best: { dist: store.get('sp_bestDist', 0), score: store.get('sp_bestScore', 0) },
+  entities: [], nextSpawn: 0, chimeT: 0,
+  // fx
+  texts: [], ripples: [], lines: [], motes: [],
+  shake: 0, flash: 0, hitFlash: 0, slowT: 0, timeScale: 1, time: 0, rt: 0, lastT: 0,
+  // input
+  tilt: 0, tiltZero: null, tiltSeen: false, drag: null, keys: {},
+  // perf
+  fpsAcc: 0, fpsFrames: 0, fps: 60, lowT: 0, lowDarkT: 0, lastWarn: -99, padTick: 0,
+};
+const C = S.char = {
+  x: 0, targetX: 0, vx: 0, inv: 0, drop: 0, hopH: 0, hopV: 0, sq: 0, sqv: 0, spin: 0,
+  wobble: 0, shock: 0, happy: 0, blinkT: 2, blink: 0, stepPhase: 0, lookX: 0, idleT: 0, nextHop: 3, trailT: 0, dustT: 0,
 };
 
-/* Pack RGBA into a little-endian 32-bit pixel (all phones are little-endian) */
-const rgba = (r, g, b, a) => ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
+/* =========================================================================
+   AUDIO – everything synthesized with Web Audio. Created on first tap.
+   ========================================================================= */
+const AudioFX = {
+  ctx: null, master: null, noise: null, padFilter: null, padGain: null, voices: [], nextT: 0, seq: 0, root: 57,
 
-function updateOverlayColors() {
-  // More transparent over live video, opaque when video is hidden
-  if (S.showVideo) { S.colBase = rgba(0, 200, 255, 105); S.colEdge = rgba(190, 248, 255, 235); }
-  else             { S.colBase = rgba(30, 150, 210, 255); S.colEdge = rgba(200, 250, 255, 255); }
-}
+  init() {
+    if (this.ctx) { if (this.ctx.state !== 'running') this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = (this.ctx = new AC());
+    this.master = ctx.createGain();
+    this.master.gain.value = S.muted ? 0 : 0.9;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.ratio.value = 4;
+    this.master.connect(comp); comp.connect(ctx.destination);
+
+    // 1 s of white noise reused by every noise-based sound
+    const len = ctx.sampleRate;
+    this.noise = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = this.noise.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+
+    // Ambient pad: 4 chord voices × 2 detuned oscillators -> lowpass (opens with more road)
+    this.padFilter = ctx.createBiquadFilter();
+    this.padFilter.type = 'lowpass'; this.padFilter.frequency.value = 500; this.padFilter.Q.value = 0.8;
+    this.padGain = ctx.createGain(); this.padGain.gain.value = 0;
+    this.padFilter.connect(this.padGain); this.padGain.connect(this.master);
+    for (let i = 0; i < 4; i++) {
+      for (let k = 0; k < 2; k++) {
+        const o = ctx.createOscillator();
+        o.type = k ? 'triangle' : 'sawtooth';
+        o.detune.value = k ? 7 : -7;
+        const g = ctx.createGain(); g.gain.value = k ? 0.07 : 0.035;
+        o.connect(g); g.connect(this.padFilter); o.start();
+        this.voices.push({ o, i });
+      }
+    }
+    const lfo = ctx.createOscillator(), lfoG = ctx.createGain();
+    lfo.frequency.value = 0.07; lfoG.gain.value = 140; lfo.connect(lfoG); lfoG.connect(this.padFilter.frequency); lfo.start();
+    this.padGain.gain.setTargetAtTime(0.32, ctx.currentTime, 2.5);
+    this.setChord(TT);
+  },
+  mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); },
+  setChord(theme) {
+    this.root = theme.root;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    for (const v of this.voices) v.o.frequency.setTargetAtTime(this.mtof(theme.root - 12 + theme.chord[v.i]), t, 0.8);
+  },
+  setMuted(m) { if (this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.9, this.ctx.currentTime, 0.05); },
+  setPad(darkFrac, speedNorm) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.padFilter.frequency.setTargetAtTime(260 + darkFrac * 1600 + speedNorm * 500, t, 0.4);
+  },
+  tone(f, dur, type = 'sine', vol = 0.2, when = 0, slide = 0, attack = 0.005) {
+    if (!this.ctx) return;
+    const c = this.ctx, t = when || c.currentTime;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.05);
+  },
+  hiss(dur, vol, type, f0, f1 = 0, q = 1, when = 0) {
+    if (!this.ctx) return;
+    const c = this.ctx, t = when || c.currentTime;
+    const s = c.createBufferSource(); s.buffer = this.noise;
+    const f = c.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t);
+    if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(this.master);
+    s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
+  },
+  click() { this.tone(1400, 0.05, 'triangle', 0.05); },
+  step() { this.hiss(0.045, 0.09, 'highpass', 2200 + Math.random() * 1500); this.tone(150 + Math.random() * 40, 0.05, 'sine', 0.05); },
+  whoosh() { this.hiss(0.4, 0.22, 'bandpass', 350, 2600, 1.4); },
+  thud(v = 1) { this.tone(150, 0.22, 'sine', 0.45 * v, 0, 45); this.hiss(0.08, 0.12 * v, 'lowpass', 600); },
+  boop() { this.tone(440, 0.42, 'square', 0.09, 0, 110); this.tone(220, 0.5, 'sine', 0.3, 0, 55); },
+  orb(combo) { const f = 880 * Math.pow(2, Math.min(combo - 1, 12) / 12); this.tone(f, 0.18, 'triangle', 0.12, 0, f * 1.5); },
+  ping(f) { this.tone(f, 0.14, 'sine', 0.05); this.tone(f * 2, 0.08, 'sine', 0.015); },
+  chime(combo) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, base = 76 + Math.min(combo - 1, 7);
+    [0, 4, 7, 12, 16].forEach((n, i) => {
+      this.tone(this.mtof(base + n), 0.6, 'sine', 0.16, t + i * 0.055);
+      this.tone(this.mtof(base + n + 12), 0.35, 'triangle', 0.04, t + i * 0.055);
+    });
+  },
+  gate() { this.tone(660, 0.12, 'triangle', 0.09); this.tone(990, 0.18, 'triangle', 0.08, this.ctx ? this.ctx.currentTime + 0.07 : 0); },
+  levelUp() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    [0, 3, 7, 10, 12, 15, 19, 24].forEach((n, i) => this.tone(this.mtof(this.root + 12 + n), 0.4, 'triangle', 0.1, t + i * 0.06));
+  },
+  go() { this.tone(330, 0.35, 'sawtooth', 0.06, 0, 990); this.whoosh(); },
+  /* Simple look-ahead sequencer; tempo follows running speed */
+  music(on, speedNorm) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (!on) { this.nextT = 0; return; }
+    if (this.nextT < now) this.nextT = now + 0.05;
+    const stepDur = 60 / (88 + speedNorm * 76) / 4;
+    const scale = [0, 3, 5, 7, 10, 12, 15], pat = [0, 2, 4, 2, 5, 4, 2, 1];
+    while (this.nextT < now + 0.12) {
+      const s = this.seq++ % 16, t = this.nextT;
+      if (s % 8 === 0) this.tone(110, 0.22, 'sine', 0.32, t, 40);
+      if (s % 4 === 2 && speedNorm > 0.2) this.hiss(0.035, 0.04 + speedNorm * 0.04, 'highpass', 7000, 0, 1, t);
+      if (s % 2 === 0) this.tone(this.mtof(this.root + 12 + scale[pat[(s / 2) % 8]]), 0.2, 'triangle', 0.045, t);
+      this.nextT += stepDur;
+    }
+  },
+};
 
 /* =========================================================================
-   initCamera – request the rear camera and start the video stream
+   initCamera – rear camera, with clear errors
    ========================================================================= */
 async function initCamera() {
-  if (!window.isSecureContext) {
-    const e = new Error('insecure'); e.name = 'InsecureContext'; throw e;
-  }
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    const e = new Error('unsupported'); e.name = 'Unsupported'; throw e;
-  }
-  const wanted = {
-    audio: false,
-    video: {
-      facingMode: { ideal: 'environment' },
-      width: { ideal: 640 }, height: { ideal: 480 },
-      frameRate: { ideal: 30 },
-    },
-  };
+  if (!window.isSecureContext) { const e = new Error('insecure'); e.name = 'InsecureContext'; throw e; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { const e = new Error('unsupported'); e.name = 'Unsupported'; throw e; }
+  const wanted = { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } } };
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia(wanted);
   } catch (e) {
-    // Some devices reject the constraints – retry with "any camera"
-    if (e.name === 'OverconstrainedError' || e.name === 'ConstraintNotSatisfiedError') {
-      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    } else {
-      throw e;
-    }
+    if (e.name === 'OverconstrainedError' || e.name === 'ConstraintNotSatisfiedError') stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    else throw e;
   }
   video.srcObject = stream;
   video.muted = true;
   video.setAttribute('playsinline', '');
   await video.play();
-
-  // Wait until real frame dimensions are known
-  await new Promise((resolve) => {
-    const check = () => (video.videoWidth > 0 ? resolve() : requestAnimationFrame(check));
-    check();
-  });
+  await new Promise((res) => { const chk = () => (video.videoWidth > 0 ? res() : requestAnimationFrame(chk)); chk(); });
   setupGrid(video.videoWidth, video.videoHeight);
-}
-
-/* Build the detection grid to match the camera's aspect ratio */
-function setupGrid(vw, vh) {
-  const L = CFG.GRID_LONG;
-  if (vw >= vh) { S.gw = L; S.gh = Math.round(L * vh / vw); }
-  else          { S.gh = L; S.gw = Math.round(L * vw / vh); }
-  S.srcW = vw; S.srcH = vh;
-  proc.width = ovl.width = S.gw;
-  proc.height = ovl.height = S.gh;
-  const n = S.gw * S.gh;
-  S.gray = new Uint8Array(n);
-  S.smooth = new Float32Array(n);
-  S.solid = new Uint8Array(n);
-  S.ovlImg = octx.createImageData(S.gw, S.gh);
-  S.ovl32 = new Uint32Array(S.ovlImg.data.buffer);
-  S.meanS = -1;
-  S.frames = 0;
-  S.char.alive = false;
-  S.star.placed = false;
-  resizeCanvas();
-}
-
-/* =========================================================================
-   processFrame – downscale, grayscale, adaptive threshold, smoothing, overlay
-   ========================================================================= */
-function processFrame() {
-  const { gw, gh, gray, smooth, solid, ovl32 } = S;
-  const src = S.frozen ? frozenCanvas : video;
-  pctx.drawImage(src, 0, 0, gw, gh);
-  const d = pctx.getImageData(0, 0, gw, gh).data;
-  const n = gw * gh;
-
-  // 1. Grayscale (integer luma approximation) + average brightness
-  let sum = 0;
-  for (let i = 0, j = 0; i < n; i++, j += 4) {
-    const g = (d[j] * 77 + d[j + 1] * 150 + d[j + 2] * 29) >> 8;
-    gray[i] = g;
-    sum += g;
-  }
-  const mean = sum / n;
-  // Smooth the mean too, so camera auto-exposure doesn't make the threshold jump
-  S.meanS = S.meanS < 0 ? mean : S.meanS * 0.8 + mean * 0.2;
-
-  // 2. Adaptive threshold + manual offset from the slider
-  const thr = Math.max(5, Math.min(250, S.meanS * CFG.BASE_FACTOR + S.thrOffset));
-  S.threshold = thr;
-
-  // 3. Temporal smoothing (exponential moving average) -> solid mask
-  const a = CFG.SMOOTH;
-  for (let i = 0; i < n; i++) {
-    const dark = gray[i] < thr ? 1 : 0;
-    smooth[i] += (dark - smooth[i]) * a;
-    solid[i] = smooth[i] > 0.5 ? 1 : 0;
-  }
-
-  // 4. Overlay: solid cells tinted, top surfaces (solid with air above) highlighted
-  const base = S.colBase, edge = S.colEdge;
-  for (let i = 0; i < n; i++) {
-    if (solid[i]) ovl32[i] = (i >= gw && !solid[i - gw]) ? edge : base;
-    else ovl32[i] = 0;
-  }
-  octx.putImageData(S.ovlImg, 0, 0);
-  S.frames++;
-}
-
-/* =========================================================================
-   Collision helpers (grid space)
-   ========================================================================= */
-// Out-of-bounds left/right = wall, above top / below bottom = air
-function isSolid(x, y) {
-  const xi = Math.floor(x), yi = Math.floor(y);
-  if (xi < 0 || xi >= S.gw) return true;
-  if (yi < 0 || yi >= S.gh) return false;
-  return S.solid[yi * S.gw + xi] === 1;
-}
-
-// Does the character's bounding box centered at (cx, cy) touch anything solid?
-function hits(cx, cy) {
-  const r = CFG.R;
-  const x0 = Math.floor(cx - r + 0.01), x1 = Math.floor(cx + r - 0.01);
-  const y0 = Math.floor(cy - r + 0.01), y1 = Math.floor(cy + r - 0.01);
-  for (let y = y0; y <= y1; y++)
-    for (let x = x0; x <= x1; x++)
-      if (isSolid(x, y)) return true;
-  return false;
-}
-
-// Distance (in cells) from yStart down to the first solid cell in column x, or -1
-function groundBelow(x, yStart, maxDepth) {
-  for (let d = 0; d <= maxDepth; d++) if (isSolid(x, yStart + d)) return d;
-  return -1;
-}
-
-/* =========================================================================
-   Character spawning & star placement
-   ========================================================================= */
-function respawn(atX, atY) {
-  const c = S.char, r = CFG.R;
-  if (atX !== undefined && !hits(atX, atY)) {
-    c.x = atX; c.y = atY;
-  } else {
-    // Drop from the top at a random free column
-    c.y = r + 1;
-    c.x = S.gw / 2;
-    for (let k = 0; k < 40; k++) {
-      const x = r + 2 + Math.random() * (S.gw - 2 * r - 4);
-      if (!hits(x, c.y)) { c.x = x; break; }
-    }
-  }
-  c.vy = 0;
-  c.dir = Math.random() < 0.5 ? -1 : 1;
-  c.onGround = false;
-  c.jumped = false;
-  c.alive = true;
-}
-
-function placeStar() {
-  const st = S.star, c = S.char, r = CFG.R;
-  let fallback = null;
-  for (let k = 0; k < 400; k++) {
-    const x = r + 3 + Math.random() * (S.gw - 2 * r - 6);
-    const y = r + 3 + Math.random() * (S.gh - 2 * r - 6);
-    if (hits(x, y)) continue;
-    if (!fallback) fallback = { x, y };
-    const farEnough = Math.hypot(x - c.x, y - c.y) > 25;
-    const hasGround = groundBelow(x, y + r, 14) >= 0;  // reachable-ish: floor not far below
-    if (farEnough && hasGround) { st.x = x; st.y = y; st.stuck = 0; st.placed = true; return; }
-  }
-  const p = fallback || { x: S.gw / 2, y: S.gh / 3 };
-  st.x = p.x; st.y = p.y; st.stuck = 0; st.placed = true;
-}
-
-/* =========================================================================
-   updateCharacter – gravity, auto-walk, step up, jump walls/gaps, turn
-   ========================================================================= */
-function updateCharacter(dt) {
-  const c = S.char, r = CFG.R;
-  if (!c.alive) return;
-
-  // 1. If the shadows moved onto the character, push it up out of the solid
-  if (hits(c.x, c.y)) {
-    let k = 0;
-    while (hits(c.x, c.y) && k < 10) { c.y -= 1; k++; }
-    if (hits(c.x, c.y)) { respawn(); return; }
-    if (c.vy > 0) c.vy = 0;
-  }
-
-  c.onGround = hits(c.x, c.y + 1);
-
-  // 2. Simple AI – only decides while standing
-  if (c.onGround) {
-    // Landed after a jump almost where we took off? The jump failed -> turn around
-    if (c.jumped) {
-      c.jumped = false;
-      if (Math.abs(c.x - c.jumpX) < 2.5) c.dir *= -1;
-    }
-    const dir = c.dir;
-    const wallAhead = hits(c.x + dir * 1.5, c.y) && hits(c.x + dir * 1.5, c.y - CFG.STEP_UP);
-    if (wallAhead) {
-      // Measure the wall: find the lowest height where the path ahead is free
-      let h = -1;
-      for (let k = CFG.STEP_UP + 1; k <= CFG.JUMP_H; k++) {
-        if (!hits(c.x + dir * 2, c.y - k)) { h = k; break; }
-      }
-      if (h > 0 && !hits(c.x, c.y - h)) jump(c);  // low wall + headroom -> jump
-      else c.dir *= -1;                           // too tall -> turn around
-    } else {
-      // Look for a gap: no floor in front within a safe drop?
-      const fx = c.x + dir * (r + 1);
-      const footY = c.y + r;
-      if (groundBelow(fx, footY, CFG.SAFE_DROP) < 0) {
-        // Is there a landing surface across the gap within jumping range?
-        let landing = false;
-        for (let d = 2; d <= CFG.GAP_MAX && !landing; d++) {
-          const gx = fx + dir * d;
-          if (gx < 0 || gx >= S.gw) break;
-          for (let dy = -8; dy <= CFG.SAFE_DROP; dy++) {
-            if (isSolid(gx, footY + dy) && !isSolid(gx, footY + dy - 1)) { landing = true; break; }
-          }
-        }
-        if (landing) jump(c);
-        // otherwise: walk off the edge and fall (as designed)
-      }
-    }
-  }
-
-  // 3. Horizontal movement in ≤1-cell sub-steps, auto step-up on small ledges
-  const dx = c.dir * CFG.SPEED * dt;
-  const nx = Math.max(1, Math.ceil(Math.abs(dx)));
-  const sx = dx / nx;
-  for (let i = 0; i < nx; i++) {
-    if (!hits(c.x + sx, c.y)) { c.x += sx; continue; }
-    let stepped = false;
-    if (c.onGround) {
-      for (let h = 1; h <= CFG.STEP_UP; h++) {
-        if (!hits(c.x + sx, c.y - h)) { c.y -= h; c.x += sx; stepped = true; break; }
-      }
-    }
-    if (!stepped) {
-      if (c.onGround) c.dir *= -1;  // blocked while walking -> turn
-      break;                        // blocked in the air -> just stop moving forward
-    }
-  }
-
-  // 4. Gravity + vertical movement in sub-steps (no tunneling through thin shadows)
-  c.vy = Math.min(c.vy + CFG.GRAVITY * dt, CFG.MAX_FALL);
-  const dy = c.vy * dt;
-  const ny = Math.max(1, Math.ceil(Math.abs(dy)));
-  const sy = dy / ny;
-  for (let i = 0; i < ny; i++) {
-    if (!hits(c.x, c.y + sy)) { c.y += sy; continue; }
-    if (sy > 0) {                       // landed
-      if (c.vy > 120) c.squash = 1;
-      c.onGround = true;
-    }
-    c.vy = 0;                           // landed or bumped head
-    break;
-  }
-  c.squash *= Math.pow(0.001, dt);      // decay landing squash
-
-  // 5. Fell off the bottom -> respawn at the top
-  if (c.y - r > S.gh + 2) respawn();
-}
-
-function jump(c) {
-  c.vy = -CFG.JUMP_V;
-  c.onGround = false;
-  c.jumped = true;
-  c.jumpX = c.x;
-}
-
-/* Star: spin, relocate if buried by shadows, collect on touch */
-function updateStar(dt) {
-  const st = S.star, c = S.char;
-  if (!st.placed) placeStar();
-  st.rot += dt * 1.5;
-
-  if (isSolid(st.x, st.y)) { st.stuck += dt; if (st.stuck > 1.2) placeStar(); }
-  else st.stuck = 0;
-
-  if (c.alive && Math.hypot(c.x - st.x, c.y - st.y) < CFG.R + CFG.STAR_R) {
-    S.score++;
-    $('score').textContent = S.score;
-    burst(st.x, st.y);
-    placeStar();
-  }
-
-  // particles
-  for (const p of S.particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt; p.life -= dt; }
-  S.particles = S.particles.filter((p) => p.life > 0);
-}
-
-function burst(x, y) {
-  for (let i = 0; i < 18; i++) {
-    const a = Math.random() * Math.PI * 2, v = 20 + Math.random() * 40;
-    S.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, life: 0.6 + Math.random() * 0.4 });
-  }
-}
-
-/* =========================================================================
-   render – video (or frozen frame), overlay, star, character, particles
-   ========================================================================= */
-function resizeCanvas() {
-  const stage = $('stage');
-  S.dpr = Math.min(window.devicePixelRatio || 1, 2);   // cap DPR for performance
-  view.width = Math.round(stage.clientWidth * S.dpr);
-  view.height = Math.round(stage.clientHeight * S.dpr);
-  if (S.gw) {
-    // "contain" fit of the grid inside the canvas
-    const s = Math.min(view.width / S.gw, view.height / S.gh);
-    S.view.s = s;
-    S.view.ox = (view.width - S.gw * s) / 2;
-    S.view.oy = (view.height - S.gh * s) / 2;
-  }
-}
-
-function render() {
-  const ctx = vctx, W = view.width, H = view.height;
-  ctx.fillStyle = '#0b0d12';
-  ctx.fillRect(0, 0, W, H);
-  if (!S.gw) return;
-
-  const { s, ox, oy } = S.view;
-  const gwPx = S.gw * s, ghPx = S.gh * s;
-
-  // Background: camera or a dark backdrop
-  if (S.showVideo) {
-    ctx.drawImage(S.frozen ? frozenCanvas : video, ox, oy, gwPx, ghPx);
-  } else {
-    const g = ctx.createLinearGradient(0, oy, 0, oy + ghPx);
-    g.addColorStop(0, '#1a1f2e'); g.addColorStop(1, '#0e1119');
-    ctx.fillStyle = g;
-    ctx.fillRect(ox, oy, gwPx, ghPx);
-  }
-
-  // Solid overlay, upscaled with smoothing for soft, blobby edges
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(ovl, ox, oy, gwPx, ghPx);
-
-  // Star
-  const st = S.star;
-  if (st.placed) {
-    const px = ox + st.x * s, py = oy + st.y * s;
-    const R = CFG.STAR_R * s * (1.25 + Math.sin(st.rot * 3) * 0.08);
-    ctx.save();
-    ctx.shadowColor = 'rgba(255, 210, 63, 0.9)';
-    ctx.shadowBlur = 14 * S.dpr;
-    ctx.fillStyle = '#ffd23f';
-    starPath(ctx, px, py, R, st.rot);
-    ctx.fill();
-    ctx.restore();
-    ctx.lineWidth = 1.5 * S.dpr;
-    ctx.strokeStyle = '#fff6c9';
-    starPath(ctx, px, py, R, st.rot);
-    ctx.stroke();
-  }
-
-  // Particles
-  ctx.fillStyle = '#ffe680';
-  for (const p of S.particles) {
-    ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 1.5));
-    ctx.beginPath();
-    ctx.arc(ox + p.x * s, oy + p.y * s, 0.6 * s, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-
-  // Character
-  const c = S.char;
-  if (c.alive) {
-    const pr = CFG.R * s;
-    const px = ox + c.x * s, py = oy + c.y * s;
-    const sq = c.squash;
-    ctx.save();
-    ctx.translate(px, py + pr * sq * 0.2);
-    ctx.scale(1 + 0.3 * sq, 1 - 0.3 * sq);
-    const body = ctx.createRadialGradient(-pr * 0.3, -pr * 0.4, pr * 0.1, 0, 0, pr);
-    body.addColorStop(0, '#ffc2e0');
-    body.addColorStop(1, '#ff4f9a');
-    ctx.fillStyle = body;
-    ctx.beginPath(); ctx.arc(0, 0, pr, 0, Math.PI * 2); ctx.fill();
-    ctx.lineWidth = 2 * S.dpr; ctx.strokeStyle = '#ffffff'; ctx.stroke();
-    // eyes look in walking direction
-    const ex = c.dir * pr * 0.3;
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(ex - pr * 0.25, -pr * 0.2, pr * 0.26, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(ex + pr * 0.25, -pr * 0.2, pr * 0.26, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#1a1030';
-    ctx.beginPath(); ctx.arc(ex - pr * 0.25 + c.dir * pr * 0.1, -pr * 0.18, pr * 0.12, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(ex + pr * 0.25 + c.dir * pr * 0.1, -pr * 0.18, pr * 0.12, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-
-  // Frozen badge
-  if (S.frozen) {
-    ctx.font = `700 ${13 * S.dpr}px system-ui, sans-serif`;
-    const label = '❄ FROZEN';
-    const tw = ctx.measureText(label).width;
-    const bx = ox + 10 * S.dpr, by = oy + 10 * S.dpr;
-    ctx.fillStyle = 'rgba(47, 214, 255, 0.9)';
-    ctx.fillRect(bx, by, tw + 16 * S.dpr, 24 * S.dpr);
-    ctx.fillStyle = '#04121a';
-    ctx.fillText(label, bx + 8 * S.dpr, by + 17 * S.dpr);
-  }
-}
-
-function starPath(ctx, cx, cy, R, rot) {
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const a = rot + (i * Math.PI) / 5 - Math.PI / 2;
-    const rr = i % 2 ? R * 0.45 : R;
-    ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
-  }
-  ctx.closePath();
-}
-
-/* =========================================================================
-   Main loop
-   ========================================================================= */
-function loop(t) {
-  requestAnimationFrame(loop);
-  const dt = Math.min((t - S.lastT) / 1000 || 0, CFG.MAX_DT);
-  S.lastT = t;
-
-  if (S.running && (S.frozen || video.readyState >= 2)) {
-    // Camera resolution changed (e.g. device rotated)? Rebuild the grid.
-    if (!S.frozen && video.videoWidth && (video.videoWidth !== S.srcW || video.videoHeight !== S.srcH)) {
-      setupGrid(video.videoWidth, video.videoHeight);
-    }
-    processFrame();
-    if (S.frames >= CFG.WARMUP_FRAMES) {
-      if (!S.char.alive) respawn();
-      updateCharacter(dt);
-      updateStar(dt);
-    }
-  }
-  render();
-
-  // FPS counter, updated twice a second
-  S.fpsFrames++;
-  if (t - S.fpsT > 500) {
-    $('fps').textContent = Math.round((S.fpsFrames * 1000) / (t - S.fpsT)) + ' fps';
-    $('thrOut').textContent = S.running ? Math.round(S.threshold) : '--';
-    S.fpsFrames = 0;
-    S.fpsT = t;
-  }
-}
-
-/* =========================================================================
-   Controls & UI
-   ========================================================================= */
-function toggleFreeze() {
-  if (!S.running) return;
-  S.frozen = !S.frozen;
-  if (S.frozen) {
-    // Snapshot the current camera frame at full resolution
-    frozenCanvas.width = video.videoWidth;
-    frozenCanvas.height = video.videoHeight;
-    fctx.drawImage(video, 0, 0);
-  }
-  const b = $('btnFreeze');
-  b.classList.toggle('on', S.frozen);
-  b.textContent = S.frozen ? 'Unfreeze' : 'Freeze';
-}
-
-function toggleVideo() {
-  S.showVideo = !S.showVideo;
-  $('btnVideo').classList.toggle('on', S.showVideo);
-  updateOverlayColors();
-}
-
-function resetGame() {
-  S.score = 0;
-  $('score').textContent = '0';
-  S.particles = [];
-  if (S.smooth) S.smooth.fill(0);
-  S.meanS = -1;
-  S.frames = 0;            // re-warm detection, then respawn + new star
-  S.char.alive = false;
-  S.star.placed = false;
-}
-
-// Tap the game area to drop the character at that point
-function onStageTap(e) {
-  if (!S.running || !S.gw) return;
-  const rect = view.getBoundingClientRect();
-  const x = ((e.clientX - rect.left) * S.dpr - S.view.ox) / S.view.s;
-  const y = ((e.clientY - rect.top) * S.dpr - S.view.oy) / S.view.s;
-  if (x < 0 || y < 0 || x > S.gw || y > S.gh) return;
-  respawn(x, y);
+  S.camReady = true;
 }
 
 function cameraErrorMessage(e) {
   switch (e && e.name) {
-    case 'InsecureContext':
-      return 'Camera access needs a secure page. Open this game over HTTPS (or from localhost), not http:// or file://.';
-    case 'Unsupported':
-      return 'This browser does not support camera access. Try the latest Chrome (Android) or Safari (iOS).';
-    case 'NotAllowedError':
-    case 'SecurityError':
-    case 'PermissionDeniedError':
-      return 'Camera permission was denied. Allow camera access for this site (tap the lock / "aA" icon in the address bar → Camera → Allow), then tap Retry.';
-    case 'NotFoundError':
-    case 'DevicesNotFoundError':
-      return 'No camera was found on this device.';
-    case 'NotReadableError':
-    case 'TrackStartError':
-      return 'The camera is busy in another app. Close other camera apps, then tap Retry.';
-    case 'AbortError':
-      return 'Starting the camera was interrupted. Tap Retry.';
-    default:
-      return 'Could not start the camera' + (e && e.message ? ': ' + e.message : '.');
+    case 'InsecureContext': return 'Camera needs a secure page. Open this game over HTTPS (or localhost), not http:// or file://.';
+    case 'Unsupported': return 'This browser has no camera access. Try the latest Chrome (Android) or Safari (iOS).';
+    case 'NotAllowedError': case 'SecurityError': case 'PermissionDeniedError':
+      return 'Camera permission was denied. Tap the lock / "aA" icon in the address bar → Camera → Allow, then tap Retry.';
+    case 'NotFoundError': case 'DevicesNotFoundError': return 'No camera was found on this device.';
+    case 'NotReadableError': case 'TrackStartError': return 'The camera is busy in another app. Close it, then tap Retry.';
+    default: return 'Could not start the camera' + (e && e.message ? ': ' + e.message : '.');
   }
 }
+
+/* Build all detection buffers to match the camera aspect */
+function setupGrid(vw, vh) {
+  const L = CFG.GRID_LONG;
+  if (vw >= vh) { S.gw = L; S.gh = Math.round((L * vh) / vw); } else { S.gh = L; S.gw = Math.round((L * vw) / vh); }
+  S.srcW = vw; S.srcH = vh;
+  proc.width = ovl.width = S.gw; proc.height = ovl.height = S.gh;
+  const n = S.gw * S.gh;
+  S.gray = new Uint8Array(n);
+  S.smooth = new Float32Array(n);
+  S.camField = new Float32Array(n);
+  S.tmpBlur = new Float32Array(n);
+  S.glow = new Float32Array(n);
+  S.prevSolid = new Uint8Array(n);
+  S.pipImg = octx.createImageData(S.gw, S.gh);
+  S.pip32 = new Uint32Array(S.pipImg.data.buffer);
+  S.ring = new Float32Array(CFG.RING * S.gw);
+  S.tmpRow = new Float32Array(S.gw);
+  S.meanS = -1; S.frames = 0;
+  resize();
+  resetGame(true);
+}
+
+/* =========================================================================
+   processFrame – downscale → grayscale → adaptive threshold → temporal
+   smoothing → 3×3 blur (soft "field") → new-road glow → PiP overlay
+   ========================================================================= */
+function processFrame() {
+  const { gw, gh, gray, smooth, camField, tmpBlur, glow, prevSolid, pip32 } = S;
+  const n = gw * gh;
+  pctx.drawImage(S.frozen ? frozenCanvas : video, 0, 0, gw, gh);
+  const d = pctx.getImageData(0, 0, gw, gh).data;
+
+  let sum = 0;
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const g = (d[j] * 77 + d[j + 1] * 150 + d[j + 2] * 29) >> 8;
+    gray[i] = g; sum += g;
+  }
+  const mean = sum / n;
+  S.meanS = S.meanS < 0 ? mean : S.meanS * 0.8 + mean * 0.2; // ignore auto-exposure jitter
+  const thr = clamp(S.meanS * CFG.BASE_FACTOR + S.thrOffset, 5, 250);
+  S.threshold = thr;
+
+  // temporal smoothing: smooth[i] ≈ "how dark (= road) this cell has been lately"
+  const a = CFG.SMOOTH;
+  for (let i = 0; i < n; i++) smooth[i] += ((gray[i] < thr ? 1 : 0) - smooth[i]) * a;
+
+  // separable 3×3 box blur -> soft field (organic, non-blocky edges after the soft threshold)
+  for (let y = 0; y < gh; y++) {
+    const row = y * gw;
+    for (let x = 0; x < gw; x++) {
+      const i = row + x;
+      tmpBlur[i] = (smooth[x > 0 ? i - 1 : i] + smooth[i] + smooth[x < gw - 1 ? i + 1 : i]) / 3;
+    }
+  }
+  for (let y = 0; y < gh; y++) {
+    for (let x = 0, i = y * gw; x < gw; x++, i++) {
+      camField[i] = (tmpBlur[y > 0 ? i - gw : i] + tmpBlur[i] + tmpBlur[y < gh - 1 ? i + gw : i]) / 3;
+    }
+  }
+
+  // new-road glow + PiP overlay + amount of road
+  let dark = 0;
+  const warm = S.frames > CFG.WARMUP_FRAMES, decay = CFG.NEW_ROAD_DECAY, pr = S.pipRoad, pg = S.pipGlow;
+  for (let i = 0; i < n; i++) {
+    const sol = camField[i] > 0.5 ? 1 : 0;
+    dark += sol;
+    if (sol && !prevSolid[i] && warm) glow[i] = 1; else glow[i] *= decay;
+    prevSolid[i] = sol;
+    pip32[i] = sol ? (glow[i] > 0.2 ? pg : pr) : 0;
+  }
+  S.darkFrac = dark / n;
+  octx.putImageData(S.pipImg, 0, 0);
+  S.frames++;
+}
+
+/* =========================================================================
+   ENDLESS ROAD – maps any world row r to a row of the live camera field.
+   • The camera frame is one "tile" GH rows tall. Tiles ping-pong (even
+     tiles upright, odd tiles mirrored vertically) so seams line up.
+   • Tile 0 is the untouched live frame (what you see is what you run).
+     Later tiles get a random horizontal flip + shift, cross-faded over
+     SEAM_BLEND rows, and a growing noise warp so repeats feel new.
+   • Periodic "narrow sections" squeeze the road into a corridor with a
+     guaranteed thin bridge – precise steering required.
+   • Rows within LOCK_AHEAD of the runner are copied into a ring buffer
+     ("committed") so the ground never changes underfoot; everything
+     further ahead stays LIVE, so moving objects redraws the road ahead.
+   ========================================================================= */
+const XA = { f: 0, s: 0 }, XP = { f: 0, s: 0 }, XN = { f: 0, s: 0 };
+function tileXf(t, out) {
+  if (t === 0) { out.f = 0; out.s = 0; return; }
+  out.f = hash2(t, 17) < 0.5 ? 1 : 0;
+  out.s = Math.round((hash2(t, 29) - 0.5) * 2 * CFG.TILE_SHIFT * S.gw);
+}
+function mapX(xf, x, MW) {
+  let sx = (xf.f ? MW - 1 - x : x) + xf.s;
+  if (sx < 0) sx = -sx - 1; else if (sx >= MW) sx = 2 * MW - sx - 1; // mirror at borders
+  return sx < 0 ? 0 : sx >= MW ? MW - 1 : sx;
+}
+function liveRow(r, out, o, gOut) {
+  const MW = S.gw, GH = S.gh, cam = S.camField, glow = S.glow;
+  const t = Math.floor(r / GH), local = r - t * GH;
+  const fy = (t & 1) === 0 ? GH - 1 - local : local; // tile 0: r=0 is the bottom of the camera frame
+  tileXf(t, XA);
+  const B = CFG.SEAM_BLEND;
+  let wP = 0, wN = 0;
+  if (local < B) { wP = 0.5 * (1 - local / B); tileXf(t - 1, XP); }
+  else if (local > GH - 1 - B) { wN = 0.5 * (1 - (GH - 1 - local) / B); tileXf(t + 1, XN); }
+  const wC = 1 - wP - wN, base = fy * MW;
+  const nAmt = CFG.NOISE_AMT * clamp(r / GH - 0.6, 0, 1);
+  // narrow corridor section?
+  let nz = false, nc = 0, nh = 0, nb = false;
+  if (r > CFG.NARROW_EVERY * 0.6) {
+    const zi = Math.floor(r / CFG.NARROW_EVERY);
+    const zs = zi * CFG.NARROW_EVERY + CFG.NARROW_EVERY * 0.35;
+    const k = Math.min(r - zs, zs + CFG.NARROW_LEN - r);
+    if (k > 0 && hash2(zi, 5) < CFG.NARROW_CHANCE) {
+      const tk = clamp(k / 12, 0, 1);
+      nz = true; nh = lerp(MW * 0.5, CFG.NARROW_HALF, tk);
+      nc = MW * 0.5 + Math.sin(r * 0.045 + zi * 2.3) * MW * 0.22;
+      nb = tk > 0.6;
+    }
+  }
+  const ns = CFG.NOISE_SCALE;
+  for (let x = 0; x < MW; x++) {
+    let v = cam[base + mapX(XA, x, MW)] * wC;
+    if (wP) v += cam[base + mapX(XP, x, MW)] * wP;
+    else if (wN) v += cam[base + mapX(XN, x, MW)] * wN;
+    if (nAmt > 0) v += (noise2(x * ns, r * ns) - 0.5) * nAmt;
+    if (nz) {
+      const dx = Math.abs(x + 0.5 - nc);
+      if (dx > nh) v *= clamp(1 - (dx - nh) / 2, 0, 1);
+      else if (nb && dx < CFG.BRIDGE_HALF) v = v > 1 ? v : 1;
+    }
+    out[o + x] = v < 0 ? 0 : v > 1 ? 1 : v;
+    if (gOut) gOut[o + x] = glow[base + mapX(XA, x, MW)] * wC;
+  }
+}
+const ringIdx = (r) => (((r % CFG.RING) + CFG.RING) % CFG.RING);
+const usingRing = () => S.mode === 'run' || S.mode === 'over';
+function commitUpTo(rEnd) {
+  const MW = S.gw;
+  while (S.committed < rEnd) { S.committed++; liveRow(S.committed, S.ring, ringIdx(S.committed) * MW, null); }
+}
+/* point S._ra at the array holding row r; returns the offset */
+function rowArr(r) {
+  if (usingRing() && r <= S.committed && r > S.committed - CFG.RING) { S._ra = S.ring; return ringIdx(r) * S.gw; }
+  liveRow(r, S.tmpRow, 0, null); S._ra = S.tmpRow; return 0;
+}
+function sampleRow(r, x) {
+  const o = rowArr(r), a = S._ra, MW = S.gw;
+  const fx = x - 0.5, x0 = Math.floor(fx), w = fx - x0;
+  const v0 = x0 >= 0 && x0 < MW ? a[o + x0] : 0;
+  const v1 = x0 + 1 >= 0 && x0 + 1 < MW ? a[o + x0 + 1] : 0;
+  return v0 + (v1 - v0) * w;
+}
+/* bilinear road value at world position (x cells, rf rows); 1 = road, 0 = void */
+function fieldAt(x, rf) {
+  const r0 = Math.floor(rf - 0.5), w = rf - 0.5 - r0;
+  const a = sampleRow(r0, x), b = sampleRow(r0 + 1, x);
+  return a + (b - a) * w;
+}
+/* road spans [x0,x1) in row r */
+function spans(r) {
+  const o = rowArr(r), a = S._ra, MW = S.gw, out = [];
+  let s = -1;
+  for (let x = 0; x <= MW; x++) {
+    const on = x < MW && a[o + x] > 0.55;
+    if (on && s < 0) s = x;
+    else if (!on && s >= 0) { out.push([s, x]); s = -1; }
+  }
+  return out;
+}
+function findNearestSafe(fromR, x, maxRows) {
+  for (let dr = 0; dr < maxRows; dr++) {
+    const r = fromR + dr;
+    let best = null, bd = 1e9;
+    for (const [a, b] of spans(r)) {
+      if (b - a < 4) continue;
+      const cx = clamp(x, a + 2, b - 2), dd = Math.abs(cx - x);
+      if (dd < bd) { bd = dd; best = cx; }
+    }
+    if (best !== null) return { x: best, r: r + 0.5 };
+  }
+  return null;
+}
+
+/* =========================================================================
+   Road texture – field rows → supersampled soft threshold with paper-cut
+   layers baked in: drop shadow, lighter "thickness" rim, fill with paper
+   grain, neon edge, heat halo on the void side, magenta "new road" glow.
+   ========================================================================= */
+function allocBuffers() {
+  if (!S.gw) return;
+  const MW = S.gw, VR = (S.VR = CFG.AHEAD + V.behind + 2), T = S.T;
+  S.field = new Float32Array(VR * MW);
+  S.fglow = new Float32Array(VR * MW);
+  S.TW = MW * T; S.TH = VR * T;
+  texCanvas.width = S.TW; texCanvas.height = S.TH;
+  S.texImg = texCtx.createImageData(S.TW, S.TH);
+  S.tex32 = new Uint32Array(S.texImg.data.buffer);
+  S.U = T === 1 ? S.field : new Float32Array(S.TW * S.TH);
+  S.xs0 = new Int32Array(S.TW); S.xs1 = new Int32Array(S.TW); S.xw = new Float32Array(S.TW);
+  for (let tx = 0; tx < S.TW; tx++) {
+    const fx = (tx + 0.5) / T - 0.5, x0 = Math.floor(fx);
+    S.xs0[tx] = clamp(x0, 0, MW - 1); S.xs1[tx] = clamp(x0 + 1, 0, MW - 1); S.xw[tx] = fx - x0;
+  }
+  S.grain = new Float32Array(S.TW * 64);
+  for (let y = 0; y < 64; y++) for (let x = 0; x < S.TW; x++) S.grain[y * S.TW + x] = noise2(x * 0.45, y * 0.45) * 0.6 + hash2(x, y) * 0.4;
+}
+
+function buildField() {
+  const MW = S.gw, VR = S.VR, ring = usingRing();
+  S.fieldTop = Math.floor(S.d) + CFG.AHEAD;
+  for (let j = 0; j < VR; j++) {
+    const r = S.fieldTop - j, o = j * MW;
+    if (ring && r <= S.committed && r > S.committed - CFG.RING) {
+      const ri = ringIdx(r) * MW;
+      S.field.set(S.ring.subarray(ri, ri + MW), o);
+      S.fglow.fill(0, o, o + MW);
+    } else liveRow(r, S.field, o, S.fglow);
+  }
+}
+
+function buildTexture() {
+  const T = S.T, MW = S.gw, VR = S.VR, TW = S.TW, TH = S.TH, F = S.field, U = S.U, G = S.fglow, out = S.tex32;
+  // 1) supersample the field (bilinear)
+  if (T > 1) {
+    const xs0 = S.xs0, xs1 = S.xs1, xw = S.xw;
+    for (let ty = 0; ty < TH; ty++) {
+      const fy = (ty + 0.5) / T - 0.5, y0 = Math.floor(fy), wy = fy - y0;
+      const ra = clamp(y0, 0, VR - 1) * MW, rb = clamp(y0 + 1, 0, VR - 1) * MW;
+      let p = ty * TW;
+      for (let tx = 0; tx < TW; tx++, p++) {
+        const w = xw[tx], i0 = xs0[tx], i1 = xs1[tx];
+        const a = F[ra + i0] + (F[ra + i1] - F[ra + i0]) * w;
+        const b = F[rb + i0] + (F[rb + i1] - F[rb + i0]) * w;
+        U[p] = a + (b - a) * wy;
+      }
+    }
+  }
+  // 2) composite paper-cut layers (premultiplied accumulation)
+  const dA = S.viewMode === 2 ? 0.62 : 0.42;
+  const dn = TC.danger, hl = TC.halo, rd = TC.road, rm = TC.rim, ed = TC.edge, gl = TC.glow;
+  const fast = pack(dn[0] | 0, dn[1] | 0, dn[2] | 0, (dA * 255) | 0);
+  const SY = 3 * T, SX = T, RIM = Math.max(1, Math.round(1.6 * T));
+  const grain = S.grain;
+  for (let ty = 0; ty < TH; ty++) {
+    const gRow = ((((S.fieldTop + 1) * T - ty) & 63) * TW);
+    const gy = ((ty / T) | 0) * MW;
+    let p = ty * TW;
+    for (let tx = 0; tx < TW; tx++, p++) {
+      const f = U[p];
+      const fs = ty >= SY && tx >= SX ? U[p - SY * TW - SX] : 0; // road up-left casts shadow here
+      const fr = ty >= RIM ? U[p - RIM * TW] : 0;                // road just above -> visible thickness
+      if (f < 0.12 && fs < 0.38 && fr < 0.34) { out[p] = fast; continue; }
+      const a = ss(0.44, 0.56, f);
+      let A = dA, R = dn[0] * A, Gc = dn[1] * A, B = dn[2] * A, k;
+      // heat halo just outside the road
+      k = (1 - a) * ss(0.12, 0.44, f) * 0.75;
+      if (k > 0) { R = hl[0] * k + R * (1 - k); Gc = hl[1] * k + Gc * (1 - k); B = hl[2] * k + B * (1 - k); A = k + A * (1 - k); }
+      // drop shadow
+      k = ss(0.4, 0.6, fs) * (1 - a) * 0.6;
+      if (k > 0) { R *= 1 - k; Gc *= 1 - k; B *= 1 - k; A = k + A * (1 - k); }
+      // lighter paper rim / thickness
+      k = ss(0.4, 0.56, fr) * (1 - a);
+      if (k > 0) { R = rm[0] * k + R * (1 - k); Gc = rm[1] * k + Gc * (1 - k); B = rm[2] * k + B * (1 - k); A = k + A * (1 - k); }
+      // paper fill with grain
+      if (a > 0) {
+        const g = 0.88 + 0.24 * grain[gRow + tx];
+        R = rd[0] * g * a + R * (1 - a); Gc = rd[1] * g * a + Gc * (1 - a); B = rd[2] * g * a + B * (1 - a); A = a + A * (1 - a);
+        // neon edge band on the walkable surface
+        k = a * (1 - ss(0.56, 0.82, f)) * 0.95;
+        if (k > 0) { R += ed[0] * k; Gc += ed[1] * k; B += ed[2] * k; }
+        // newly appeared road shimmers
+        const gv = G[gy + ((tx / T) | 0)];
+        if (gv > 0.02) { k = gv * a * 0.75; R += gl[0] * k; Gc += gl[1] * k; B += gl[2] * k; }
+      }
+      if (A <= 0.003) { out[p] = 0; continue; }
+      const ia = 1 / A;
+      out[p] = pack(Math.min(255, R * ia) | 0, Math.min(255, Gc * ia) | 0, Math.min(255, B * ia) | 0, Math.min(255, A * 255) | 0);
+    }
+  }
+  texCtx.putImageData(S.texImg, 0, 0);
+}
+
+/* =========================================================================
+   Perspective projection (fake pinhole):
+     scale(z) = 1/(1+P·z)   y(z) = yChar − rowH·ln(1+P·z)/P
+   z = rows ahead of the runner (negative = behind / below).
+   ========================================================================= */
+const zScale = (z) => 1 / (1 + CFG.PERSP * z);
+const zToY = (z) => V.yChar - (V.rowH * Math.log(1 + CFG.PERSP * z)) / CFG.PERSP;
+let PX = 0, PY = 0, PS = 1;
+function proj(x, r, h = 0) {
+  const z = r - S.d, s = zScale(z);
+  PS = s; PX = V.cx + (x - S.gw / 2) * V.cell * s; PY = zToY(z) - h * V.cell * s;
+  return z;
+}
+const fogAlpha = (z) => 1 - 0.85 * ss(CFG.AHEAD * 0.5, CFG.AHEAD, z);
+
+/* =========================================================================
+   Particles – fixed pool (ring allocation = automatic cap)
+   ========================================================================= */
+const PART = { pool: [], i: 0, max: CFG.MAX_PARTICLES };
+for (let i = 0; i < CFG.MAX_PARTICLES; i++) PART.pool.push({ on: false });
+const PDEF = { w: false, x: 0, y: 0, r: 0, h: 0, vx: 0, vy: 0, vr: 0, vh: 0, g: 0, drag: 0, size: 4, life: 1, max: 1, kind: 'glow', col: WHITE, rot: 0, vrot: 0, add: true };
+function emit(o) {
+  const p = PART.pool[PART.i];
+  PART.i = (PART.i + 1) % PART.max;
+  Object.assign(p, PDEF, o);
+  p.on = true; p.life = p.max;
+  return p;
+}
+function burst(x, y, n, col, speed = 300, kind = 'glow', size = 6) {
+  const d = V.dpr;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * TAU, v = (0.3 + Math.random()) * speed * d;
+    emit({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 300 * d, drag: 2.2, size: size * d * (0.5 + Math.random()), max: 0.5 + Math.random() * 0.6, kind, col });
+  }
+}
+function confetti(x, y, n) {
+  const d = V.dpr, cols = [TC.edge, TC.glow, TC.body, WHITE];
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, v = (250 + Math.random() * 450) * d;
+    emit({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 700 * d, drag: 1.4, size: (4 + Math.random() * 5) * d, max: 1 + Math.random() * 0.8, kind: 'confetti', col: cols[i % 4], rot: Math.random() * TAU, vrot: (Math.random() - 0.5) * 18, add: false });
+  }
+}
+function puff(x, r, n, strength = 1) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * TAU, v = (2 + Math.random() * 6) * strength;
+    emit({ w: true, x: x + Math.cos(a) * 1.2, r: r + Math.sin(a) * 0.6, h: 0.3, vx: Math.cos(a) * v, vr: Math.sin(a) * v * 0.5, vh: 2 + Math.random() * 3, g: 6, size: 1.4 + Math.random() * 1.4, max: 0.5 + Math.random() * 0.4, kind: 'dust', col: mix(TC.edge, WHITE, 0.6), add: false });
+  }
+}
+
+/* glow sprites, cached per (quantized) color */
+const glowCache = new Map();
+function glowSprite(col) {
+  const key = ((col[0] >> 3) << 10) | ((col[1] >> 3) << 5) | (col[2] >> 3);
+  let c = glowCache.get(key);
+  if (c) return c;
+  if (glowCache.size > 96) glowCache.clear();
+  c = mk(64, 64);
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, rgb(mix(col, WHITE, 0.5), 1)); gr.addColorStop(0.25, rgb(col, 0.6)); gr.addColorStop(1, rgb(col, 0));
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  glowCache.set(key, c);
+  return c;
+}
+
+/* =========================================================================
+   Entities: orbs, stars (pickups) · gates, lamps (obstacles)
+   ========================================================================= */
+function spawnAhead() {
+  const MW = S.gw;
+  while (S.nextSpawn < S.d + CFG.AHEAD - 6) {
+    const r = Math.floor(S.nextSpawn);
+    S.nextSpawn += CFG.SPAWN_MIN + Math.random() * (CFG.SPAWN_MAX - CFG.SPAWN_MIN);
+    const roll = Math.random(), far = S.d - S.startD > CFG.OBSTACLE_FROM;
+    const sp = spans(r).filter((s) => s[1] - s[0] >= 6);
+    if (!sp.length) continue;
+    const pick = sp[(Math.random() * sp.length) | 0], w = pick[1] - pick[0], cx = (pick[0] + pick[1]) / 2;
+    if (far && roll < 0.3) {
+      if (w >= 16 && Math.random() < 0.55) S.entities.push({ type: 'gate', x: cx, r, gap: 9, passed: false, ph: Math.random() * TAU });
+      else if (w >= 9) S.entities.push({ type: 'lamp', x: cx, x0: cx, r, amp: Math.random() * Math.min(w / 2 - 3, 8), w: 1 + Math.random() * 1.5, ph: Math.random() * TAU });
+    } else if (roll < 0.45) {
+      S.entities.push({ type: 'star', x: cx, r: r + 0.5, ph: Math.random() * TAU });
+    } else {
+      // a trail of orbs that follows the road
+      let px = cx;
+      const n = 3 + ((Math.random() * 3) | 0);
+      for (let k = 0; k < n; k++) {
+        const rk = r + k * 4;
+        let best = null, bd = 1e9;
+        for (const [a, b] of spans(rk)) {
+          if (b - a < 3) continue;
+          const xx = clamp(px, a + 1.5, b - 1.5), dd = Math.abs(xx - px);
+          if (dd < bd) { bd = dd; best = xx; }
+        }
+        if (best === null || bd > 6) break;
+        px = best;
+        S.entities.push({ type: 'orb', x: px, r: rk + 0.5, ph: k * 0.6 });
+      }
+    }
+  }
+}
+
+function collect(e) {
+  e.dead = true;
+  S.combo = S.time - S.lastPickup < CFG.COMBO_WINDOW ? Math.min(S.combo + 1, 9) : 1;
+  S.lastPickup = S.time;
+  S.streak++;
+  proj(e.x, e.r, 1.6);
+  const sx = PX, sy = PY;
+  let pts;
+  if (e.type === 'orb') {
+    pts = S.combo;
+    S.boost = Math.max(S.boost, CFG.ORB_BOOST);
+    AudioFX.orb(S.combo);
+    burst(sx, sy, 10, TC.glow, 220);
+    buzz(8);
+  } else {
+    pts = 5 * S.combo;
+    S.stars++;
+    S.boost = CFG.BOOST_TIME;
+    S.slowT = CFG.SLOWMO_TIME;
+    S.flash = 1;
+    S.ripples.push({ x: sx, y: sy, t: 0 }, { x: sx, y: sy, t: -0.12 });
+    burst(sx, sy, 26, TC.edge, 420);
+    confetti(sx, sy, 36);
+    AudioFX.chime(S.combo);
+    AudioFX.whoosh();
+    C.spin = 1; C.happy = 1.3; C.hopV = 13; C.hopH = 0.001; C.sq = -0.3;
+    buzz([20, 30, 20]);
+    if (S.stars % CFG.STARS_PER_LEVEL === 0) levelUp();
+  }
+  S.score += pts;
+  addText('+' + pts, sx, sy - 20 * V.dpr, e.type === 'star' ? TC.edge : TC.glow, e.type === 'star' ? 34 : 24);
+  if (S.combo > 1) bumpCombo();
+}
+
+function updateEntities(dt) {
+  const ents = S.entities;
+  for (const e of ents) {
+    if (e.type === 'lamp') e.x = e.x0 + Math.sin(S.time * e.w + e.ph) * e.amp;
+    if (e.r < S.d - V.behind - 4) e.dead = true;
+    if (S.mode !== 'run' || S.hitT > 0 || e.dead) continue;
+    const dz = e.r - S.d;
+    if (Math.abs(dz) > 5) continue;
+    const dist = (x, r) => Math.hypot(C.x - x, S.d - r);
+    if (e.type === 'orb' || e.type === 'star') {
+      if (dist(e.x, e.r) < CFG.CHAR_R + (e.type === 'star' ? CFG.STAR_R : CFG.ORB_R)) collect(e);
+    } else if (C.inv <= 0 && C.drop <= 0) {
+      if (e.type === 'gate') {
+        if (dist(e.x - e.gap / 2, e.r) < CFG.CHAR_R + 1.3 || dist(e.x + e.gap / 2, e.r) < CFG.CHAR_R + 1.3) hit();
+        else if (!e.passed && S.d > e.r) {
+          e.passed = true;
+          S.score += 2;
+          proj(e.x, e.r, 4);
+          addText('Nice! +2', PX, PY, TC.glow, 22);
+          burst(PX, PY, 12, TC.glow, 240);
+          AudioFX.gate();
+        }
+      } else if (dist(e.x, e.r) < CFG.CHAR_R + 2.2) hit();
+    }
+  }
+  for (let i = ents.length - 1; i >= 0; i--) if (ents[i].dead) ents.splice(i, 1);
+  if (S.mode !== 'run') return;
+  spawnAhead();
+
+  // proximity chime: rising pitch as a star gets close
+  S.chimeT += dt;
+  let best = 1e9;
+  for (const e of ents) if (e.type === 'star') { const z = e.r - S.d; if (z > 0 && z < 30 && Math.abs(e.x - C.x) < 18) best = Math.min(best, z); }
+  if (best < 30) {
+    const prox = 1 - best / 30;
+    if (S.chimeT > lerp(0.55, 0.14, prox)) { S.chimeT = 0; AudioFX.ping(520 + prox * 900); }
+  }
+}
+
+/* =========================================================================
+   updateCharacter – steering, forward motion, void checks, animation
+   ========================================================================= */
+function updateCharacter(dt) {
+  const MW = S.gw;
+  // --- steering input (also while "ready", to position before GO) ---
+  if (S.mode === 'ready' || (S.mode === 'run' && S.hitT <= 0)) {
+    if (S.steer === 'tilt' && S.tiltSeen) {
+      let g = S.tilt;
+      g = Math.abs(g) < CFG.TILT_DEADZONE ? 0 : g - Math.sign(g) * CFG.TILT_DEADZONE;
+      C.targetX += clamp(g, -35, 35) * CFG.TILT_GAIN * dt;
+    }
+    const k = (S.keys.ArrowRight || S.keys.d ? 1 : 0) - (S.keys.ArrowLeft || S.keys.a ? 1 : 0);
+    C.targetX += k * 45 * dt;
+    C.targetX = clamp(C.targetX, 0.5, MW - 0.5);
+  }
+  const px = C.x;
+  C.x += (C.targetX - C.x) * (1 - Math.exp(-CFG.STEER_SMOOTH * dt));
+  if (dt > 0) C.vx += ((C.x - px) / dt - C.vx) * Math.min(1, dt * 10);
+
+  // --- animation springs & timers ---
+  C.sqv += (-140 * C.sq - 10 * C.sqv) * dt; C.sq += C.sqv * dt;
+  if (C.hopH > 0) {
+    C.hopV -= 60 * dt; C.hopH += C.hopV * dt;
+    if (C.hopH <= 0) { C.hopH = 0; landed(Math.min(1, -C.hopV / 16)); C.hopV = 0; }
+  }
+  C.blinkT -= dt; if (C.blinkT <= 0) { C.blink = 0.14; C.blinkT = 2 + Math.random() * 3; }
+  C.blink = Math.max(0, C.blink - dt);
+  C.shock = Math.max(0, C.shock - dt);
+  C.happy = Math.max(0, C.happy - dt);
+  C.spin = Math.max(0, C.spin - dt / 0.6);
+  C.wobble *= Math.exp(-3.5 * dt);
+  if (C.inv > 0) C.inv -= dt;
+  if (C.drop > 0) {                     // respawn drop-in from above, with a sparkle trail
+    C.drop = Math.max(0, C.drop - dt * 2.2);
+    C.trailT += dt;
+    if (C.trailT > 0.03) {
+      C.trailT = 0; proj(C.x, S.d);
+      emit({ x: PX + (Math.random() - 0.5) * 10 * V.dpr, y: PY - C.drop * C.drop * V.H * 0.45 - 10 * V.dpr, vy: -40 * V.dpr, size: 9 * V.dpr, max: 0.45, kind: 'glow', col: TC.glow });
+    }
+    if (C.drop === 0) { landed(1); AudioFX.thud(1); }
+  }
+
+  if (S.mode === 'ready') {             // idle: breathe, look around, little hops
+    C.idleT += dt;
+    C.lookX = Math.abs(C.vx) > 2 ? clamp(C.vx / 25, -1, 1) : Math.sin(C.idleT * 0.9) * 0.9;
+    if (C.idleT > C.nextHop && C.hopH === 0) { C.hopV = 9; C.hopH = 0.001; C.sq = -0.25; C.nextHop = C.idleT + 2.5 + Math.random() * 3; }
+    return;
+  }
+  if (S.mode !== 'run') return;
+
+  // --- hit pause, then respawn or game over ---
+  if (S.hitT > 0) {
+    S.hitT -= dt;
+    if (S.hitT <= 0) { if (S.lives <= 0) gameOver(); else respawnAfterHit(); }
+    return;
+  }
+
+  // --- forward motion (slowly accelerates, boosts on pickups) ---
+  S.runTime += dt;
+  S.boost = Math.max(0, S.boost - dt);
+  const base = Math.min(CFG.SPEED_MAX, CFG.SPEED_START + CFG.SPEED_ACCEL * S.runTime);
+  S.speed += (base + (S.boost > 0 ? CFG.BOOST_SPEED : 0) - S.speed) * Math.min(1, dt * 3);
+  S.d += S.speed * dt;
+  commitUpTo(Math.floor(S.d) + CFG.LOCK_AHEAD);
+  C.lookX = clamp(C.vx / 25, -1, 1);
+
+  // --- footsteps + dust trail ---
+  const pp = C.stepPhase;
+  C.stepPhase += S.speed * dt * CFG.STEP_RATE;
+  if (Math.floor(C.stepPhase * 2) !== Math.floor(pp * 2) && C.drop === 0 && C.hopH === 0) {
+    AudioFX.step();
+    emit({ w: true, x: C.x + (Math.random() - 0.5) * 1.6, r: S.d - 0.6, h: 0.2, vx: (Math.random() - 0.5) * 3, vh: 1.5 + Math.random() * 2, g: 5, size: 1 + Math.random(), max: 0.45, kind: 'dust', col: mix(TC.edge, WHITE, 0.6), add: false });
+  }
+
+  // --- the void: sample 5 points of the footprint ---
+  if (C.inv <= 0 && C.drop === 0) {
+    const R = CFG.CHAR_R * 0.7, v0 = fieldAt(C.x, S.d);
+    let bad = v0 < 0.45 ? 1 : 0;
+    if (fieldAt(C.x - R, S.d) < 0.45) bad++;
+    if (fieldAt(C.x + R, S.d) < 0.45) bad++;
+    if (fieldAt(C.x, S.d + R) < 0.45) bad++;
+    if (fieldAt(C.x, S.d - R) < 0.45) bad++;
+    if (bad >= 2) C.shock = Math.max(C.shock, 0.2);             // teetering on the edge
+    if (v0 < 0.45 && bad >= 3) { S.dangerT += dt; if (S.dangerT > CFG.HIT_GRACE) hit(); }
+    else S.dangerT = 0;
+  }
+}
+
+function landed(strength) {
+  C.sq = 0.45 * strength; C.sqv = 0;
+  puff(C.x, S.d, 6 + ((strength * 6) | 0), 0.6 + strength);
+  if (strength > 0.3) AudioFX.thud(0.4 + strength * 0.6);
+  if (strength > 0.8) { S.shake = Math.max(S.shake, CFG.SHAKE_LAND); buzz(15); }
+}
+
+function hit() {
+  if (S.hitT > 0) return;
+  S.lives--;
+  S.hitT = 0.55; S.dangerT = 0;
+  C.wobble = 1; C.shock = 1.2;
+  S.shake = CFG.SHAKE_HIT; S.hitFlash = 1;
+  S.combo = 1; S.streak = 0; S.boost = 0;
+  buzz([60, 40, 90]);
+  AudioFX.boop();
+  proj(C.x, S.d, 1);
+  burst(PX, PY, 18, TC.danger, 320);
+  const hs = $('hearts').children[S.lives];
+  if (hs) { hs.classList.remove('pop'); void hs.offsetWidth; hs.classList.add('pop'); }
+  if (S.lives <= 0) S.slowT = 0.6;
+}
+function respawnAfterHit() {
+  const safe = findNearestSafe(Math.floor(S.d) + 3, C.x, 90);
+  if (safe) { C.x = C.targetX = safe.x; S.d = Math.max(S.d, safe.r); commitUpTo(Math.floor(S.d) + CFG.LOCK_AHEAD); }
+  C.drop = 1; C.inv = safe ? CFG.INVINCIBLE : CFG.INVINCIBLE * 2;
+  S.speed *= 0.6;
+  AudioFX.whoosh();
+}
+
+/* =========================================================================
+   Game flow
+   ========================================================================= */
+function resetGame(silent) {
+  S.mode = S.camReady || silent ? 'ready' : S.mode;
+  S.d = S.startD = CFG.START_ROW;
+  S.speed = 0; S.boost = 0; S.runTime = 0; S.hitT = 0; S.dangerT = 0;
+  S.lives = CFG.LIVES; S.score = 0; S.stars = 0; S.level = 0; S.combo = 1; S.streak = 0;
+  S.entities.length = 0; S.texts.length = 0; S.ripples.length = 0;
+  for (const p of PART.pool) p.on = false;
+  Object.assign(C, { vx: 0, inv: 0, drop: 0, hopH: 0, hopV: 0, sq: 0, sqv: 0, spin: 0, wobble: 0, shock: 0, happy: 0, idleT: 0, nextHop: 2 });
+  C.x = C.targetX = S.gw ? S.gw / 2 : 0;
+  setTheme(0);
+  buildHearts();
+  $('over').classList.add('hidden');
+  showReady(S.mode === 'ready');
+}
+function startRun() {
+  if (S.mode !== 'ready' || !S.gw) return;
+  S.mode = 'run';
+  S.committed = Math.floor(S.d) - V.behind - 4;
+  commitUpTo(Math.floor(S.d) + CFG.LOCK_AHEAD);
+  const safe = findNearestSafe(Math.floor(S.d), C.x, 60);
+  if (safe) { C.x = C.targetX = safe.x; S.d = S.startD = safe.r; commitUpTo(Math.floor(S.d) + CFG.LOCK_AHEAD); }
+  else toast('No shadow road found — add shadows or raise Sensitivity');
+  S.nextSpawn = Math.floor(S.d) + 24;
+  S.speed = CFG.SPEED_START * 0.5;
+  S.tiltZero = null;                     // re-calibrate tilt to the current hold
+  C.hopV = 12; C.hopH = 0.001; C.sq = -0.3;
+  showReady(false);
+  showBanner('GO!', '');
+  AudioFX.go();
+  buzz(20);
+}
+function gameOver() {
+  S.mode = 'over';
+  const dist = Math.floor((S.d - S.startD) * CFG.ROW_METERS);
+  const newBest = dist > S.best.dist || S.score > S.best.score;
+  S.best.dist = Math.max(S.best.dist, dist); S.best.score = Math.max(S.best.score, S.score);
+  store.set('sp_bestDist', S.best.dist); store.set('sp_bestScore', S.best.score);
+  $('oDist').textContent = dist; $('oBestDist').textContent = S.best.dist;
+  $('oScore').textContent = S.score; $('oBestScore').textContent = S.best.score;
+  $('newBest').hidden = !newBest;
+  $('overTitle').textContent = newBest ? 'What a run!' : 'The lamp flickers…';
+  $('over').classList.remove('hidden');
+  if (newBest) { confetti(V.W / 2, V.H * 0.35, 60); AudioFX.levelUp(); }
+}
+function levelUp() {
+  S.level++;
+  setTheme(S.level % THEMES.length);
+  showBanner('LEVEL ' + (S.level + 1), THEMES[S.level % THEMES.length].name);
+  AudioFX.levelUp();
+  buzz([30, 40, 30, 40, 60]);
+  confetti(V.W / 2, V.H * 0.2, 40);
+}
+function setTheme(i) {
+  Object.assign(TT, THEMES[i]);
+  document.documentElement.style.setProperty('--accent', TT.accent);
+  document.documentElement.style.setProperty('--accent2', TT.accent2);
+  AudioFX.setChord(TT);
+}
+function easeTheme(dt) {
+  const k = 1 - Math.exp(-2.5 * dt);
+  for (const key of COLOR_KEYS) for (let j = 0; j < 3; j++) TC[key][j] += (TT[key][j] - TC[key][j]) * k;
+  S.pipRoad = pack(TC.edge[0] | 0, TC.edge[1] | 0, TC.edge[2] | 0, 120);
+  S.pipGlow = pack(TC.glow[0] | 0, TC.glow[1] | 0, TC.glow[2] | 0, 230);
+}
+
+/* =========================================================================
+   render
+   ========================================================================= */
+function resize() {
+  V.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  V.W = view.width = Math.round(window.innerWidth * V.dpr);
+  V.H = view.height = Math.round(window.innerHeight * V.dpr);
+  V.cx = V.W / 2;
+  V.yChar = V.H * CFG.CHAR_SCREEN_Y;
+  V.horizonY = V.H * CFG.HORIZON_Y;
+  V.rowH = ((V.yChar - V.horizonY) * CFG.PERSP) / Math.log(1 + CFG.PERSP * CFG.AHEAD);
+  const zmin = (Math.exp((-(V.H - V.yChar) * CFG.PERSP) / V.rowH) - 1) / CFG.PERSP;
+  V.behind = Math.min(120, Math.ceil(-zmin) + 2);
+  V.cell = S.gw ? V.W / S.gw : 1;
+  // vignette
+  vigCanvas.width = V.W; vigCanvas.height = V.H;
+  const vg = vigCanvas.getContext('2d');
+  const g = vg.createRadialGradient(V.W / 2, V.H * 0.55, Math.min(V.W, V.H) * 0.35, V.W / 2, V.H * 0.55, Math.max(V.W, V.H) * 0.78);
+  g.addColorStop(0, 'rgba(7,6,26,0)'); g.addColorStop(1, 'rgba(7,6,26,0.82)');
+  vg.fillStyle = g; vg.fillRect(0, 0, V.W, V.H);
+  // PiP canvas keeps the camera-grid aspect
+  if (S.gw) { const w = $('pipWrap').clientWidth || 120; pip.width = Math.round(w * V.dpr); pip.height = Math.round(((w * S.gh) / S.gw) * V.dpr); }
+  // ambient motes
+  if (!S.motes.length) for (let i = 0; i < 40; i++) S.motes.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.01, vy: -0.004 - Math.random() * 0.012, s: 0.5 + Math.random() * 1.6, tw: Math.random() * TAU });
+  allocBuffers();
+}
+
+function drawBackground(ctx) {
+  const W = V.W, H = V.H;
+  const src = S.frozen ? frozenCanvas : video;
+  if (S.viewMode < 2 && S.camReady) {
+    const sw = S.frozen ? frozenCanvas.width : video.videoWidth, sh = S.frozen ? frozenCanvas.height : video.videoHeight;
+    const sc = Math.max(W / sw, H / sh), dw = sw * sc, dh = sh * sc, dx = (W - dw) / 2, dy = (H - dh) / 2;
+    if (S.viewMode === 1) {                // soft blur via tiny downscale + smooth upscale
+      blurCanvas.width = Math.max(8, (sw / 14) | 0); blurCanvas.height = Math.max(8, (sh / 14) | 0);
+      bctx.drawImage(src, 0, 0, blurCanvas.width, blurCanvas.height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(blurCanvas, dx, dy, dw, dh);
+    } else ctx.drawImage(src, dx, dy, dw, dh);
+    // colour grade: dim indigo + warm lamp tint
+    ctx.fillStyle = rgb(TC.bgTop, 0.55); ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'soft-light';
+    ctx.fillStyle = rgb(TC.halo, 0.55); ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+  } else {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, rgb(TC.bgTop)); g.addColorStop(1, rgb(TC.bgBot));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+    const spr = glowSprite(TC.halo);
+    for (let i = 0; i < 3; i++) {
+      const x = W * (0.5 + 0.35 * Math.sin(S.rt * 0.07 + i * 2.1)), y = H * (0.2 + 0.25 * i + 0.05 * Math.sin(S.rt * 0.11 + i)), r = W * 0.55;
+      ctx.globalAlpha = 0.13; ctx.drawImage(spr, x - r, y - r, r * 2, r * 2);
+    }
+    // floating dust motes
+    const mspr = glowSprite(mix(TC.edge, WHITE, 0.5)), n = S.quality === 'low' ? 14 : S.motes.length;
+    for (let i = 0; i < n; i++) {
+      const m = S.motes[i], s = m.s * V.dpr * 5;
+      ctx.globalAlpha = 0.25 + 0.25 * Math.sin(S.rt * 1.5 + m.tw);
+      ctx.drawImage(mspr, m.x * W - s, m.y * H - s, s * 2, s * 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+function drawRoad(ctx) {
+  buildField();
+  buildTexture();
+  const MW = S.gw, T = S.T, d = S.d;
+  ctx.imageSmoothingEnabled = true;
+  let lastA = -1;
+  for (let j = 0; j < S.VR; j++) {
+    const r = S.fieldTop - j, zT = r + 1 - d, zB = r - d;
+    if (zB > CFG.AHEAD + 1) continue;
+    if (zB < -V.behind) break;
+    // integer strip edges that abut exactly: no overlap = no alpha stripes
+    const yT = Math.round(zToY(zT)), yB = Math.round(zToY(zB));
+    if (yT > V.H) break;
+    if (yB < 0 || yB <= yT) continue;
+    const s = zScale((zT + zB) / 2), w = MW * V.cell * s;
+    const a = Math.round(fogAlpha(zB) * 20) / 20;
+    if (a !== lastA) { ctx.globalAlpha = a; lastA = a; }
+    ctx.drawImage(texCanvas, 0, j * T, S.TW, T, V.cx - w / 2, yT, w, yB - yT);
+  }
+  ctx.globalAlpha = 1;
+  // horizon haze: far rows dissolve into lamp-lit fog
+  const hz = ctx.createLinearGradient(0, V.horizonY - 30 * V.dpr, 0, V.horizonY + (V.yChar - V.horizonY) * 0.45);
+  hz.addColorStop(0, rgb(TC.haze, 0.95)); hz.addColorStop(0.35, rgb(mix(TC.haze, TC.halo, 0.25), 0.45)); hz.addColorStop(1, rgb(TC.haze, 0));
+  ctx.fillStyle = hz;
+  ctx.fillRect(0, 0, V.W, V.horizonY + (V.yChar - V.horizonY) * 0.45);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.35;
+  const hs = glowSprite(TC.halo), hw = V.W * 0.9;
+  ctx.drawImage(hs, V.cx - hw, V.horizonY - hw * 0.18, hw * 2, hw * 0.36);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function starPath(ctx, cx, cy, R, rot, inner = 0.45) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = rot + (i * Math.PI) / 5 - Math.PI / 2, rr = i % 2 ? R * inner : R;
+    ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+}
+function ellipse(ctx, x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU); }
+
+function drawEntity(ctx, e) {
+  const t = S.time, z0 = e.r - S.d;
+  if (z0 > CFG.AHEAD || z0 < -V.behind) return;
+  const fa = fogAlpha(z0), cell = V.cell;
+  if (e.type === 'orb') {
+    proj(e.x, e.r, 0); const gy = PY, s = PS;
+    proj(e.x, e.r, 1.3 + Math.sin(t * 3 + e.ph) * 0.35);
+    const r = CFG.ORB_R * cell * s * 1.3;
+    ctx.globalAlpha = 0.35 * fa; ctx.fillStyle = '#05030f'; ellipse(ctx, PX, gy, r * 0.9, r * 0.3); ctx.fill();
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fa;
+    const sp = glowSprite(TC.glow); ctx.drawImage(sp, PX - r * 2.6, PY - r * 2.6, r * 5.2, r * 5.2);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = rgb(mix(TC.glow, WHITE, 0.75), fa); ellipse(ctx, PX, PY, r * 0.55, r * 0.55); ctx.fill();
+  } else if (e.type === 'star') {
+    proj(e.x, e.r, 0); const gy = PY, s = PS;
+    proj(e.x, e.r, 2.2 + Math.sin(t * 2.4 + e.ph) * 0.4);
+    const R = CFG.STAR_R * cell * s * 1.25, pulse = 1 + Math.sin(t * 5) * 0.12;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.5 * fa; const pool = glowSprite(TC.edge); ctx.drawImage(pool, PX - R * 2.5, gy - R * 0.7, R * 5, R * 1.4);
+    ctx.globalAlpha = 0.9 * fa; ctx.drawImage(pool, PX - R * 3.2 * pulse, PY - R * 3.2 * pulse, R * 6.4 * pulse, R * 6.4 * pulse);
+    const ss2 = glowSprite(WHITE);
+    for (let k = 0; k < 3; k++) {               // orbiting sparkles
+      const a = t * 2.6 + k * 2.094, ox = Math.cos(a) * R * 1.7, oy = Math.sin(a) * R * 0.75, sr = R * 0.45;
+      ctx.drawImage(ss2, PX + ox - sr, PY + oy - sr, sr * 2, sr * 2);
+    }
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = fa;
+    starPath(ctx, PX, PY + R * 0.12, R, t * 1.2); ctx.fillStyle = rgb(mix(TC.edge, BLACK, 0.45)); ctx.fill();
+    starPath(ctx, PX, PY, R, t * 1.2); ctx.fillStyle = rgb(TC.edge); ctx.fill();
+    starPath(ctx, PX, PY, R * 0.55, t * 1.2, 0.5); ctx.fillStyle = rgb(mix(TC.edge, WHITE, 0.7)); ctx.fill();
+    ctx.globalAlpha = 1;
+  } else if (e.type === 'gate') {
+    const pts = [];
+    for (const side of [-1, 1]) { proj(e.x + (side * e.gap) / 2, e.r, 0); pts.push([PX, PY, PS]); }
+    const s = pts[0][2], h = 6.5 * cell * s, pw = 1.3 * cell * s;
+    ctx.globalAlpha = fa;
+    ctx.globalCompositeOperation = 'lighter';
+    const sp = glowSprite(TC.danger);
+    for (const [x, y] of pts) { ctx.drawImage(sp, x - pw * 3, y - pw * 1.2, pw * 6, pw * 2.4); ctx.drawImage(sp, x - pw * 2.5, y - h - pw * 2.5, pw * 5, pw * 5); }
+    ctx.globalCompositeOperation = 'source-over';
+    for (const [x, y] of pts) {
+      const g = ctx.createLinearGradient(0, y - h, 0, y);
+      g.addColorStop(0, rgb(mix(TC.danger, WHITE, 0.8))); g.addColorStop(1, rgb(TC.danger));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - pw / 2, y - h, pw, h, pw / 2) : ctx.rect(x - pw / 2, y - h, pw, h); ctx.fill();
+    }
+    // neon arch the runner passes under
+    const [x1, y1] = pts[0], [x2, y2] = pts[1];
+    ctx.lineCap = 'round';
+    for (const [lw, a] of [[5, 0.25], [2, 0.95]]) {
+      ctx.strokeStyle = rgb(TC.glow, a * fa); ctx.lineWidth = lw * V.dpr * Math.max(0.5, s);
+      ctx.beginPath(); ctx.moveTo(x1, y1 - h); ctx.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 - h * 1.7 - Math.sin(t * 3 + e.ph) * h * 0.08, x2, y2 - h); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  } else if (e.type === 'lamp') {
+    proj(e.x, e.r, 0); const gx = PX, gy = PY, s = PS;
+    proj(e.x, e.r, 2.4 + Math.sin(t * 4 + e.ph) * 0.3);
+    const R = 2.2 * cell * s, fl = 0.9 + Math.random() * 0.1;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.7 * fa; const sp = glowSprite(TC.danger);
+    ctx.drawImage(sp, gx - R * 3, gy - R * 0.9, R * 6, R * 1.8);
+    ctx.globalAlpha = fa * fl; ctx.drawImage(sp, PX - R * 2.6, PY - R * 2.6, R * 5.2, R * 5.2);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = fa;
+    ctx.fillStyle = rgb(mix(TC.danger, WHITE, 0.85)); ellipse(ctx, PX, PY, R * 0.55, R * 0.55); ctx.fill();
+    ctx.strokeStyle = rgb(TC.danger, 0.6 * (0.5 + 0.5 * Math.sin(t * 8))); ctx.lineWidth = 2 * V.dpr;
+    ellipse(ctx, gx, gy, R * 1.3, R * 0.42); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawCharacter(ctx) {
+  if (!S.gw || S.mode === 'title') return;
+  const R = CFG.CHAR_R * V.cell * CFG.CHAR_DRAW;
+  const gx = V.cx + (C.x - S.gw / 2) * V.cell, gy = V.yChar;
+  const lift = C.hopH * R + C.drop * C.drop * V.H * 0.45;
+  const breathe = S.mode === 'ready' ? Math.sin(S.rt * 2.4) * 0.035 : 0;
+  const running = S.mode === 'run' && S.hitT <= 0;
+  const bob = running ? Math.abs(Math.sin(C.stepPhase * Math.PI * 2)) * R * 0.12 : 0;
+  // ground shadow shrinks while airborne
+  const sh = 1 / (1 + lift / (R * 3));
+  ctx.globalAlpha = 0.5 * sh; ctx.fillStyle = '#05030f';
+  ellipse(ctx, gx + R * 0.2, gy + R * 0.78, R * 1.05 * sh, R * 0.38 * sh); ctx.fill();
+  ctx.globalAlpha = C.inv > 0 && ((S.rt * 16) | 0) % 2 ? 0.45 : 1;
+
+  let sx = 1 + C.sq * 0.6 + breathe, sy = 1 - C.sq * 0.6 - breathe * 0.5;
+  let face = 1;
+  if (C.spin > 0) { face = Math.cos((1 - C.spin) * TAU); sx *= Math.max(0.12, Math.abs(face)); }
+  const bank = clamp(C.vx * 0.012, -0.38, 0.38) + Math.sin(S.rt * 28) * 0.28 * C.wobble;
+  const body = TC.body;
+  ctx.save();
+  ctx.translate(gx, gy - lift - bob + R * 0.6);
+  ctx.rotate(bank);
+  ctx.scale(sx, sy);
+  ctx.translate(0, -R * 0.6);
+  // feet (alternate with the step phase)
+  const fp = running ? Math.sin(C.stepPhase * TAU) : 0;
+  ctx.fillStyle = rgb(mix(body, BLACK, 0.5));
+  ellipse(ctx, -R * 0.45, R * 0.8 + fp * R * 0.14, R * 0.28, R * 0.18); ctx.fill();
+  ellipse(ctx, R * 0.45, R * 0.8 - fp * R * 0.14, R * 0.28, R * 0.18); ctx.fill();
+  // ears
+  ctx.fillStyle = rgb(mix(body, BLACK, 0.15));
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * R * 0.75, -R * 0.35); ctx.lineTo(s * R * 0.55, -R * 1.22); ctx.lineTo(s * R * 0.15, -R * 0.75); ctx.closePath(); ctx.fill(); }
+  // paper thickness, then body
+  ctx.fillStyle = rgb(mix(body, BLACK, 0.55)); ellipse(ctx, 0, R * 0.14, R * 0.95, R); ctx.fill();
+  const g = ctx.createRadialGradient(-R * 0.35, -R * 0.45, R * 0.1, 0, 0, R * 1.15);
+  g.addColorStop(0, rgb(mix(body, WHITE, 0.5))); g.addColorStop(1, rgb(body));
+  ctx.fillStyle = g; ellipse(ctx, 0, 0, R * 0.95, R); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(1, R * 0.06); ctx.stroke();
+  if (face > 0) drawFace(ctx, R);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function drawFace(ctx, R) {
+  const ink = '#1a1030', lx = C.lookX * R * 0.14, ly = -R * 0.07;
+  const ex = R * 0.34, ey = -R * 0.2;
+  ctx.fillStyle = 'rgba(255,150,200,.5)';
+  ellipse(ctx, -R * 0.6, R * 0.16, R * 0.14, R * 0.08); ctx.fill();
+  ellipse(ctx, R * 0.6, R * 0.16, R * 0.14, R * 0.08); ctx.fill();
+  ctx.lineCap = 'round';
+  if (C.happy > 0) {                         // ^ ^ and a big smile
+    ctx.strokeStyle = ink; ctx.lineWidth = R * 0.1;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * ex - R * 0.15, ey + R * 0.05); ctx.quadraticCurveTo(s * ex, ey - R * 0.2, s * ex + R * 0.15, ey + R * 0.05); ctx.stroke(); }
+    ctx.fillStyle = ink; ctx.beginPath(); ctx.moveTo(-R * 0.25, R * 0.22); ctx.quadraticCurveTo(0, R * 0.6, R * 0.25, R * 0.22); ctx.closePath(); ctx.fill();
+  } else if (C.shock > 0) {                  // wide eyes + "O" mouth
+    for (const s of [-1, 1]) {
+      ctx.fillStyle = '#fff'; ellipse(ctx, s * ex, ey, R * 0.25, R * 0.27); ctx.fill();
+      ctx.fillStyle = ink; ellipse(ctx, s * ex + lx * 0.3, ey, R * 0.08, R * 0.08); ctx.fill();
+    }
+    ctx.fillStyle = ink; ellipse(ctx, 0, R * 0.36, R * 0.12, R * 0.16); ctx.fill();
+  } else {
+    const open = C.blink > 0 ? 0.12 : 1;
+    for (const s of [-1, 1]) {
+      ctx.fillStyle = '#fff'; ellipse(ctx, s * ex, ey, R * 0.19, R * 0.25 * open); ctx.fill();
+      if (open > 0.5) {
+        ctx.fillStyle = ink; ellipse(ctx, s * ex + lx, ey + ly, R * 0.11, R * 0.13); ctx.fill();
+        ctx.fillStyle = '#fff'; ellipse(ctx, s * ex + lx - R * 0.04, ey + ly - R * 0.05, R * 0.04, R * 0.04); ctx.fill();
+      }
+    }
+    ctx.strokeStyle = ink; ctx.lineWidth = R * 0.08;
+    ctx.beginPath(); ctx.moveTo(-R * 0.14, R * 0.3); ctx.quadraticCurveTo(0, R * 0.42, R * 0.14, R * 0.3); ctx.stroke();
+  }
+}
+
+function drawParticles(ctx, world) {
+  for (const p of PART.pool) {
+    if (!p.on || p.w !== world) continue;
+    const t = p.life / p.max;
+    let x = p.x, y = p.y, size = p.size;
+    if (world) {
+      const z = proj(p.x, p.r, p.h);
+      if (z < -V.behind || z > CFG.AHEAD) continue;
+      x = PX; y = PY; size = p.size * V.cell * PS * (1.6 - t * 0.6);
+    }
+    if (p.kind === 'confetti') {
+      const c = Math.cos(p.rot), s = Math.sin(p.rot), flat = Math.abs(Math.sin(p.rot * 1.7)) * 0.8 + 0.2;
+      ctx.setTransform(c, s, -s * flat, c * flat, x, y);
+      ctx.globalAlpha = Math.min(1, t * 2); ctx.fillStyle = rgb(p.col);
+      ctx.fillRect(-size / 2, -size / 4, size, size / 2);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      continue;
+    }
+    ctx.globalCompositeOperation = p.add ? 'lighter' : 'source-over';
+    ctx.globalAlpha = p.kind === 'dust' ? t * 0.55 : t;
+    const sp = glowSprite(p.col);
+    ctx.drawImage(sp, x - size, y - size, size * 2, size * 2);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function render() {
+  const ctx = vctx, W = V.W, H = V.H;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  drawBackground(ctx);
+  if (S.gw && S.mode !== 'title') {
+    // screen shake
+    const sx = (Math.random() - 0.5) * S.shake * V.dpr, sy = (Math.random() - 0.5) * S.shake * V.dpr;
+    ctx.setTransform(1, 0, 0, 1, sx, sy);
+    drawRoad(ctx);
+    const ents = S.entities.slice().sort((a, b) => b.r - a.r);
+    for (const e of ents) if (e.r >= S.d) drawEntity(ctx, e);
+    drawParticles(ctx, true);
+    ctx.setTransform(1, 0, 0, 1, sx, sy);
+    drawCharacter(ctx);
+    for (const e of ents) if (e.r < S.d) drawEntity(ctx, e);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    drawSpeedLines(ctx);
+  }
+  drawParticles(ctx, false);
+  // ripples
+  for (const r of S.ripples) {
+    if (r.t < 0) continue;
+    const k = r.t / 0.8;
+    ctx.strokeStyle = rgb(TC.edge, (1 - k) * 0.8); ctx.lineWidth = (1 - k) * 10 * V.dpr;
+    ctx.beginPath(); ctx.arc(r.x, r.y, k * Math.max(W, H) * 0.45, 0, TAU); ctx.stroke();
+  }
+  // floating texts
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const t of S.texts) {
+    const k = t.t / t.max, pop = k < 0.15 ? 0.6 + (k / 0.15) * 0.6 : 1.2 - Math.min(0.2, (k - 0.15));
+    ctx.globalAlpha = 1 - ss(0.6, 1, k);
+    ctx.font = `900 ${t.size * V.dpr * pop}px ui-rounded, system-ui, sans-serif`;
+    ctx.lineWidth = 5 * V.dpr; ctx.strokeStyle = 'rgba(12,8,36,.85)'; ctx.strokeText(t.text, t.x, t.y);
+    ctx.fillStyle = rgb(t.col); ctx.fillText(t.text, t.x, t.y);
+  }
+  ctx.globalAlpha = 1;
+  // flashes
+  if (S.flash > 0.01) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rgb(mix(TC.edge, WHITE, 0.6), S.flash * 0.35); ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over'; }
+  if (S.hitFlash > 0.01) { ctx.fillStyle = `rgba(255,60,90,${S.hitFlash * 0.28})`; ctx.fillRect(0, 0, W, H); }
+  ctx.drawImage(vigCanvas, 0, 0);
+}
+
+function drawSpeedLines(ctx) {
+  const sn = S.speed / CFG.SPEED_MAX, k = Math.max(S.boost > 0 ? 1 : 0, ss(0.65, 1, sn));
+  if (k < 0.02 || S.mode !== 'run') return;
+  if (!S.lines.length) for (let i = 0; i < 26; i++) S.lines.push({ a: Math.random() * TAU, d: Math.random(), l: 0.1 + Math.random() * 0.2 });
+  const maxR = Math.hypot(V.W, V.H), ox = V.cx, oy = V.horizonY + (V.yChar - V.horizonY) * 0.2;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = rgb(mix(TC.edge, WHITE, 0.6), 0.32 * k);
+  ctx.lineWidth = 2 * V.dpr;
+  ctx.beginPath();
+  for (const ln of S.lines) {
+    const r0 = (0.15 + ln.d) * maxR * 0.6, r1 = r0 + ln.l * maxR * (0.5 + k);
+    ctx.moveTo(ox + Math.cos(ln.a) * r0, oy + Math.sin(ln.a) * r0);
+    ctx.lineTo(ox + Math.cos(ln.a) * r1, oy + Math.sin(ln.a) * r1);
+  }
+  ctx.stroke();
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawPip() {
+  if (!S.camReady || !pip.width) return;
+  const w = pip.width, h = pip.height;
+  pipCtx.imageSmoothingEnabled = true;
+  pipCtx.drawImage(S.frozen ? frozenCanvas : video, 0, 0, w, h);
+  pipCtx.fillStyle = 'rgba(12,10,36,.45)'; pipCtx.fillRect(0, 0, w, h);
+  pipCtx.drawImage(ovl, 0, 0, w, h);
+}
+
+/* =========================================================================
+   FX updates (real-time)
+   ========================================================================= */
+function updateFx(dt, rdt) {
+  for (const p of PART.pool) {
+    if (!p.on) continue;
+    p.life -= dt;
+    if (p.life <= 0) { p.on = false; continue; }
+    if (p.w) {
+      p.x += p.vx * dt; p.r += p.vr * dt; p.h += p.vh * dt; p.vh -= p.g * dt;
+      if (p.h < 0) { p.h = 0; p.vh = 0; }
+      p.vx *= 1 - 2 * dt; p.vr *= 1 - 2 * dt;
+    } else {
+      p.vy += p.g * dt; p.vx *= 1 - p.drag * dt; p.vy *= 1 - p.drag * dt * 0.5;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vrot * dt;
+    }
+  }
+  for (const t of S.texts) { t.t += rdt; t.y -= 60 * V.dpr * rdt; }
+  S.texts = S.texts.filter((t) => t.t < t.max);
+  for (const r of S.ripples) r.t += rdt;
+  S.ripples = S.ripples.filter((r) => r.t < 0.8);
+  for (const ln of S.lines) { ln.d += rdt * (0.9 + S.speed / 25); if (ln.d > 1) { ln.d = 0; ln.a = Math.random() * TAU; } }
+  for (const m of S.motes) { m.x = (m.x + m.vx * rdt + 1) % 1; m.y = (m.y + m.vy * rdt + 1) % 1; }
+  S.shake *= Math.exp(-CFG.SHAKE_DECAY * rdt); if (S.shake < 0.2) S.shake = 0;
+  S.flash *= Math.exp(-5 * rdt);
+  S.hitFlash *= Math.exp(-4 * rdt);
+}
+function addText(text, x, y, col, size) { S.texts.push({ text, x, y, col: col.slice(), size, t: 0, max: 1.1 }); }
+
+/* =========================================================================
+   UI helpers
+   ========================================================================= */
+const ICONS = {
+  drag: '<svg viewBox="0 0 24 24"><path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>',
+  tilt: '<svg viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="15" rx="2" transform="rotate(-20 12 11)"/><path d="M4 21c5 1.5 11 1.5 16 0"/></svg>',
+  freeze: '<svg viewBox="0 0 24 24"><path d="M12 2v20M3.3 7l17.4 10M3.3 17l17.4-10M9 3.5l3 3 3-3M9 20.5l3-3 3 3"/></svg>',
+  sens: '<svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>',
+  view: '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  stage: '<svg viewBox="0 0 24 24"><path d="M3 20h18M5 20l4-9 3 4 3-6 4 11"/><circle cx="17" cy="5" r="2"/></svg>',
+  reset: '<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4.5h4.5"/></svg>',
+  sound: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>',
+  mute: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/></svg>',
+};
+const HEART = '<svg viewBox="0 0 24 24"><path d="M12 21s-7.6-4.6-9.6-9.3C.9 8.2 3.2 4.4 6.9 4.4c2.1 0 3.6 1.2 5.1 3 1.5-1.8 3-3 5.1-3 3.7 0 6 3.8 4.5 7.3C19.6 16.4 12 21 12 21z"/></svg>';
+function buildHearts() { $('hearts').innerHTML = HEART.repeat(CFG.LIVES); }
+
+let toastTimer = 0, bannerTimer = 0;
+function toast(msg, ms = 2400) {
+  const el = $('toast'); el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+function showBanner(title, sub) {
+  const el = $('banner');
+  el.innerHTML = '';
+  el.append(document.createTextNode(title));
+  if (sub) { const s = document.createElement('small'); s.textContent = sub; el.append(s); }
+  el.classList.add('show');
+  clearTimeout(bannerTimer); bannerTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+function bumpCombo() { const el = $('combo'); el.textContent = 'x' + S.combo + ' COMBO'; el.classList.add('show'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+function showReady(on) { $('readyBox').classList.toggle('hidden', !on); }
+
+const HUDC = {};
+function setText(id, v) { if (HUDC[id] !== v) { HUDC[id] = v; $(id).textContent = v; } }
+function hud() {
+  const dist = S.mode === 'run' || S.mode === 'over' ? Math.max(0, Math.floor((S.d - S.startD) * CFG.ROW_METERS)) : 0;
+  setText('dist', dist); setText('score', S.score); setText('streak', S.streak);
+  setText('bestDist', Math.max(S.best.dist, dist)); setText('bestScore', Math.max(S.best.score, S.score));
+  if (HUDC.lives !== S.lives) {
+    HUDC.lives = S.lives;
+    [...$('hearts').children].forEach((h, i) => h.classList.toggle('lost', i >= S.lives));
+  }
+  if (S.combo <= 1 || S.time - S.lastPickup > CFG.COMBO_WINDOW) $('combo').classList.remove('show');
+  if (S.camReady && ((S.rt * 4) | 0) !== HUDC.metaTick) {
+    HUDC.metaTick = (S.rt * 4) | 0;
+    $('sensMeta').textContent = `More = more road · threshold ${Math.round(S.threshold)} · road ${Math.round(S.darkFrac * 100)}% · ${Math.round(S.fps)} fps${S.quality === 'low' ? ' · perf mode' : ''}`;
+  }
+}
+
+/* =========================================================================
+   Controls
+   ========================================================================= */
+function setIcon(id, name) { $(id).innerHTML = ICONS[name]; }
+function refreshButtons() {
+  setIcon('icoSteer', S.steer === 'tilt' ? 'tilt' : 'drag');
+  $('capSteer').textContent = S.steer === 'tilt' ? 'Tilt' : 'Drag';
+  setIcon('icoFreeze', 'freeze');
+  $('btnFreeze').classList.toggle('on', S.frozen);
+  $('capFreeze').textContent = S.frozen ? 'Frozen' : 'Freeze';
+  setIcon('icoSens', 'sens');
+  setIcon('icoView', S.viewMode === 2 ? 'stage' : 'view');
+  $('capView').textContent = ['Camera', 'Soft', 'Stage'][S.viewMode];
+  setIcon('icoReset', 'reset');
+  setIcon('icoMute', S.muted ? 'mute' : 'sound');
+  $('capMute').textContent = S.muted ? 'Muted' : 'Sound';
+  $('btnMute').classList.toggle('on', S.muted);
+  $('pipLabel').textContent = S.frozen ? '❄ FROZEN MAP' : 'LIVE MAP';
+}
+function tap() { AudioFX.click(); buzz(6); }
+
+function toggleFreeze() {
+  if (!S.camReady) return;
+  S.frozen = !S.frozen;
+  if (S.frozen) {
+    frozenCanvas.width = video.videoWidth; frozenCanvas.height = video.videoHeight;
+    fctx.drawImage(video, 0, 0);
+    toast('Map frozen — move freely, the road stays put');
+  }
+  refreshButtons();
+}
+
+function onOrient(e) {
+  if (e.gamma == null) return;
+  S.tiltSeen = true;
+  if (S.tiltZero === null) S.tiltZero = e.gamma;
+  S.tilt = e.gamma - S.tiltZero;
+}
+async function enableTilt() {
+  if (!('DeviceOrientationEvent' in window)) { toast('No tilt sensor — using drag'); return false; }
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try {
+      const r = await DeviceOrientationEvent.requestPermission();
+      if (r !== 'granted') { toast('Tilt permission denied — using drag'); return false; }
+    } catch (e) { toast('Tilt unavailable — using drag'); return false; }
+  }
+  window.addEventListener('deviceorientation', onOrient);
+  S.tiltZero = null; S.tiltSeen = false;
+  setTimeout(() => { if (S.steer === 'tilt' && !S.tiltSeen) { S.steer = 'drag'; refreshButtons(); toast('No tilt data — switched back to drag'); } }, 1200);
+  return true;
+}
+async function toggleSteer() {
+  if (S.steer === 'drag') {
+    S.steer = 'tilt'; refreshButtons();
+    if (!(await enableTilt())) S.steer = 'drag';
+    else toast('Tilt the phone to steer');
+  } else { S.steer = 'drag'; window.removeEventListener('deviceorientation', onOrient); toast('Drag a finger to steer'); }
+  refreshButtons();
+}
+
+/* drag steering: relative finger movement 1:1 with the character */
+view.addEventListener('pointerdown', (e) => {
+  if (S.steer !== 'drag' || !(S.mode === 'ready' || S.mode === 'run')) return;
+  S.drag = { id: e.pointerId, x: e.clientX };
+  try { view.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  $('sensPop').classList.remove('open');
+});
+view.addEventListener('pointermove', (e) => {
+  if (!S.drag || e.pointerId !== S.drag.id) return;
+  C.targetX += (((e.clientX - S.drag.x) * V.dpr) / V.cell) * CFG.DRAG_GAIN;
+  S.drag.x = e.clientX;
+});
+const endDrag = (e) => { if (S.drag && e.pointerId === S.drag.id) S.drag = null; };
+view.addEventListener('pointerup', endDrag);
+view.addEventListener('pointercancel', endDrag);
+window.addEventListener('keydown', (e) => { S.keys[e.key] = true; if (e.key === ' ' && S.mode === 'ready') startRun(); });
+window.addEventListener('keyup', (e) => { S.keys[e.key] = false; });
+
+$('btnSteer').addEventListener('click', () => { tap(); toggleSteer(); });
+$('btnFreeze').addEventListener('click', () => { tap(); toggleFreeze(); });
+$('btnSens').addEventListener('click', () => { tap(); $('sensPop').classList.toggle('open'); });
+$('btnView').addEventListener('click', () => {
+  tap();
+  S.viewMode = (S.viewMode + 1) % 3;
+  if (S.viewMode === 1 && S.quality === 'low') S.viewMode = 2;
+  refreshButtons();
+});
+$('btnReset').addEventListener('click', () => { tap(); if (S.camReady) resetGame(); });
+$('btnMute').addEventListener('click', () => { S.muted = !S.muted; store.set('sp_muted', S.muted); AudioFX.setMuted(S.muted); refreshButtons(); tap(); });
+$('btnGo').addEventListener('click', () => startRun());
+$('btnAgain').addEventListener('click', () => { tap(); resetGame(); });
+$('sens').addEventListener('input', (e) => { S.thrOffset = +e.target.value; $('sensOut').textContent = (S.thrOffset > 0 ? '+' : '') + S.thrOffset; });
+
+/* onboarding (first launch only) */
+const HINTS = ['Point at a lamp-lit surface', 'Place objects to build a path — dark = road', 'Tap Freeze, then GO!'];
+function runOnboarding() {
+  const ob = $('onboard'), steps = ob.querySelectorAll('.ob-step'), dots = ob.querySelectorAll('.ob-dots i');
+  let i = 0, timer = 0;
+  const show = (k) => {
+    steps.forEach((s, j) => s.classList.toggle('on', j === k));
+    dots.forEach((d, j) => d.classList.toggle('on', j === k));
+    $('obText').textContent = HINTS[k];
+  };
+  const done = () => { clearTimeout(timer); ob.classList.add('hidden'); store.set('sp_onboarded', true); };
+  const next = () => { i++; if (i >= HINTS.length) done(); else { show(i); timer = setTimeout(next, 2600); } };
+  show(0); ob.classList.remove('hidden');
+  timer = setTimeout(next, 2600);
+  $('obSkip').onclick = (e) => { e.stopPropagation(); done(); };
+  ob.onclick = () => { clearTimeout(timer); next(); };
+}
+
+/* title screen: build letters, start everything on first tap */
+(function buildLogo() {
+  const logo = $('logo');
+  ['SHADOW', 'PUPPET'].forEach((word, w) => {
+    const line = document.createElement('span');
+    line.className = 'line' + (w ? ' two' : '');
+    [...word].forEach((ch, i) => { const s = document.createElement('span'); s.textContent = ch; s.style.setProperty('--i', i + w * 6); line.append(s); });
+    logo.append(line);
+  });
+})();
 
 async function start() {
   const btn = $('btnStart'), err = $('errMsg');
-  btn.disabled = true;
-  btn.textContent = 'Starting…';
-  err.hidden = true;
+  AudioFX.init();                         // audio must start from a user gesture
+  btn.disabled = true; btn.textContent = 'WAKING THE LAMP…'; err.hidden = true;
   try {
     await initCamera();
-    S.running = true;
-    $('screen').classList.add('hidden');
+    $('title').classList.add('hidden');
+    ['hud', 'bar', 'pipWrap'].forEach((id) => $(id).classList.remove('hidden'));
+    resize();
+    resetGame(true);
+    AudioFX.whoosh();
+    if (!store.get('sp_onboarded', false)) runOnboarding();
   } catch (e) {
     console.error(e);
-    err.textContent = cameraErrorMessage(e);
-    err.hidden = false;
-    btn.textContent = 'Retry';
-  } finally {
-    btn.disabled = false;
+    err.textContent = cameraErrorMessage(e); err.hidden = false;
+    btn.textContent = 'RETRY';
+  } finally { btn.disabled = false; }
+}
+$('btnStart').addEventListener('click', start);
+
+/* =========================================================================
+   Main loop
+   ========================================================================= */
+function setLowQuality() {
+  S.quality = 'low';
+  S.T = 1; allocBuffers();
+  PART.max = CFG.LOW_PARTICLES; PART.i = 0;
+  if (S.viewMode === 1) S.viewMode = 0;
+  refreshButtons();
+  toast('Performance mode on');
+}
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  const rdt = Math.min((now - S.lastT) / 1000 || 0, 0.1);
+  S.lastT = now; S.rt += rdt;
+  if (S.slowT > 0) S.slowT -= rdt;
+  S.timeScale += ((S.slowT > 0 ? CFG.SLOWMO_SCALE : 1) - S.timeScale) * Math.min(1, rdt * 12);
+  const dt = Math.min(rdt, CFG.MAX_DT) * S.timeScale;
+  S.time += dt;
+  easeTheme(rdt);
+
+  if (S.camReady) {
+    if (!S.frozen && video.videoWidth && (video.videoWidth !== S.srcW || video.videoHeight !== S.srcH)) setupGrid(video.videoWidth, video.videoHeight);
+    if (S.frozen || video.readyState >= 2) processFrame();
+  }
+  if (S.gw && S.frames >= CFG.WARMUP_FRAMES) { updateCharacter(dt); updateEntities(dt); }
+  updateFx(dt, rdt);
+  render();
+  if (S.camReady && (S.quality === 'high' || (S.frames & 1))) drawPip();
+  if (S.mode !== 'title') hud();
+
+  // audio follows the scene
+  const sn = clamp(S.speed / CFG.SPEED_MAX, 0, 1);
+  if (++S.padTick % 12 === 0) AudioFX.setPad(S.darkFrac, sn);
+  AudioFX.music(S.mode === 'run' && S.hitT <= 0, sn);
+
+  // "not enough shadow" coaching
+  if (S.camReady && (S.mode === 'ready' || S.mode === 'run')) {
+    if (S.darkFrac < 0.03 || S.darkFrac > 0.92) S.lowDarkT += rdt; else S.lowDarkT = 0;
+    if (S.lowDarkT > 1.5 && S.rt - S.lastWarn > 8) {
+      S.lastWarn = S.rt;
+      toast(S.darkFrac < 0.03 ? 'Not enough shadow — raise Sensitivity or dim the lights' : 'Everything is road — lower Sensitivity');
+    }
+  }
+
+  // automatic quality fallback: < LOW_FPS for LOW_FPS_TIME seconds
+  S.fpsFrames++; S.fpsAcc += rdt;
+  if (S.fpsAcc >= 0.5) {
+    S.fps = S.fpsFrames / S.fpsAcc; S.fpsFrames = 0; S.fpsAcc = 0;
+    if (S.quality === 'high' && S.camReady && document.visibilityState === 'visible') {
+      S.lowT = S.fps < CFG.LOW_FPS ? S.lowT + 0.5 : 0;
+      if (S.lowT >= CFG.LOW_FPS_TIME) setLowQuality();
+    }
   }
 }
 
-$('btnStart').addEventListener('click', start);
-$('btnFreeze').addEventListener('click', toggleFreeze);
-$('btnVideo').addEventListener('click', toggleVideo);
-$('btnReset').addEventListener('click', resetGame);
-$('thr').addEventListener('input', (e) => { S.thrOffset = +e.target.value; });
-$('stage').addEventListener('pointerdown', onStageTap);
-window.addEventListener('resize', resizeCanvas);
-window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
-// Block pinch-zoom gestures on iOS
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 250));
 document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('visibilitychange', () => { if (AudioFX.ctx) document.hidden ? AudioFX.ctx.suspend() : AudioFX.ctx.resume(); });
 
-updateOverlayColors();
-resizeCanvas();
+buildHearts();
+refreshButtons();
+resize();
 requestAnimationFrame(loop);
 </script>
 </body>
