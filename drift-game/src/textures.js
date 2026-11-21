@@ -27,29 +27,36 @@ const tex = (c, { repeat = [1, 1], wrapS = THREE.RepeatWrapping, wrapT = THREE.R
 };
 
 /* --------------------------------------------------------------- asphalt */
-// Height + roughness for a road surface whose colour canvas is given: aggregate stones, worn
-// wheel paths (smoother, less rough), painted lines (flat and smoother). Returns { normalMap, roughnessMap }
-// sharing the colour map's UV layout.
-export function asphaltDetail(colorCanvas, { lineU = null } = {}) {
-  const W = colorCanvas.width, H = colorCanvas.height;
-  const [hc, hg] = canvas(W, H), [rc, rg] = canvas(W, H);
-  const col = colorCanvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H).data;
-  const himg = hg.createImageData(W, H), rimg = rg.createImageData(W, H);
-  for (let i = 0; i < W * H; i++) {
-    const o = i * 4, lum = (col[o] * 0.3 + col[o + 1] * 0.59 + col[o + 2] * 0.11) / 255;
-    // stones: local brightness becomes height, plus fine noise for grain
-    const n = Math.random();
-    const height = 0.45 + (lum - 0.22) * 0.9 + (n - 0.5) * 0.18;
-    himg.data[o] = himg.data[o + 1] = himg.data[o + 2] = Math.max(0, Math.min(255, height * 255)); himg.data[o + 3] = 255;
-    // roughness (green channel): rough aggregate, rubbered dark streaks are slicker, paint is smooth
-    let r = 0.88 + (n - 0.5) * 0.08;
-    if (lum < 0.13) r -= 0.22;      // laid rubber / oil
-    if (lum > 0.6) r = 0.55;        // painted line
-    rimg.data[o] = 0; rimg.data[o + 1] = Math.max(0, Math.min(255, r * 255)); rimg.data[o + 2] = 0; rimg.data[o + 3] = 255;
+// Tileable asphalt relief (normal map) and roughness, built once from a value-noise height field in plain
+// arrays (no canvas read-back: that cost seconds per track) and shared by every road. Coarse aggregate +
+// fine grain; roughness varies a little with the height (exposed stones are rougher than the binder).
+export function asphaltMaps(aniso = 4) {
+  if (cache.has('asphalt')) return cache.get('asphalt');
+  const S = 512, N = S * S, hgt = new Float32Array(N);
+  const grid = (cells) => { const g = new Float32Array(cells * cells); for (let i = 0; i < g.length; i++) g[i] = Math.random(); return g; };
+  const layer = (cells, amp) => {
+    const g = grid(cells), k = cells / S;
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const fx = x * k, fy = y * k, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+      const a = g[(iy % cells) * cells + (ix % cells)], b = g[(iy % cells) * cells + ((ix + 1) % cells)];
+      const c = g[((iy + 1) % cells) * cells + (ix % cells)], d = g[((iy + 1) % cells) * cells + ((ix + 1) % cells)];
+      const u = tx * tx * (3 - 2 * tx), v = ty * ty * (3 - 2 * ty);
+      hgt[y * S + x] += amp * (a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v);
+    }
+  };
+  layer(16, 0.35); layer(64, 0.4); layer(170, 0.35);
+  for (let i = 0; i < N; i++) hgt[i] += (Math.random() - 0.5) * 0.12; // grit
+  const [nc, ng] = canvas(S, S), [rc, rg] = canvas(S, S), nimg = ng.createImageData(S, S), rimg = rg.createImageData(S, S);
+  const H = (x, y) => hgt[((y + S) % S) * S + ((x + S) % S)];
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const dx = (H(x + 1, y) - H(x - 1, y)) * 2.2, dy = (H(x, y + 1) - H(x, y - 1)) * 2.2, l = Math.hypot(dx, dy, 1), o = (y * S + x) * 4;
+    nimg.data[o] = ((-dx / l) * 0.5 + 0.5) * 255; nimg.data[o + 1] = ((dy / l) * 0.5 + 0.5) * 255; nimg.data[o + 2] = (1 / l) * 255; nimg.data[o + 3] = 255;
+    rimg.data[o + 1] = Math.max(0, Math.min(255, (0.8 + (H(x, y) - 0.55) * 0.35) * 255)); rimg.data[o + 3] = 255;
   }
-  hg.putImageData(himg, 0, 0); rg.putImageData(rimg, 0, 0);
-  void lineU;
-  return { normalCanvas: normalFromHeight(hc, 1.6), roughnessCanvas: rc };
+  ng.putImageData(nimg, 0, 0); rg.putImageData(rimg, 0, 0);
+  const res = { normalMap: tex(nc, { aniso }), roughnessMap: tex(rc, { aniso }) };
+  cache.set('asphalt', res);
+  return res;
 }
 
 /* ----------------------------------------------------------------- tyres */

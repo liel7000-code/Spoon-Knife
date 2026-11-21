@@ -16,3 +16,5 @@ Port 5173 is in use, trying another one...
 4:49:06 PM [vite] page reload src/main.js
 4:49:31 PM [vite] page reload src/effects.js
 4:49:41 PM [vite] page reload src/drift/driftGame.js
+5:13:26 PM [vite] page reload src/textures.js
+5:13:26 PM [vite] page reload src/drift/track.js

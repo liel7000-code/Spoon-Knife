@@ -4,7 +4,7 @@
 // lamps and ambient occlusion are baked into vertex attributes (no real lights).
 import * as THREE from 'three';
 import { drawWithFont } from '../parts.js';
-import { asphaltDetail } from '../textures.js';
+import { asphaltMaps } from '../textures.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -377,11 +377,11 @@ export class Track {
     roadTex.repeat.set(1, 1);
     const roadMat = bakedMaterial(new THREE.MeshStandardMaterial({ map: roadTex, vertexColors: true, roughness: d.theme === 'neon' ? 0.5 : 0.85, metalness: 0 }));
     if (q.normalMaps) {
-      // aggregate relief + roughness (rubbered lines slicker, paint smooth); Neon's surface is damp and glossy
-      const det = asphaltDetail(roadTex.image);
-      const mk = (c) => { const t = new THREE.CanvasTexture(c); t.wrapS = roadTex.wrapS; t.wrapT = roadTex.wrapT; t.repeat.copy(roadTex.repeat); t.anisotropy = maxAniso; return t; };
-      roadMat.normalMap = mk(det.normalCanvas); roadMat.normalScale = new THREE.Vector2(0.9, 0.9);
-      roadMat.roughnessMap = mk(det.roughnessCanvas); roadMat.roughness = d.theme === 'neon' ? 0.62 : 1;
+      // aggregate relief + roughness (shared tileable maps, ~3 m tiles); Neon's surface is damp and glossy
+      const am = asphaltMaps(maxAniso);
+      const rep = (src) => { const tx = src.clone(); tx.repeat.set(4, 4); tx.needsUpdate = true; return tx; };
+      roadMat.normalMap = rep(am.normalMap); roadMat.normalScale = new THREE.Vector2(0.8, 0.8);
+      roadMat.roughnessMap = rep(am.roughnessMap); roadMat.roughness = d.theme === 'neon' ? 0.7 : 1.05;
     }
     const road = new THREE.Mesh(this.bake(this.ribbon(-w, w, 6, { vScale: 1 / d.width }), { ao: 0.25, aoNear: 3 }), roadMat);
     road.receiveShadow = true; road.name = 'road';
