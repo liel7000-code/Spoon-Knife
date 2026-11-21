@@ -19,11 +19,12 @@ import { Showroom } from './showroom.js';
 import { UI } from './ui.js';
 import { Input } from './input.js';
 import { EngineAudio } from './audio.js';
-import { QUALITY, QUALITY_ORDER } from './config.js';
+import { QUALITY, QUALITY_ORDER, QUALITY_DOWN } from './config.js';
 import { DriftGame } from './drift/driftGame.js';
 import { DriftUI } from './drift/driftUI.js';
 import { TRACKS } from './drift/trackData.js';
 import { loadTune, saveTune, resetTune } from './drift/tune.js';
+import { FLAKES } from './textures.js';
 
 const STEP = 1 / 120; // fixed logic step (seconds)
 const MAX_FRAME = 0.1;
@@ -46,7 +47,7 @@ const settings = {
   car: store.get('driftgame.car', 0),
   colors: store.get('driftgame.colors', {}),
   cam: store.get('driftgame.cam', 'third'),
-  quality: store.get('driftgame.quality', Input.isTouch() ? 'medium' : 'high'),
+  quality: store.get('driftgame.quality', 'auto'),
   style: store.get('driftgame.heroStyle', 'stock'),
   night: store.get('driftgame.night', false),
   mode: 'highway',
@@ -64,11 +65,16 @@ if (!settings.assist || typeof settings.assist !== 'object') {
 }
 const saveAssist = () => { store.set('driftgame.assist2', settings.assist); dui.setAssist(settings.assist); if (drift) drift.setAssist(settings.assist); document.getElementById('touch').classList.toggle('manual', !!settings.assist.manual); };
 let tuneDraft = null;
-if (!QUALITY[settings.quality]) settings.quality = 'high';
+if (!QUALITY[settings.quality] && settings.quality !== 'auto') settings.quality = 'auto';
+// 'auto': start at a level that suits the device, step down when the frame rate stays low
+let autoLevel = Input.isTouch() ? 'medium' : 'high';
+const levelName = () => (settings.quality === 'auto' ? autoLevel : settings.quality);
+const Q = () => QUALITY[levelName()];
+const qualityLabel = () => (settings.quality === 'auto' ? `אוטומטית · ${QUALITY[autoLevel].label}` : Q().label);
 // pixel ratio: device ratio capped at 2 (or the quality preset's cap); the adaptive
 // fallback in the loop steps it down if the frame rate drops
 let pixelRatio = 1;
-const applyPixelRatio = () => { pixelRatio = Math.min(window.devicePixelRatio || 1, 2, QUALITY[settings.quality].pixelRatio); renderer.setPixelRatio(pixelRatio); };
+const applyPixelRatio = () => { pixelRatio = Math.min(window.devicePixelRatio || 1, Q().pixelRatio); renderer.setPixelRatio(pixelRatio); };
 applyPixelRatio();
 if (!PLAYER_CARS[settings.car]) settings.car = 0;
 const colorOf = (i) => settings.colors[PLAYER_CARS[i].id] || PLAYER_CARS[i].color;
@@ -126,11 +132,7 @@ const ui = new UI({
   onQuality: () => {
     settings.quality = QUALITY_ORDER[(QUALITY_ORDER.indexOf(settings.quality) + 1) % QUALITY_ORDER.length];
     store.set('driftgame.quality', settings.quality);
-    applyPixelRatio(); resize();
-    game.setQuality(QUALITY[settings.quality]);
-    if (drift) drift.setQuality(QUALITY[settings.quality]);
-    showroom.setQuality(QUALITY[settings.quality]);
-    ui.setQuality(QUALITY[settings.quality].label);
+    applyQuality();
   },
   onCamToggle: () => toggleCam(),
   onRetry: () => startRun(),
@@ -138,7 +140,7 @@ const ui = new UI({
 });
 
 const game = new Game(renderer, {
-  ui, audio, input, quality: QUALITY[settings.quality],
+  ui, audio, input, quality: Q(),
   onGameOver: (result) => { ui.gameOver(result); go('over'); },
 });
 
@@ -154,7 +156,7 @@ input.onCamera = () => toggleCam();
 /* ------------------------------------------------------------- drift mode */
 let drift = null;
 const getDrift = () => drift || (drift = new DriftGame(renderer, {
-  ui: dui, audio, input, quality: QUALITY[settings.quality],
+  ui: dui, audio, input, quality: Q(),
   onFinish: (res) => { dui.results(res); go('dover'); },
 }));
 const dui = new DriftUI({
@@ -185,6 +187,8 @@ function startDrift() {
   const d = getDrift();
   d.start({ carIndex: settings.car, color: colorOf(settings.car), style: styleOf(settings.car), trackIndex: settings.track, session: settings.session, assist: settings.assist, cam: settings.cam });
   resize();
+  // compile every shader of the track during the countdown instead of stalling on the first frames
+  if (renderer.compileAsync && renderer.extensions.has('KHR_parallel_shader_compile')) renderer.compileAsync(d.scene, d.camera).catch(() => {});
   acc = 0;
   go('drift');
 }
@@ -193,7 +197,7 @@ function toggleDebug() { if (drift) drift.setDebug(!drift.debug); }
 input.onDebug = () => { if (screen === 'drift' || screen === 'dpause') toggleDebug(); };
 function pauseDrift() { if (drift && (drift.state === 'play' || drift.state === 'countdown')) { drift.pause(); go('dpause'); } }
 // back to the highway look (its exposure and shadow settings) when leaving drift mode
-function leaveDrift() { game.setTime(settings.night); game.setQuality(QUALITY[settings.quality]); }
+function leaveDrift() { game.setTime(settings.night); game.setQuality(Q()); }
 const DRIFT_SCREENS = ['drift', 'dpause', 'dover', 'replay'];
 
 function refreshMenu() {
@@ -256,13 +260,14 @@ window.addEventListener('orientationchange', () => setTimeout(resize, 150));
 resize();
 
 showCar();
-showroom.setQuality(QUALITY[settings.quality]);
+FLAKES.uFlake.value = Q().flakes ? 0.12 : 0;
+showroom.setQuality(Q());
 ui.setCamPref(settings.cam);
 ui.setMuted(audio.muted);
 ui.setMusic(audio.musicOn);
 // browsers only allow sound after a gesture: start it (and the menu music) on the first click or key
 for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => audio.init(), { once: true });
-ui.setQuality(QUALITY[settings.quality].label);
+ui.setQuality(qualityLabel());
 game.setTime(settings.night);
 ui.setTime(settings.night);
 go('menu');
@@ -272,16 +277,32 @@ let last = performance.now();
 let acc = 0;
 // adaptive quality: under 40 FPS for 2 s in a row -> lower the pixel ratio a step (down to 1)
 let avgDt = 1 / 60, slowFor = 0;
+// target 60 FPS: under 45 FPS for 2 s -> lower the pixel ratio a step; in Auto, once the pixel ratio is down
+// to 1, drop a whole quality level (Ultra -> High -> Medium -> Low)
 function adapt(dt) {
   if (document.hidden) return;
   avgDt += (dt - avgDt) * 0.1;
-  slowFor = 1 / avgDt < 40 ? slowFor + dt : 0;
+  slowFor = 1 / avgDt < 45 ? slowFor + dt : 0;
   if (slowFor > 2 && pixelRatio > 1) {
     pixelRatio = Math.max(1, pixelRatio - 0.25);
     renderer.setPixelRatio(pixelRatio);
     resize();
     slowFor = 0; avgDt = 1 / 50;
+  } else if (slowFor > 3 && settings.quality === 'auto' && autoLevel !== 'low') {
+    autoLevel = QUALITY_DOWN[autoLevel];
+    applyQuality(false);
+    slowFor = 0; avgDt = 1 / 50;
   }
+}
+
+function applyQuality(resetRatio = true) {
+  FLAKES.uFlake.value = Q().flakes ? 0.12 : 0;
+  if (resetRatio) applyPixelRatio();
+  resize();
+  game.setQuality(Q());
+  if (drift) drift.setQuality(Q());
+  showroom.setQuality(Q());
+  ui.setQuality(qualityLabel());
 }
 
 function loop(now) {

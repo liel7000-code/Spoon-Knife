@@ -15,18 +15,30 @@ export class Particles {
     this.life = new Float32Array(max);
     this.maxLife = new Float32Array(max).fill(1);
     this.a0 = new Float32Array(max);
+    this.seed = new Float32Array(max).map(() => Math.random()); // per-puff noise pattern (smoke)
     this.head = 0;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
     g.setAttribute('aSize', new THREE.BufferAttribute(this.size, 1));
     g.setAttribute('aAlpha', new THREE.BufferAttribute(this.alpha, 1));
+    g.setAttribute('aSeed', new THREE.BufferAttribute(this.seed, 1));
+    // soft (smoke): each puff gets its own value-noise pattern so it reads as wispy volume rather than a
+    // disc, is lit from above (darker underside) and tinted by uColor, which the game sets from the scene light
     this.mat = new THREE.ShaderMaterial({
       uniforms: { uColor: { value: new THREE.Color(color) }, uScale: { value: 400 } },
-      vertexShader: `attribute float aSize; attribute float aAlpha; varying float vA; uniform float uScale;
-        void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vA = aAlpha * smoothstep(0.8, 4.5, -mv.z); gl_PointSize = min(aSize * uScale / max(0.1, -mv.z), 420.0); gl_Position = projectionMatrix * mv; }`,
-      fragmentShader: `uniform vec3 uColor; varying float vA;
-        void main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c); float a = ${soft ? 'smoothstep(0.5, 0.0, d) * smoothstep(0.5, 0.25, d) * 1.6' : 'smoothstep(0.5, 0.15, d)'};
-          if (a * vA < 0.003) discard; gl_FragColor = vec4(uColor, a * vA); }`,
+      vertexShader: `attribute float aSize; attribute float aAlpha; attribute float aSeed; varying float vA; varying float vS; uniform float uScale;
+        void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vA = aAlpha * smoothstep(0.8, 4.5, -mv.z); vS = aSeed; gl_PointSize = min(aSize * uScale / max(0.1, -mv.z), 420.0); gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `uniform vec3 uColor; varying float vA; varying float vS;
+        float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float n(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + 1.0), f.x), f.y); }
+        void main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c);
+          ${soft
+            ? `vec2 q = gl_PointCoord * 3.0 + vS * 37.0; float w = n(q) * 0.6 + n(q * 2.1) * 0.4;
+          float a = smoothstep(0.5, 0.05, d + (w - 0.5) * 0.22) * (0.55 + w * 0.7);
+          vec3 col = uColor * mix(1.05, 0.72, gl_PointCoord.y) * (0.85 + w * 0.25);`
+            : `float a = smoothstep(0.5, 0.15, d); vec3 col = uColor;`}
+          if (a * vA < 0.003) discard; gl_FragColor = vec4(col, a * vA); }`,
       transparent: true, depthWrite: false, fog: false,
       blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
     });
@@ -40,7 +52,7 @@ export class Particles {
     const i = this.head; this.head = (this.head + 1) % this.max;
     this.pos[i * 3] = x; this.pos[i * 3 + 1] = y; this.pos[i * 3 + 2] = z;
     this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
-    this.size[i] = size; this.life[i] = life; this.maxLife[i] = life; this.a0[i] = alpha;
+    this.size[i] = size; this.life[i] = life; this.maxLife[i] = life; this.a0[i] = alpha; this.seed[i] = Math.random(); this.points.geometry.attributes.aSeed.needsUpdate = true;
   }
 
   update(dt, scroll) {

@@ -57,7 +57,8 @@ export class DriftGame {
     this.lampLights = [0, 1].map(() => { const l = new THREE.PointLight(ctx.lampColor || '#ffb06a', 0, 30, 1.6); scene.add(l); return l; });
     this.flash = [0, 1].map(() => { const l = new THREE.PointLight('#ff8a2a', 0, 7, 2); scene.add(l); return l; });
     this.fx = new DriftFx(scene, this.quality);
-    this.fx.setSmokeColor(ctx.night ? '#9fa3ad' : '#e2dcd4');
+    // smoke takes the colour of the light it is in: sodium-lit harbour, neon city, warm sunset
+    this.fx.setSmokeColor({ harbor: '#a99d90', neon: '#9b94ae', mountain: '#d9cfc3' }[def.theme] || '#cfcfcf');
     // one post chain for all tracks: only the scene it renders is swapped
     if (!this.post) this.post = new Post(this.renderer, scene, this.camera);
     this.post.scene = scene; this.post.composer.passes[0].scene = scene; this.post.ao.scene = scene;
@@ -203,6 +204,11 @@ export class DriftGame {
     if (q.shadows && this.sun.shadow.mapSize.x !== size) { this.sun.shadow.mapSize.set(size, size); if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; } }
     this.post.setQuality(q);
     this.fx.setQuality(q);
+    // High/Ultra: barriers, rails, poles and trees near the car cast real shadows (the shadow box follows the car)
+    const sc = q.sceneryShadows && q.shadows;
+    this.scene.traverse((o) => { if (o.userData.shadowable) o.castShadow = sc; });
+    const ext = sc ? 24 : 12, cam = this.sun.shadow.camera;
+    if (cam.right !== ext) { cam.left = -ext; cam.right = ext; cam.top = ext; cam.bottom = -ext; cam.far = sc ? 140 : 80; cam.updateProjectionMatrix(); }
   }
 
   resize(w, h) {
@@ -483,7 +489,7 @@ export class DriftGame {
     this.cameraUpdate(realDt, pose);
     // lights follow the car: shadow box, nearest lamps
     this.sun.target.position.set(pose.x, pose.y, pose.z);
-    this.sun.position.copy(this.sun.target.position).addScaledVector(this.ctx.lightDir, 40);
+    this.sun.position.copy(this.sun.target.position).addScaledVector(this.ctx.lightDir, 60);
     this.lampT = (this.lampT || 0) - realDt;
     if (this.lampT <= 0 && this.ctx.night) {
       this.lampT = 0.15;

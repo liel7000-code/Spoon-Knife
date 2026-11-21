@@ -106,9 +106,16 @@ Golden-hour `Sky` with a PMREM environment map for reflections, a sun shadow tha
 clear-coat car paint, procedural asphalt with normal and roughness maps, bloom, speed blur, chromatic aberration,
 vignette, speed lines, exhaust heat haze, tyre smoke, skid marks, sparks, headlights and brake lights.
 
-Quality (menu → "איכות גרפיקה"): **High** = pixel ratio up to 2, 2048 shadows, full post-processing.
-**Medium** (default on phones) = pixel ratio 1.5, 1024 shadows, post-processing without bloom.
-**Low** = pixel ratio 1, no shadows, no post-processing, fewer trees.
+Quality (menu → "איכות גרפיקה"): **Auto** (default) starts at High on desktop and Medium on phones; if the
+frame rate stays under 45 FPS it first lowers the resolution, then a whole quality level. **Ultra** = pixel ratio up to
+2.5, 4096 shadows, ambient occlusion, bloom, SMAA, scenery shadows. **High** = pixel ratio up to 2, 2048 shadows,
+ambient occlusion, bloom, scenery shadows. **Medium** = post-processing with bloom, car shadow only. **Low** = pixel
+ratio 1.25, no shadows, no post-processing, no normal maps or paint flakes, fewer trees.
+
+Realism details: clear-coated car paint with metallic flakes under the coat, tinted glass, tyres with a moulded tread
+normal map, machined brake discs, asphalt with aggregate relief and roughness (rubbered lines slicker, paint smooth,
+Neon's surface damp), scenery shadows near the car on High/Ultra, roadside delineator posts, tyre smoke with per-puff
+noise lit by the scene's light colour.
 
 ## Tuning
 

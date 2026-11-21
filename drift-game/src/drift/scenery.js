@@ -29,7 +29,8 @@ const fbm = (x, z) => vnoise(x, z) * 0.55 + vnoise(x * 2.1, z * 2.1) * 0.28 + vn
 export class Scatter {
   constructor(group, cell = 150) { this.group = group; this.cell = cell; this.chunks = []; }
   // items: [{ x, y, z, ry, sx, sy, sz, color }]
-  add(items, hi, lo = null, { lod = 160, far = 2000, cast = false } = {}) {
+  // shadow: may cast shadows (switched on per quality level by the game: High/Ultra)
+  add(items, hi, lo = null, { lod = 160, far = 2000, cast = false, shadow = false } = {}) {
     const byCell = new Map();
     for (const it of items) {
       const k = Math.floor(it.x / this.cell) + ',' + Math.floor(it.z / this.cell);
@@ -44,7 +45,7 @@ export class Scatter {
         o.updateMatrix(); m.setMatrixAt(i, o.matrix);
         if (t.color) m.setColorAt(i, col.set(t.color));
       });
-      m.castShadow = cast; m.receiveShadow = false;
+      m.castShadow = cast; m.receiveShadow = false; m.userData.shadowable = shadow;
       m.computeBoundingSphere();
       this.group.add(m);
       return m;
@@ -104,6 +105,18 @@ function envFrom(renderer, top, bottom, panels) {
   const tex = pm.fromScene(s, 0.02).texture;
   pm.dispose();
   return tex;
+}
+
+// marks a wall/rail mesh as a shadow caster for the High/Ultra quality levels
+function shadowy(m) { m.userData.shadowable = true; m.receiveShadow = true; return m; }
+
+function delineatorTexture() {
+  const [c, g] = canvas(16, 64);
+  g.fillStyle = '#e9e9e4'; g.fillRect(0, 0, 16, 64);
+  g.fillStyle = '#161616'; g.fillRect(0, 6, 16, 10);
+  g.fillStyle = '#ff9b2a'; g.fillRect(4, 8, 8, 6);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 /* ---------------------------------------------------------------- textures */
@@ -180,7 +193,7 @@ function streetLamps(track, { every = 34, height = 9, color = '#ffb46a', power =
 
 function addLampMeshes(scatter, L, { poleColor = '#5c6168', emissive = '#ffb46a', intensity = 4 }) {
   const steel = new THREE.MeshStandardMaterial({ color: poleColor, metalness: 0.6, roughness: 0.45 });
-  scatter.add(L.poles, [new THREE.CylinderGeometry(0.1, 0.16, L.height, 8), steel], [new THREE.CylinderGeometry(0.12, 0.12, L.height, 4), steel], { lod: 220 });
+  scatter.add(L.poles, [new THREE.CylinderGeometry(0.1, 0.16, L.height, 8), steel], [new THREE.CylinderGeometry(0.12, 0.12, L.height, 4), steel], { lod: 220, shadow: true });
   scatter.add(L.arms, [new THREE.BoxGeometry(0.12, 0.1, L.armLen + 0.2).rotateY(Math.PI / 2), steel], null, { lod: 220, far: 300 });
   const headMat = new THREE.MeshStandardMaterial({ color: '#202124', emissive, emissiveIntensity: intensity });
   scatter.add(L.heads, [new THREE.BoxGeometry(0.8, 0.16, 0.36), headMat], null, { far: 600 });
@@ -234,7 +247,7 @@ function harbor(track, scene, ctx) {
     const barTex = concreteTexture('#9a978f', '#e8b40c'); barTex.repeat.set(1, 1);
     const barMat = bakedMaterial(new THREE.MeshStandardMaterial({ map: barTex, vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }));
     const jersey = [[0, 0], [0.03, 0.26], [0.16, 0.5], [0.2, 0.84], [0.42, 0.84], [0.46, 0.5], [0.59, 0.26], [0.62, 0]];
-    for (const sd of [1, -1]) g.add(new THREE.Mesh(track.bake(track.extrude(jersey, sd, (i) => (sd > 0 ? track.wallL[i] : track.wallR[i]))), barMat));
+    for (const sd of [1, -1]) g.add(shadowy(new THREE.Mesh(track.bake(track.extrude(jersey, sd, (i) => (sd > 0 ? track.wallL[i] : track.wallR[i]))), barMat)));
     addLampMeshes(sc, L, { emissive: '#ffb06a', intensity: 5 });
     lampGlow(sc, track, '#ff9c4a');
     // container yards: grid-aligned stacks away from the track
@@ -358,11 +371,11 @@ function mountain(track, scene, ctx) {
     // guard rails on both sides + posts
     const railMat = bakedMaterial(new THREE.MeshStandardMaterial({ color: '#c3c8ce', metalness: 0.85, roughness: 0.35, vertexColors: true, side: THREE.DoubleSide }));
     const wbeam = [[0, 0.5], [0.07, 0.56], [0.03, 0.64], [0.07, 0.72], [0, 0.78]];
-    for (const sd of [1, -1]) g.add(new THREE.Mesh(track.bake(track.extrude(wbeam, sd, (i) => (sd > 0 ? track.wallL[i] : track.wallR[i]))), railMat));
+    for (const sd of [1, -1]) g.add(shadowy(new THREE.Mesh(track.bake(track.extrude(wbeam, sd, (i) => (sd > 0 ? track.wallL[i] : track.wallR[i]))), railMat)));
     const posts = [];
     for (let i = 0; i < track.N; i += 2) for (const sd of [1, -1]) { const pp = track.at(i, sd * ((sd > 0 ? track.wallL[i] : track.wallR[i]) + 0.14)); posts.push({ x: pp.x, y: pp.y + 0.2, z: pp.z, ry: Math.atan2(-track.tx[i], -track.tz[i]) }); }
     const postMat = new THREE.MeshStandardMaterial({ color: '#8d939a', metalness: 0.7, roughness: 0.5 });
-    sc.add(posts, [new THREE.BoxGeometry(0.1, 1.2, 0.14), postMat], null, { lod: 120, far: 180 });
+    sc.add(posts, [new THREE.BoxGeometry(0.1, 1.2, 0.14), postMat], null, { lod: 120, far: 180, shadow: true });
     // pines and broadleaf trees on the gentler slopes
     const pine = treeGeometry('pine'), pineLo = new THREE.ConeGeometry(2.4, 9, 4).translate(0, 5, 0);
     const leafy = treeGeometry('round'), leafyLo = new THREE.IcosahedronGeometry(3, 0).translate(0, 5, 0);
@@ -380,8 +393,8 @@ function mountain(track, scene, ctx) {
       (rnd() < 0.65 ? pines : rounds).push({ x, y: y - 0.2, z, ry: rnd() * 6, sx: s, sy: s * rand(0.85, 1.2), color: col });
       k++;
     }
-    sc.add(pines, [pine, tmat], [pineLo, tlo], { lod: 170, far: 900 });
-    sc.add(rounds, [leafy, tmat], [leafyLo, tlo], { lod: 170, far: 900 });
+    sc.add(pines, [pine, tmat], [pineLo, tlo], { lod: 170, far: 900, shadow: true });
+    sc.add(rounds, [leafy, tmat], [leafyLo, tlo], { lod: 170, far: 900, shadow: true });
     // distant ridges
     ridges(g, (b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, mid);
     // rock outcrops near the cliff faces
@@ -391,7 +404,15 @@ function mountain(track, scene, ctx) {
       const pp = track.at(i, cliffSide * (wall + rand(4, 9)));
       rocks.push({ x: pp.x, y: hAt(pp.x, pp.z) - 0.6, z: pp.z, ry: rnd() * 6, sx: rand(1.4, 3), sy: rand(1, 2.4), sz: rand(1.4, 3), color: '#8a8076' });
     }
-    sc.add(rocks, [new THREE.DodecahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true })], null, { far: 500 });
+    sc.add(rocks, [new THREE.DodecahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true })], null, { far: 500, shadow: true });
+    // roadside delineator posts: white posts with a black band and an amber reflector every ~24 m
+    const dels = [], step = Math.max(1, Math.round(24 / (track.length / track.N)));
+    for (let i = 0; i < track.N; i += step) for (const sd of [1, -1]) {
+      const pp = track.at(i, sd * ((sd > 0 ? track.wallL[i] : track.wallR[i]) + 0.55));
+      dels.push({ x: pp.x, y: pp.y + 0.5, z: pp.z, ry: Math.atan2(-track.tx[i], -track.tz[i]) });
+    }
+    const delMat = new THREE.MeshStandardMaterial({ map: delineatorTexture(), roughness: 0.6 });
+    sc.add(dels, [new THREE.BoxGeometry(0.1, 1.0, 0.1), delMat], null, { lod: 120, far: 220, shadow: true });
     return sc;
   };
 }
@@ -448,7 +469,7 @@ function neon(track, scene, ctx) {
     const wallMat = bakedMaterial(new THREE.MeshStandardMaterial({ map: wallTex, vertexColors: true, roughness: 0.8, side: THREE.DoubleSide }));
     const profile = [[0, 0], [0, 1.1], [0.35, 1.1], [0.35, 0]];
     for (const sd of [1, -1]) {
-      g.add(new THREE.Mesh(track.bake(track.extrude(profile, sd, (i) => (sd > 0 ? track.wallL[i] : track.wallR[i]))), wallMat));
+      g.add(shadowy(new THREE.Mesh(track.bake(track.extrude(profile, sd, (i) => (sd > 0 ? track.wallL[i] : track.wallR[i]))), wallMat)));
       const tube = new THREE.Mesh(track.extrude([[-0.03, 1.02], [-0.03, 1.13]], sd, (i) => (sd > 0 ? track.wallL[i] : track.wallR[i])),
         new THREE.MeshBasicMaterial({ color: sd > 0 ? '#2fd8ff' : '#ff3fc8', toneMapped: false, side: THREE.DoubleSide }));
       tube.material.color.multiplyScalar(2.2);

@@ -15,6 +15,7 @@ This file lists every piece of the Drift Game that was not written for this proj
 | Engine, turbo, exhaust pops, tyre squeal, wind, crash sounds | Synthesized live with the Web Audio API (`src/audio.js`). No audio files. |
 | Music | Generated live with the Web Audio API (`src/audio.js`). No audio files. |
 | Post-processing shader (sun rays, blur, vignette, speed lines, haze) | Written for this project (`src/post.js`). |
+| Surface detail textures (asphalt normal + roughness maps, tyre tread/sidewall normal map, brake-disc machining, car-paint metallic flakes, delineator posts, smoke noise) | Generated in code at load time (`src/textures.js`, `src/drift/scenery.js`, `src/effects.js`). |
 | UI, HUD, icons | HTML/CSS/SVG written for this project (`index.html`, `src/style.css`, `src/ui.js`). |
 
 The project contains **no** downloaded 3D models, image textures, HDRIs, sound files or music files. All textures are drawn at runtime on canvases (so there are no texture files to compress to KTX2).

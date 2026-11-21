@@ -54,12 +54,18 @@ export const CAR_TUNING = {
 };
 export const tuningFor = (id) => ({ steer: 1, grip: 1, lat: 1, yaw: 1, flames: 1, flameTime: 1, exhaust: 1, ...(CAR_TUNING[id] || {}) });
 
+// Quality levels. 'auto' picks a starting level for the device and steps down by itself when the frame
+// rate stays low (see main.js). Heavy effects (SMAA, 4k shadows, scenery shadows) only on High/Ultra.
+//   flakes: metallic flake normal map in the car paint   envRes: reflection map detail
+//   sceneryShadows: walls/poles cast shadows (drift)    smaa: extra anti-aliasing pass
 export const QUALITY = {
-  low: { label: 'נמוכה', pixelRatio: 1.25, roadRes: 1024, shadows: false, shadowSize: 0, post: false, bloom: false, ao: false, clouds: false, scenery: 0.6, headlights: false },
-  medium: { label: 'בינונית', pixelRatio: 2, roadRes: 1536, shadows: true, shadowSize: 2048, post: true, bloom: true, ao: false, clouds: true, scenery: 0.85, headlights: true },
-  high: { label: 'גבוהה', pixelRatio: 2, roadRes: 2048, shadows: true, shadowSize: 2048, post: true, bloom: true, ao: true, clouds: true, scenery: 1, headlights: true },
+  low: { label: 'נמוכה', pixelRatio: 1.25, roadRes: 1024, shadows: false, shadowSize: 0, post: false, bloom: false, ao: false, clouds: false, scenery: 0.6, headlights: false, flakes: false, sceneryShadows: false, smaa: false, normalMaps: false },
+  medium: { label: 'בינונית', pixelRatio: 2, roadRes: 1536, shadows: true, shadowSize: 2048, post: true, bloom: true, ao: false, clouds: true, scenery: 0.85, headlights: true, flakes: true, sceneryShadows: false, smaa: false, normalMaps: true },
+  high: { label: 'גבוהה', pixelRatio: 2, roadRes: 2048, shadows: true, shadowSize: 2048, post: true, bloom: true, ao: true, clouds: true, scenery: 1, headlights: true, flakes: true, sceneryShadows: true, smaa: false, normalMaps: true },
+  ultra: { label: 'אולטרה', pixelRatio: 2.5, roadRes: 2048, shadows: true, shadowSize: 4096, post: true, bloom: true, ao: true, clouds: true, scenery: 1, headlights: true, flakes: true, sceneryShadows: true, smaa: true, normalMaps: true },
 };
-export const QUALITY_ORDER = ['high', 'medium', 'low'];
+export const QUALITY_ORDER = ['auto', 'ultra', 'high', 'medium', 'low'];
+export const QUALITY_DOWN = { ultra: 'high', high: 'medium', medium: 'low', low: 'low' };
 
 /* ------------------------------------------------------------ drift mode */
 // Drift-mode car physics lives in src/physics/ (vehicle.js + carSpecs.js); only scoring is set here.

@@ -1,14 +1,16 @@
 // Shared physically based materials.
 import * as THREE from 'three';
+import { addFlakes, treadNormal, discRoughness } from './textures.js';
 
 export function carPaint(color, { metalness = 0.55, roughness = 0.3, pearl = false, matte = false } = {}) {
   // matte: satin finish with no gloss clearcoat (e.g. the Adler's matte grey)
-  if (matte) return new THREE.MeshPhysicalMaterial({ color, metalness: 0.45, roughness: 0.58, clearcoat: 0.15, clearcoatRoughness: 0.7 });
-  return new THREE.MeshPhysicalMaterial({
+  // metallic flakes sparkle under the clear coat (strength set per quality level, see textures.js)
+  if (matte) return addFlakes(new THREE.MeshPhysicalMaterial({ color, metalness: 0.45, roughness: 0.58, clearcoat: 0.15, clearcoatRoughness: 0.7 }));
+  return addFlakes(new THREE.MeshPhysicalMaterial({
     color, metalness, roughness,
     clearcoat: 1, clearcoatRoughness: 0.05,
     ...(pearl ? { sheen: 0.6, sheenColor: new THREE.Color('#f5e9ff'), sheenRoughness: 0.4, iridescence: 0.25, iridescenceIOR: 1.3 } : {}),
-  });
+  }));
 }
 
 // cheaper paint for traffic (still clear-coated)
@@ -54,3 +56,10 @@ export const MAT = {
 };
 
 export const indicatorMat = () => std({ color: 0x4a2a00, emissive: 0xff8a10, emissiveIntensity: 0 });
+
+// rubber with moulded tread and sidewall ripples; brake discs with concentric machining marks
+MAT.tire.normalMap = treadNormal();
+MAT.tire.normalScale = new THREE.Vector2(0.9, 0.9);
+MAT.tire.roughness = 0.88;
+MAT.disc.roughnessMap = discRoughness();
+MAT.disc.roughness = 1;

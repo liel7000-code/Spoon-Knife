@@ -1,0 +1,18 @@
+Port 5173 is in use, trying another one...
+
+  VITE v5.4.21  ready in 230 ms
+
+  ➜  Local:   http://localhost:514:41:57 PM [vite] page reload src/config.js
+4:42:12 PM [vite] page reload src/main.js
+4:43:44 PM [vite] page reload src/materials.js
+4:43:44 PM [vite] page reload src/drift/track.js
+4:43:44 PM [vite] page reload src/post.js
+4:43:44 PM [vite] page reload src/main.js
+4:44:28 PM [vite] page reload src/drift/scenery.js
+4:44:28 PM [vite] page reload src/drift/driftGame.js
+4:44:41 PM [vite] ✨ new dependencies optimized: three/examples/jsm/postprocessing/SMAAPass.js
+4:44:41 PM [vite] ✨ optimized dependencies changed. reloading
+4:45:03 PM [vite] page reload src/main.js
+4:49:06 PM [vite] page reload src/main.js
+4:49:31 PM [vite] page reload src/effects.js
+4:49:41 PM [vite] page reload src/drift/driftGame.js

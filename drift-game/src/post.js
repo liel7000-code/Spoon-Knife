@@ -9,6 +9,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
+import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 
 const FinalShader = {
   uniforms: {
@@ -89,6 +90,10 @@ export class Post {
     this.composer.addPass(this.ao);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.26, 0.55, 0.92);
     this.composer.addPass(this.bloom);
+    // SMAA (Ultra only) runs in linear space, after the effects and before the output transform
+    this.smaa = new SMAAPass(256, 256);
+    this.smaa.enabled = false;
+    this.composer.addPass(this.smaa);
     this.composer.addPass(new OutputPass());
     this.final = new ShaderPass(FinalShader);
     this.composer.addPass(this.final);
@@ -101,6 +106,7 @@ export class Post {
     this.enabled = q.post;
     this.bloom.enabled = q.bloom;
     this.ao.enabled = q.ao;
+    this.smaa.enabled = !!q.smaa;
   }
 
   setSize(w, h) {
