@@ -29,6 +29,7 @@
         <button id="btnMuteMenu" class="btn ghost">צליל: פועל</button>
         <button id="btnMusic" class="btn ghost">מוזיקה: פועלת</button>
         <button id="btnQuality" class="btn ghost">איכות גרפיקה: גבוהה</button>
+        <button id="btnCockpit" class="btn ghost">הגדרות תא נהג</button>
       </div>
       <div class="menu-best">שיא: <b id="menuBest" dir="ltr">0</b></div>
       <div class="keys">
@@ -209,6 +210,21 @@
     <pre id="dbg" class="dbg" dir="ltr" hidden></pre>
   </section>
 
+  <!-- Cockpit camera settings -->
+  <section id="cockpitScreen" class="screen" hidden>
+    <div class="menu-card">
+      <header class="pick-top">
+        <button id="cockpitBack" class="btn ghost small">חזרה</button>
+        <h2>תא נהג</h2>
+        <span></span>
+      </header>
+      <div id="cockpitList" class="tune-list"></div>
+      <div class="toggles"><button class="tog" id="cockpitApex">מבט לכיוון הפנייה</button></div>
+      <p class="hint">במצלמת תא הנהג: החזיקו <kbd>V</kbd> כדי להסתכל למטה אל הדוושות.</p>
+      <button id="cockpitDone" class="btn primary">שמור</button>
+    </div>
+  </section>
+
   <!-- Drift: tuning -->
   <section id="tuneScreen" class="screen" hidden>
     <div class="menu-card">
@@ -246,6 +262,7 @@
         <button id="dResume" class="btn primary">המשך</button>
         <button id="dRestart" class="btn">התחל מחדש</button>
         <button id="dEnd" class="btn">סיים ותוצאות</button>
+        <button id="dCockpit" class="btn ghost">הגדרות תא נהג</button>
         <button id="dDebug" class="btn ghost">דיבאג פיזיקה (F3)</button>
         <button id="dQuit" class="btn ghost">יציאה לתפריט</button>
       </div>

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { MAT } from './materials.js';
 import { loft, range, mesh, lerp, planShape } from './parts.js';
+import { mergeStatic as mergeStaticGroup } from './parts.js';
 
 const LINER = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 1, side: THREE.DoubleSide });
 
@@ -102,6 +103,10 @@ export function gauge(max, step, red, label, r) {
 /* --------------------------------------------------------------- cockpit */
 export function addCockpit(root, body, C) {
   const { eye, dashZ, dashY, maxKmh } = C;
+  // the simple cabin seen through the windows from outside; the first-person view hides it and shows the
+  // detailed interior (src/interior/cockpit.js) instead
+  const outer = body;
+  body = new THREE.Group(); body.name = 'simpleCockpit'; body.userData.dynamic = true; outer.add(body);
   // tub so the glass shows a dark interior
   body.add(mesh(new THREE.BoxGeometry(1.4, 0.3, 1.9), MAT.interior, 0, dashY - 0.32, dashZ + 0.85, false));
   // driver-wrapped curved dashboard
@@ -150,9 +155,12 @@ export function addCockpit(root, body, C) {
   const liner = new THREE.Mesh(new THREE.PlaneGeometry(1.1, z1 - z0).rotateX(Math.PI / 2), MAT.interior);
   liner.material = new THREE.MeshStandardMaterial({ color: 0x4a4744, roughness: 0.95 }); // light headliner
   liner.position.set(0, C.roof(eye.z) - 0.025, (z0 + z1) / 2);
-  body.add(liner);
+  outer.add(liner);
   // seats
   for (const s of [-1, 1]) body.add(mesh(rbox(0.5, 0.62, 0.12, 0.05), MAT.leather, s * 0.37, dashY - 0.05, eye.z + 0.32, false));
+  mergeStaticGroup(body);
+  root.userData.simpleCockpit = body;
+  root.userData.cockpitDims = { eye: { ...eye }, dashY, dashZ, maxKmh, roof: C.roof };
   root.userData.steeringWheel = wheel;
   root.userData.eye = new THREE.Vector3(eye.x, eye.y, eye.z);
   root.userData.setGauges = (kmh, rpm) => { speedo.userData.set(kmh); tach.userData.set(rpm / 1000); };

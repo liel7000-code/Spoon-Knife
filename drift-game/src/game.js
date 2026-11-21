@@ -11,6 +11,9 @@ import { Effects } from './effects.js';
 import { Post } from './post.js';
 import { CONFIG } from './config.js';
 import { Scoring, EVENTS, submitRun } from './scoring.js';
+import { Cockpit } from './interior/cockpit.js';
+import { cockpitSettings } from './interior/configs.js';
+import { specFor } from './physics/carSpecs.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -52,6 +55,7 @@ export class Game {
   start(defIndex, color, camMode, style = 'stock') {
     const def = (this.def = PLAYER_CARS[defIndex]);
     if (this.player) this.scene.remove(this.player);
+    if (this.cockpit) { this.cockpit.dispose(); this.cockpit = null; }
     this.player = buildPlayerCar(def, color, style);
     this.player.traverse((o) => { if (o.isMesh && !o.userData.blob) o.castShadow = true; });
     maxAnisotropy(this.player, this.renderer);
@@ -315,6 +319,32 @@ export class Game {
     if (ud.setGauges) ud.setGauges(ph.speed * 3.6, this.rpm);
     this.rig.update(realDt, car, speedFrac);
     const cockpit = this.rig.mode === 'first' && !this.rig.crash;
+    // detailed interior + driver's head in the cockpit view (same module as drift mode)
+    const inCab = cockpit && this.rig.intro <= 0;
+    if (inCab && !this.cockpit) { const sp = specFor(def.id); this.cockpit = new Cockpit(car, ud.cockpitDims, { id: def.id, redline: sp.redline, limiter: sp.limiter, maxKmh: ud.cockpitDims.maxKmh, hydro: false, quality: this.quality }); }
+    if (this.cockpit) {
+      this.cockpit.setVisible(inCab);
+      if (ud.simpleCockpit) ud.simpleCockpit.visible = !inCab;
+      if (inCab) {
+        const S = this.cab || (this.cab = {});
+        S.wheelFrac = playing ? -ph.steer * 0.4 : 0; S.steerIn = S.wheelFrac;
+        S.gear = Math.min(6, Math.floor(speedFrac * 6) + 1); S.rpm = this.rpm; S.kmh = ph.speed * 3.6;
+        S.throttle = playing && this.input.gas ? 1 : 0.3; S.brake = playing && this.input.brake ? 1 : 0; S.clutch = false; S.hand = false; S.tc = true;
+        S.night = !!this.night; S.accLat = ph.latAccel; S.accLong = ph.longAccel; S.beta = 0;
+        S.lookDown = !!(this.input.keysHeld && this.input.keysHeld.has('v'));
+        this.cockpit.update(realDt, S);
+        const roll = this.cockpit.head(realDt, S, cockpitSettings, this.v3, this.cabLook || (this.cabLook = new THREE.Vector3()));
+        const frame = ud.body; frame.updateMatrixWorld();
+        this.camera.position.copy(this.v3.applyMatrix4(frame.matrixWorld));
+        this.camera.up.set(0, 1, 0);
+        this.camera.lookAt(this.cabLook.applyMatrix4(frame.matrixWorld));
+        if (roll) this.camera.rotateZ(roll);
+        const f = cockpitSettings.fov + speedFrac * 6;
+        if (Math.abs(this.camera.fov - f) > 0.05) { this.camera.fov = f; this.camera.updateProjectionMatrix(); }
+      }
+    }
+    const near = inCab ? 0.02 : 0.05;
+    if (this.camera.near !== near) { this.camera.near = near; this.camera.updateProjectionMatrix(); }
     if (cockpit !== this.cockpitHud) { this.cockpitHud = cockpit; document.getElementById('hud').classList.toggle('cockpit', cockpit); }
     this.world.update(this.camera, car, realDt);
 

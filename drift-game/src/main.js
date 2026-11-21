@@ -25,6 +25,7 @@ import { DriftUI } from './drift/driftUI.js';
 import { TRACKS } from './drift/trackData.js';
 import { loadTune, saveTune, resetTune } from './drift/tune.js';
 import { FLAKES } from './textures.js';
+import { cockpitSettings, saveCockpitSettings, COCKPIT_DEFAULTS } from './interior/configs.js';
 
 const STEP = 1 / 120; // fixed logic step (seconds)
 const MAX_FRAME = 0.1;
@@ -41,6 +42,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.68;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.localClippingEnabled = true; // the cockpit view clips the body shell around the cabin (see interior/cockpit.js)
 
 
 const settings = {
@@ -337,3 +339,40 @@ window.__cars = PLAYER_CARS;
 
 // leaving the tab pauses a drift session
 document.addEventListener('visibilitychange', () => { if (document.hidden && screen === 'drift') pauseDrift(); });
+
+/* ------------------------------------------------- cockpit camera settings */
+// FOV, seat position, head movement and look-to-apex; applied live to both game modes
+const COCKPIT_FIELDS = [
+  { key: 'fov', min: 50, max: 95, step: 1, fmt: (v) => `${v}°`, label: 'שדה ראייה (FOV)' },
+  { key: 'seatZ', min: -0.12, max: 0.12, step: 0.01, fmt: (v) => `${Math.round(v * 100)} ס״מ`, label: 'מושב: קדימה / אחורה' },
+  { key: 'seatY', min: -0.08, max: 0.08, step: 0.01, fmt: (v) => `${Math.round(v * 100)} ס״מ`, label: 'מושב: למטה / למעלה' },
+  { key: 'head', min: 0, max: 2, step: 0.1, fmt: (v) => `${Math.round(v * 100)}%`, label: 'תנועת ראש (כוחות G ורעידות)' },
+];
+let cockpitReturn = 'menu';
+function openCockpitSettings(from) {
+  cockpitReturn = from;
+  const list = document.getElementById('cockpitList');
+  list.innerHTML = '';
+  for (const f of COCKPIT_FIELDS) {
+    const row = document.createElement('label'); row.className = 'tune-row';
+    row.innerHTML = `<span class="tr-top"><span>${f.label}</span><b dir="ltr">${f.fmt(cockpitSettings[f.key])}</b></span><input type="range" min="${f.min}" max="${f.max}" step="${f.step}" value="${cockpitSettings[f.key]}" aria-label="${f.label}">`;
+    const input = row.querySelector('input'), out = row.querySelector('b');
+    input.addEventListener('input', () => { cockpitSettings[f.key] = Number(input.value); out.textContent = f.fmt(cockpitSettings[f.key]); });
+    list.appendChild(row);
+  }
+  const apex = document.getElementById('cockpitApex');
+  apex.classList.toggle('on', !!cockpitSettings.apex);
+  apex.onclick = () => { cockpitSettings.apex = !cockpitSettings.apex; apex.classList.toggle('on', cockpitSettings.apex); };
+  document.getElementById(from === 'dpause' ? 'dpause' : 'menu').hidden = true;
+  document.getElementById('cockpitScreen').hidden = false;
+}
+function closeCockpitSettings() {
+  saveCockpitSettings(cockpitSettings);
+  document.getElementById('cockpitScreen').hidden = true;
+  go(cockpitReturn);
+}
+document.getElementById('btnCockpit').addEventListener('click', () => openCockpitSettings('menu'));
+document.getElementById('dCockpit').addEventListener('click', () => openCockpitSettings('dpause'));
+document.getElementById('cockpitBack').addEventListener('click', closeCockpitSettings);
+document.getElementById('cockpitDone').addEventListener('click', closeCockpitSettings);
+void COCKPIT_DEFAULTS;

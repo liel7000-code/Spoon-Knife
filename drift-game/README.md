@@ -100,6 +100,29 @@ per track in `src/drift/trackData.js`); best score/lap per track, car and sessio
 **Ghost and replay:** in Time Trial the best lap on the track drives along as a translucent ghost. From the results
 screen, **שידור חוזר** replays the last run from trackside TV cameras.
 
+## Cockpit view
+
+Press **C** (or the camera button) until the cockpit view, in either mode. The interior (`src/interior/cockpit.js`,
+per-car settings in `src/interior/configs.js`) is built the first time the view is used and moves with the body:
+
+- **Driver's eye** at the real left-hand-drive seat, near plane 0.02 m. The head leans with lateral g, moves forward
+  under braking and back under power, with a little engine and road vibration; it looks towards where the car is
+  going while drifting. Hold **V** to look down at the pedals.
+- **Steering wheel**: stitched leather rim, spokes, centre pad with the car's fictional brand mark, carbon paddles. It
+  turns with the real steering through a steering ratio (540° lock-to-lock on the drift cars, up to 900° on the
+  road sedan), so counter-steer is visible. Gloved hands and two-bone arms hold the rim and shuffle hand over hand
+  past about 100°.
+- **Shifter**: H-pattern (knob follows the gate R-1…6) or sequential (push/pull), leather boot that bends with the
+  lever; the right hand leaves the wheel, shifts and comes back. Drift mode adds a hydraulic handbrake the hand pulls.
+- **Instruments**: damped analogue tachometer and speedometer, boost, water and oil temperature, shift lights that
+  flash at the limiter, digital gear display, handbrake / traction-control / fuel warning lights; at night the
+  gauges, buttons and radio glow and the cabin gets a soft wash of light.
+- **Cabin**: dashboard with vents and trim, centre stack with a fictional radio, buttons and knobs, cup holders,
+  door cards with handles, window switches and speakers, bucket seats, interior mirror, pedals and feet.
+
+Settings (main menu or pause → **הגדרות תא נהג**): field of view (default 70°), seat forward/back and up/down, head
+movement strength, look-to-apex on/off.
+
 ## Graphics
 
 Golden-hour `Sky` with a PMREM environment map for reflections, a sun shadow that follows the player, ACES tone mapping,
@@ -184,6 +207,7 @@ See [`ASSETS_LICENSES.md`](ASSETS_LICENSES.md) and the licence texts in [`licens
 | `src/drift/trackData.js` | The three drift tracks (control points, width, theme, par times, grade thresholds) and sessions |
 | `src/drift/track.js` | Centre-line sampling, position queries, road/run-off/kerb/wall meshes, baked lamp light, clip markers, minimap |
 | `src/drift/scenery.js` | Track themes: sky, lights, walls, instanced scenery in chunks with near/far detail |
+| `src/interior/cockpit.js`, `src/interior/configs.js` | Animated first-person interior and driver's head; per-car interior settings and camera settings |
 | `src/physics/vehicle.js` | Drift-mode vehicle simulation (no Three.js) |
 | `src/physics/carSpecs.js` | Full physics config of every car |
 | `src/drift/tune.js` | Tuning screen fields and saved tunes |

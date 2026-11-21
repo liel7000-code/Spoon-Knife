@@ -9,6 +9,8 @@ import { tuningFor } from '../config.js';
 import { Vehicle, SURFACES } from '../physics/vehicle.js';
 import { specFor } from '../physics/carSpecs.js';
 import { loadTune, toPhysics } from './tune.js';
+import { Cockpit } from '../interior/cockpit.js';
+import { cockpitSettings } from '../interior/configs.js';
 import { Track } from './track.js';
 import { THEMES } from './scenery.js';
 import { DriftFx } from './driftFx.js';
@@ -78,6 +80,7 @@ export class DriftGame {
     this.session = session; this.sessionDef = SESSIONS[session];
     this.carColor = color; this.carStyle = style;
     if (this.player) this.scene.remove(this.player);
+    if (this.cockpit) { this.cockpit.dispose(); this.cockpit = null; }
     this.player = buildPlayerCar(carDef, color, style);
     this.player.traverse((o) => { if (o.isMesh && !o.userData.blob) o.castShadow = true; });
     maxAnisotropy(this.player, this.renderer);
@@ -137,6 +140,19 @@ export class DriftGame {
     if (!this.ph) return;
     this.ph.assist.level = a.level; this.ph.assist.tc = !!a.tc; this.ph.assist.abs = !!a.abs;
     this.ph.manual = !!a.manual;
+  }
+
+  // what the interior and the driver's head react to
+  cabState() {
+    const ph = this.ph, S = this.cab || (this.cab = {});
+    S.wheelFrac = ph.delta / ph.c.lock; S.steerIn = S.wheelFrac;
+    S.gear = ph.gear === -1 ? 'R' : ph.shiftT > 0 ? 'N' : ph.gear;
+    S.rpm = ph.rpm; S.kmh = ph.kmh; S.throttle = ph.thr; S.brake = ph.brk;
+    S.clutch = ph.kickT > 0 || (ph.engage < 0.9 && ph.speed < 3 && ph.thr > 0.1);
+    S.hand = !!ph.in.hand; S.tc = !!ph.assist.tc; S.night = !!this.ctx.night;
+    S.accLat = ph.as; S.accLong = ph.af; S.beta = ph.speed > 4 ? ph.beta : 0;
+    S.lookDown = !!(this.input.keysHeld && this.input.keysHeld.has('v'));
+    return S;
   }
 
   /* ------------------------------------------------------ debug overlay */
@@ -480,6 +496,14 @@ export class DriftGame {
     if (ud.tail) ud.tail.emissiveIntensity = playing && this.input.brake ? 4.5 : this.ctx.night ? 1.6 : 0.55;
     if (ud.setGauges) ud.setGauges(ph.kmh, ph.rpm);
     if (this.debug) this.debugDraw();
+    // detailed interior: only while the cockpit camera is on (built the first time it is used)
+    const inCab = this.camMode === 'first' && this.state !== 'replay';
+    if (inCab && !this.cockpit) this.cockpit = new Cockpit(car, ud.cockpitDims, { id: this.carDef.id, redline: ph.c.redline, limiter: ph.c.limiter, maxKmh: ud.cockpitDims.maxKmh, hydro: true, quality: this.quality });
+    if (this.cockpit) {
+      this.cockpit.setVisible(inCab);
+      if (ud.simpleCockpit) ud.simpleCockpit.visible = !inCab;
+      if (inCab) this.cockpit.update(realDt, this.cabState());
+    }
     // ghost
     if (this.ghost && this.ghostData && this.state === 'play' && this.lap >= 1) {
       const g = sample(this.ghostData.data, this.ghostT, this.gs || (this.gs = {}));
@@ -527,7 +551,7 @@ export class DriftGame {
   cameraUpdate(dt, pose) {
     const cam = this.camera, ph = this.ph, car = this.player;
     let fov = 60;
-    if (this.state === 'replay') { this.tvCamera(dt, pose); return; }
+    if (this.state === 'replay') { if (cam.near !== 0.1) { cam.near = 0.1; cam.updateProjectionMatrix(); } this.tvCamera(dt, pose); return; }
     car.updateMatrixWorld();
     const travel = ph.speed > 3 ? pose.yaw + ph.beta : pose.yaw;
     if (this.camMode === 'third') {
@@ -549,10 +573,13 @@ export class DriftGame {
       const frame = car.userData.body || car;
       const len = this.carDef.length;
       if (this.camMode === 'bumper') { V.set(0, 0.62, -len / 2 - 0.05); V2.set(0, 0.5, -len / 2 - 30); fov = 70; }
-      else { const e = car.userData.eye; V.copy(e); V2.set(e.x, e.y - 0.3, e.z - 14); fov = 66; }
+      let roll = 0;
+      if (this.camMode === 'first' && this.cockpit) { roll = this.cockpit.head(dt, this.cabState(), cockpitSettings, V, V2); fov = cockpitSettings.fov + clamp(ph.speed / 60, 0, 1) * 4; }
+      else if (this.camMode === 'first') { const e = car.userData.eye; V.copy(e); V2.set(e.x, e.y - 0.3, e.z - 14); fov = cockpitSettings.fov; }
       cam.position.copy(V.applyMatrix4(frame.matrixWorld));
       cam.up.set(0, 1, 0).applyQuaternion(frame.getWorldQuaternion(Q));
       cam.lookAt(V2.applyMatrix4(frame.matrixWorld));
+      if (roll) cam.rotateZ(roll);
       this.camYaw = travel;
     }
     if (this.state === 'countdown' && this.countdown > 1.4) {
@@ -573,6 +600,8 @@ export class DriftGame {
       this.rigShake *= Math.exp(-dt * 5);
     }
     this.snapCam = false;
+    const near = this.camMode === 'first' && this.state !== 'replay' ? 0.02 : 0.1;
+    if (cam.near !== near) { cam.near = near; cam.updateProjectionMatrix(); }
     if (Math.abs(cam.fov - fov) > 0.05) { cam.fov += (fov - cam.fov) * (1 - Math.exp(-dt * 4)); cam.updateProjectionMatrix(); }
   }
 
